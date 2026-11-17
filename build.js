@@ -284,7 +284,7 @@ ${headHtml({ title, root, seo })}
 <body data-root="${root}"${bodyAttr}>
 <div class="wrap">
 <aside>
-<a class="brand" href="${root}index.html">${esc(cfg.name)}</a>
+<a class="brand" href="${root || './'}">${esc(cfg.name)}</a>
 ${side}
 </aside>
 <main>
@@ -518,7 +518,7 @@ ${isPriv ? '' : `<section class="cms" id="comments" data-post="${esc(p.id)}" ari
       root: '/',
       scripts: ['boot.js'],
       seo: { noindex: true },
-      body: `<article class="post"><h1>페이지를 찾을 수 없어요</h1><p class="summary">주소가 바뀌었거나 없는 글이에요.</p><p><a class="btn" href="/index.html">홈으로 가기</a></p></article>`,
+      body: `<article class="post"><h1>페이지를 찾을 수 없어요</h1><p class="summary">주소가 바뀌었거나 없는 글이에요.</p><p><a class="btn" href="/">홈으로 가기</a></p></article>`,
     })
   );
 

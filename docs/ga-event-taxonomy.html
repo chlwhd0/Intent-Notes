@@ -215,15 +215,15 @@ pre{margin:0;background:#222;color:#f4f1ec;padding:16px 20px;font-size:15px;line
   <h2>GA에서 페이지를 알아보는 법</h2>
   <table>
     <tr><th style="width:96px">유형</th><th style="width:300px">주소</th><th style="width:300px">GA의 페이지 제목</th><th>측정</th></tr>
-    <tr><td class="k">홈</td><td><span class="ev">/</span> 그리고 <span class="ev">/index.html</span></td><td>Intent Notes · AI PM 블로그</td><td class="ok">측정</td></tr>
+    <tr><td class="k">홈</td><td><span class="ev">/</span> <small>(<span class="ev">/index.html</span>로 들어와도 <span class="ev">/</span>로 이동)</small></td><td>Intent Notes · AI PM 블로그</td><td class="ok">측정</td></tr>
     <tr><td class="k">전체 글</td><td><span class="ev">/posts/</span></td><td>전체 글 · Intent Notes</td><td class="ok">측정</td></tr>
     <tr><td class="k">메뉴 목록</td><td><span class="ev">/portfolio/</span> <span class="ev">/study/</span> <small>(메뉴를 추가하면 <span class="ev">/메뉴/</span>)</small></td><td>메뉴 이름 · Intent Notes</td><td class="ok">측정</td></tr>
     <tr><td class="k">글</td><td><span class="ev">/posts/글번호.html</span></td><td>글 제목 · Intent Notes</td><td class="ok">측정</td></tr>
     <tr><td class="k">소개</td><td><span class="ev">/about.html</span></td><td>ABOUT · Intent Notes</td><td class="ok">측정</td></tr>
     <tr><td class="k no">제외</td><td class="no"><span class="ev">/admin/*</span> <span class="ev">/mentions.html</span> 404 페이지</td><td class="no">—</td><td class="no">측정 안 함 <small>(관리자·알림·오류)</small></td></tr>
   </table>
-  <div class="card acc" style="margin-top:14px"><h3>알아 둘 것: 홈은 두 줄로 나뉜다</h3>
-    <p>사이드바의 로고 링크가 <span class="ev">/index.html</span>로 연결되어 있어, 홈 방문이 GA에 <span class="ev">/</span>와 <span class="ev">/index.html</span> 두 줄로 따로 잡힌다. <b>홈 방문자는 두 줄을 합쳐서</b> 본다(페이지 경로 필터를 "정규식 일치 <span class="ev">^/(index\.html)?$</span>"로 하면 한 번에 모인다). 글은 주소가 글 번호라서 <b>페이지 제목</b>으로 알아본다.</p></div>
+  <div class="card acc" style="margin-top:14px"><h3>알아 둘 것: 2026.11.17 이전 홈 데이터는 두 줄이다</h3>
+    <p>예전에는 사이드바 로고 링크가 <span class="ev">/index.html</span>이라 홈 방문이 <span class="ev">/</span>와 <span class="ev">/index.html</span> 두 줄로 나뉘어 잡혔다. 지금은 로고 링크를 <span class="ev">/</span>로 고쳤고 <span class="ev">/index.html</span>로 들어온 방문도 <span class="ev">/</span>로 이동시켜 <b>한 줄로 모인다.</b> 고치기 전에 쌓인 데이터는 두 줄을 합쳐서(페이지 경로 필터 "정규식 일치" <span class="ev">^/(index\.html)?$</span>) 본다. 글은 주소가 글 번호라서 <b>페이지 제목</b>으로 알아본다.</p></div>
   <footer><span>Intent Notes · GA 이벤트 택소노미 v1.0</span><span class="pg"></span></footer>
 </section>
 
@@ -233,7 +233,7 @@ pre{margin:0;background:#222;color:#f4f1ec;padding:16px 20px;font-size:15px;line
   <h2>질문별로 GA의 어디를 보는가</h2>
   <table>
     <tr><th style="width:34px">#</th><th style="width:200px">질문</th><th>GA에서 보는 곳</th><th style="width:300px">읽는 법</th></tr>
-    <tr><td class="k">1</td><td class="k">홈 화면 방문자 숫자</td><td>보고서 › 참여도 › <b>페이지 및 화면</b> · 기준을 "페이지 경로 및 화면 클래스"로 바꾸고 <span class="ev">/</span> 와 <span class="ev">/index.html</span> 행을 본다</td><td>두 줄의 <b>조회수</b>를 더한다. 사용자 수는 필터로 한 번에 본다</td></tr>
+    <tr><td class="k">1</td><td class="k">홈 화면 방문자 숫자</td><td>보고서 › 참여도 › <b>페이지 및 화면</b> · 기준을 "페이지 경로 및 화면 클래스"로 바꾸고 <span class="ev">/</span> 행을 본다</td><td><b>조회수 · 사용자</b>를 본다. 고치기 전 기간은 <span class="ev">/index.html</span> 행도 더한다</td></tr>
     <tr><td class="k">2</td><td class="k">페이지별 방문자 숫자</td><td>같은 표 전체. 검색창에 <span class="ev">/posts/</span>를 넣으면 글 페이지만 남는다</td><td>열 <b>조회수 · 사용자 · 평균 참여 시간</b></td></tr>
     <tr><td class="k">3</td><td class="k">지역·기기·OS</td><td>보고서 › 사용자 › <b>인구통계 세부정보</b>(국가→도시) · 보고서 › 기술 › <b>기술 세부정보</b>(기기 카테고리·운영체제·브라우저)</td><td>위쪽 드롭다운으로 기준을 바꿔 본다</td></tr>
     <tr><td class="k">4</td><td class="k">가장 많이 읽은 글</td><td>페이지 및 화면(기본 기준 "페이지 제목") · 조회수 내림차순 · 이어서 <b>이벤트 › scroll</b>을 눌러 페이지 제목별 건수 확인</td><td>다음 쪽: 세 지표를 함께 본다</td></tr>

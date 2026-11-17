@@ -71,6 +71,13 @@
           "region": "asia-northeast3"
         }
       }
+    ],
+    "redirects": [
+      {
+        "source": "/index.html",
+        "destination": "/",
+        "type": 301
+      }
     ]
   },
   "firestore": {
