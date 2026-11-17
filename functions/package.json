@@ -1,0 +1,11 @@
+{
+  "name": "intent-notes-functions",
+  "private": true,
+  "description": "방문할 때마다 최신 글로 페이지를 만들어 주는 서버 함수",
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "dependencies": {
+    "firebase-admin": "^14.5.1",
+    "firebase-functions": "^7.4.0"
+  }
+}

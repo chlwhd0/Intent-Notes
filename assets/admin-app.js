@@ -131,7 +131,7 @@ const sendFlash = (msg, warn) => { try { sessionStorage.setItem('flash', JSON.st
 let flash = takeFlash();
 const say = (msg, warn) => { flash = [msg, !!warn]; };
 const notice = () => { const f = flash; flash = null; return f ? `<p class="notice${f[1] ? ' warn' : ''}" role="${f[1] ? 'alert' : 'status'}">${esc(f[0])}</p>` : ''; };
-const NOTE_DEPLOY = ' 방문자 화면에 반영하려면 사이트를 다시 빌드하고 배포해야 해요.';
+const NOTE_DEPLOY = ''; // 글·메뉴 변경은 서버가 방문할 때 최신으로 그려서 따로 배포하지 않아도 바로 반영돼요.
 
 // ---------- 글 데이터 ----------
 let posts = [], views = {};
@@ -197,7 +197,7 @@ function menuRows() {
 }
 function menusPage() {
   show(notice() + adminHead('메뉴 관리') +
-    `<section class="section"><p class="hint" style="margin:0">여기서 정한 이름이 사이드바, 글 목록, 글쓰기, 글 관리 필터에 똑같이 쓰여요. 영문 대문자로 쓰면 사이드바와 가장 잘 어울려요. 이름을 바꾸거나 메뉴를 추가·삭제한 뒤에는 사이트를 다시 빌드하고 배포해야 방문자 화면에 반영돼요.</p>` +
+    `<section class="section"><p class="hint" style="margin:0">여기서 정한 이름이 사이드바, 글 목록, 글쓰기, 글 관리 필터에 똑같이 쓰여요. 영문 대문자로 쓰면 사이드바와 가장 잘 어울려요.</p>` +
     `<div class="tblwrap"><table class="tbl"><thead><tr><th scope="col">메뉴 이름</th><th scope="col">공개 설정</th><th scope="col">글</th><th scope="col"><span class="sr">작업</span></th></tr></thead><tbody>${cats.length ? menuRows() : '<tr><td colspan="4"><p class="empty" style="padding:12px 0">메뉴가 없어요. 아래에서 추가하세요.</p></td></tr>'}</tbody></table></div>` +
     `<form class="addrow" id="mf" novalidate><label class="field" for="mnew">새 메뉴 이름<input id="mnew" type="text" maxlength="12" placeholder="예: PROJECT"></label><button class="btn pri" type="submit">메뉴 추가</button></form></section>`);
 }

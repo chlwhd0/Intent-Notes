@@ -1,4 +1,6 @@
 // 사용법: node build.js  →  dist/ 폴더에 완성된 블로그가 만들어집니다.
+// 같은 코드를 서버(functions/)에서도 써요. 서버는 방문할 때마다 파이어베이스의 최신 글로 페이지를 만들어 줘서,
+// 글을 쓰고 고치고 지우면 배포 없이 바로 사이트에 반영돼요. (require('./build.js').generate)
 // 글은 두 곳에서 와요. (1) 관리자 화면에서 쓴 공개 글은 파이어베이스에서 가져오고, (2) posts/ 폴더의 .md 파일도 그대로 써요.
 // 소개글은 about.md에 씁니다.
 // 사이트 주소는 site.config.json의 "siteUrl"이나 `node build.js --site-url=https://내주소` 로 알려 주세요.
@@ -10,16 +12,20 @@ const { markdown, esc } = require('./assets/markdown.js');
 const { sanitizeHtml, textOf } = require('./assets/sanitize.js');
 const T = require('./assets/thumbs.js');
 
+// 명령줄(node build.js)로 실행했을 때만 옵션(--site-url 등)을 읽어요. 서버에서는 옵션이 없어요.
+const CLI = require.main === module;
+const ARGV = CLI ? process.argv : [];
+
 const ROOT = __dirname;
 const DIST = path.join(ROOT, 'dist');
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'site.config.json'), 'utf8'));
 const fbCfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/firebase-config.json'), 'utf8'));
 
 const isPlaceholder = (s) => !s || /^\[.*\]$/.test(String(s).trim());
-const warnings = [];
+let warnings = [];
 
 // ---- 사이트 주소와 기본 설정 ----
-const argSite = (process.argv.find((a) => a.startsWith('--site-url=')) || '').split('=')[1];
+const argSite = (ARGV.find((a) => a.startsWith('--site-url=')) || '').split('=')[1];
 const SITE_URL = String(argSite || process.env.SITE_URL || cfg.siteUrl || '').trim().replace(/\/+$/, '');
 const DESC = cfg.description || cfg.tagline;
 const FONT_URL =
@@ -56,7 +62,7 @@ function parseFile(file) {
 // 비공개 카테고리(site.config.json의 "private": true, 예: 회고)는 나만 볼 수 있어요.
 // 기본 빌드(인터넷에 올리는 용도)에는 아예 들어가지 않고,
 // 내 컴퓨터에서 미리 볼 때만 `node build.js --with-private`로 private/ 폴더의 글을 포함해요.
-const WITH_PRIVATE = process.argv.includes('--with-private');
+const WITH_PRIVATE = ARGV.includes('--with-private');
 // 메뉴(카테고리)는 파이어베이스의 settings/menus에서 가져와요. 관리자 화면의 "MANAGE MENUS"에서 고치는 값이에요.
 // 가져오지 못하거나 아직 없으면 site.config.json의 공개 메뉴를 써요. 이름은 하나(label)만 써서 어디서나 똑같이 보여요.
 let catBySlug = {};
@@ -71,19 +77,62 @@ function setCats(list) {
 }
 setCats(cfg.categories.filter((c) => !c.private).map((c) => toCat(c, false)));
 
-async function fetchMenus() {
-  if (process.argv.includes('--no-remote')) return;
-  const url = `https://firestore.googleapis.com/v1/projects/${fbCfg.projectId}/databases/(default)/documents/settings/menus`;
-  let res;
-  try { res = await fetch(url); } catch (e) { throw new Error('파이어베이스에서 메뉴를 가져오지 못했어요. 인터넷 연결을 확인하거나 --no-remote 옵션을 쓰세요.'); }
-  if (res.status === 404) { warnings.push('파이어베이스에 메뉴 설정(settings/menus)이 아직 없어서 site.config.json의 메뉴를 썼어요.'); return; }
-  if (!res.ok) throw new Error(`파이어베이스에서 메뉴를 가져오지 못했어요 (오류 ${res.status}).`);
-  const doc = await res.json();
-  const vals = (((doc.fields || {}).categories || {}).arrayValue || {}).values || [];
-  const list = vals.map((v) => {
-    const f = (v.mapValue || {}).fields || {};
-    return { slug: (f.slug || {}).stringValue || '', name: (f.name || {}).stringValue || '' };
-  }).filter((c) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(c.slug) && c.name);
+// ---- 데이터를 가져오는 방법(provider) ----
+// provider.menus()  → [{slug, name}] 또는 null(설정이 아직 없음)
+// provider.posts()  → 공개 글 [{id, title, slug, category, summary, description, body, format, thumb, img, date}]
+// 명령줄 빌드는 파이어베이스 REST(로그인 없이 읽는 공개 데이터)를, 서버는 관리자 SDK를 써요. 둘 다 공개 글만 가져와요.
+const rf = (f, k) => (f[k] && f[k].stringValue) || '';
+const restProvider = {
+  async menus() {
+    const url = `https://firestore.googleapis.com/v1/projects/${fbCfg.projectId}/databases/(default)/documents/settings/menus`;
+    let res;
+    try { res = await fetch(url); } catch (e) { throw new Error('파이어베이스에서 메뉴를 가져오지 못했어요. 인터넷 연결을 확인하거나 --no-remote 옵션을 쓰세요.'); }
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`파이어베이스에서 메뉴를 가져오지 못했어요 (오류 ${res.status}).`);
+    const doc = await res.json();
+    const vals = (((doc.fields || {}).categories || {}).arrayValue || {}).values || [];
+    return vals.map((v) => { const f = (v.mapValue || {}).fields || {}; return { slug: rf(f, 'slug'), name: rf(f, 'name') }; });
+  },
+  async posts() {
+    const url = `https://firestore.googleapis.com/v1/projects/${fbCfg.projectId}/databases/(default)/documents:runQuery`;
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          structuredQuery: {
+            from: [{ collectionId: 'posts' }],
+            where: { fieldFilter: { field: { fieldPath: 'visibility' }, op: 'EQUAL', value: { stringValue: 'public' } } },
+          },
+        }),
+      });
+    } catch (e) {
+      throw new Error('파이어베이스에서 글을 가져오지 못했어요. 인터넷 연결을 확인하거나, 연결 없이 만들려면 --no-remote 옵션을 쓰세요.');
+    }
+    if (!res.ok) throw new Error(`파이어베이스에서 글을 가져오지 못했어요 (오류 ${res.status}). 연결 없이 만들려면 --no-remote 옵션을 쓰세요.`);
+    return (await res.json()).filter((r) => r.document).map((r) => {
+      const f = r.document.fields || {};
+      return {
+        id: r.document.name.split('/').pop(), title: rf(f, 'title'), slug: rf(f, 'slug'), category: rf(f, 'category'), summary: rf(f, 'summary'),
+        description: rf(f, 'description'), body: rf(f, 'body'), format: rf(f, 'format'), img: rf(f, 'img'), date: rf(f, 'date'),
+        thumb: f.thumb && f.thumb.integerValue !== undefined ? Number(f.thumb.integerValue) : undefined,
+      };
+    });
+  },
+};
+const noRemoteProvider = {
+  async menus() { return null; },
+  async posts() {
+    warnings.push('--no-remote로 빌드해서 파이어베이스의 글을 가져오지 않았어요. 이 빌드를 배포하면 파이어베이스에 쓴 글이 사이트에서 빠져요.');
+    return [];
+  },
+};
+
+async function loadMenus(provider) {
+  const raw = await provider.menus();
+  if (raw === null) { if (provider !== noRemoteProvider) warnings.push('파이어베이스에 메뉴 설정(settings/menus)이 아직 없어서 site.config.json의 메뉴를 썼어요.'); return; }
+  const list = raw.filter((c) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(c.slug) && c.name);
   if (list.length) setCats(list.map((c) => toCat(c, false)));
 }
 
@@ -129,54 +178,28 @@ const loadPosts = (dir, isPrivateDir) => {
     });
 };
 
-// 파이어베이스에서 공개 글 가져오기. 로그인 없이 읽을 수 있는 글(visibility == public)만 와요.
-// 가져오지 못하면 멈춰요. (그냥 넘어가면 쓴 글이 사이트에서 사라진 채 배포될 수 있어서예요.)
-async function fetchRemotePosts() {
-  if (process.argv.includes('--no-remote')) {
-    warnings.push('--no-remote로 빌드해서 파이어베이스의 글을 가져오지 않았어요. 이 빌드를 배포하면 파이어베이스에 쓴 글이 사이트에서 빠져요.');
-    return [];
-  }
-  const url = `https://firestore.googleapis.com/v1/projects/${fbCfg.projectId}/databases/(default)/documents:runQuery`;
-  let res;
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        structuredQuery: {
-          from: [{ collectionId: 'posts' }],
-          where: { fieldFilter: { field: { fieldPath: 'visibility' }, op: 'EQUAL', value: { stringValue: 'public' } } },
-        },
-      }),
-    });
-  } catch (e) {
-    throw new Error('파이어베이스에서 글을 가져오지 못했어요. 인터넷 연결을 확인하거나, 연결 없이 만들려면 --no-remote 옵션을 쓰세요.');
-  }
-  if (!res.ok) throw new Error(`파이어베이스에서 글을 가져오지 못했어요 (오류 ${res.status}). 연결 없이 만들려면 --no-remote 옵션을 쓰세요.`);
-  const rows = await res.json();
+// 파이어베이스의 공개 글을 사이트에서 쓰는 모양으로 바꿔요.
+// 가져오지 못하면 멈춰요. (그냥 넘어가면 쓴 글이 사이트에서 사라진 채 나갈 수 있어서예요.)
+async function loadRemotePosts(provider) {
   const out = [];
-  for (const r of rows) {
-    if (!r.document) continue;
-    const f = r.document.fields || {};
-    const id = r.document.name.split('/').pop();
-    const s = (k) => (f[k] && f[k].stringValue) || '';
-    const cat = catBySlug[s('category')];
+  for (const d of await provider.posts()) {
+    const cat = catBySlug[d.category];
     if (!cat || cat.private) {
-      warnings.push(`파이어베이스 글 ${id}: 알 수 없거나 비공개인 카테고리(${s('category')})라 건너뛰었어요.`);
+      warnings.push(`파이어베이스 글 ${d.id}: 알 수 없거나 비공개인 카테고리(${d.category})라 건너뛰었어요.`);
       continue;
     }
-    const html = s('format') === 'html' ? sanitizeHtml(s('body')) : markdown(s('body'));
-    const th = f.thumb && f.thumb.integerValue !== undefined ? Number(f.thumb.integerValue) : hashN(id);
+    const html = d.format === 'html' ? sanitizeHtml(d.body || '') : markdown(d.body || '');
+    const th = Number.isInteger(d.thumb) ? d.thumb : hashN(d.id);
     const post = {
-      slug: s('slug') || id,
-      id,
+      slug: d.slug || d.id,
+      id: d.id,
       thumb: th >= 0 && th < 6 ? th : 0,
-      img: T.okImg(s('img')) ? s('img') : '',
-      title: s('title') || id,
-      date: s('date'),
-      category: s('category'),
-      summary: s('summary'),
-      description: s('description') || s('summary') || excerpt(html),
+      img: T.okImg(d.img) ? d.img : '',
+      title: d.title || d.id,
+      date: d.date || '',
+      category: d.category,
+      summary: d.summary || '',
+      description: d.description || d.summary || excerpt(html),
       image: '',
       html,
     };
@@ -291,11 +314,9 @@ const listBlock = (list, root) => `<div class="tools">
 <div class="list" id="list">${list.length ? list.map((p) => postRow(p, root)).join('') : ''}</div>
 <p class="empty" id="empty"${list.length ? ' hidden' : ''}>${list.length ? '검색 결과가 없습니다.' : '아직 글이 없습니다.'}</p>`;
 
-const write = (rel, html) => {
-  const f = path.join(DIST, rel);
-  fs.mkdirSync(path.dirname(f), { recursive: true });
-  fs.writeFileSync(f, html);
-};
+// 만든 페이지는 메모리에 모아 둬요. 명령줄 빌드는 파일로 쓰고, 서버는 요청된 페이지를 바로 돌려줘요.
+let OUT = new Map();
+const write = (rel, html) => { OUT.set(rel, html); };
 
 const websiteLd = () => {
   const o = { '@context': 'https://schema.org', '@type': 'WebSite', name: cfg.name, description: DESC, inLanguage: 'ko' };
@@ -304,9 +325,13 @@ const websiteLd = () => {
 };
 
 // ---- 빌드 ----
-async function main() {
-  await fetchMenus();
-  const remote = await fetchRemotePosts();
+// 모든 페이지를 만들어 { pages: Map(경로 → 내용), warnings, counts }로 돌려줘요.
+async function generate(provider) {
+  warnings = [];
+  OUT = new Map();
+  setCats(cfg.categories.filter((c) => !c.private).map((c) => toCat(c, false)));
+  await loadMenus(provider);
+  const remote = await loadRemotePosts(provider);
   const local = [...loadPosts(path.join(ROOT, 'posts'), false), ...(WITH_PRIVATE ? loadPosts(path.join(ROOT, 'private'), true) : [])];
   // 주소(slug)가 겹치면 파이어베이스 글 뒤에 글 번호 앞 6자를 붙여요.
   const used = new Set(local.map((p) => p.slug));
@@ -318,9 +343,6 @@ async function main() {
     used.add(p.slug);
   });
   const posts = [...local, ...remote].sort((a, b) => (a.date < b.date ? 1 : -1));
-
-  fs.rmSync(DIST, { recursive: true, force: true });
-  fs.cpSync(path.join(ROOT, 'assets'), path.join(DIST, 'assets'), { recursive: true });
 
   // 홈: 메뉴별 최신 글 최대 3개를 콜라주 타일로(글 썸네일이 타일 배경이에요)
   const latest = (slug) => posts.find((p) => p.category === slug);
@@ -584,17 +606,53 @@ ${headHtml({ title: `관리자 로그인 · ${cfg.name}`, root: '../', seo: { no
     );
   });
 
-  console.log(`완료: 글 ${posts.length}개 (파이어베이스 ${remote.length}개, 파일 ${local.length}개), 카테고리 ${visCats.length}개${WITH_PRIVATE ? ' (나만 보기 글 포함, 올리지 마세요)' : ''} → ${DIST}`);
-
   // ---- 공개 전에 고쳐야 할 자리표시자 점검 ----
   if (isPlaceholder(cfg.author)) warnings.push('작성자 이름이 자리표시자([이름])예요. 공개 전에 site.config.json의 author를 바꿔 주세요. (구조화 데이터의 작성자 정보도 비어 있어요.)');
   if (cfg.contact && isPlaceholder(cfg.contact)) warnings.push('연락처가 자리표시자예요. 공개 전에 바꾸거나 about.md에서 지워 주세요.');
   if (posts.some((p) => /^\[샘플\]/.test(p.title))) warnings.push('[샘플]이 붙은 글이 있어요. 공개 전에 지워 주세요.');
-  if (SITE_URL) console.log(`사이트 주소: ${SITE_URL}`);
-  if (warnings.length) console.log('\nSEO 점검 알림:\n' + warnings.map((w) => ' - ' + w).join('\n'));
+  return { pages: OUT, warnings, counts: { posts: posts.length, remote: remote.length, local: local.length, cats: visCats.length } };
 }
 
-main().catch((e) => {
-  console.error('\n빌드 실패: ' + e.message);
-  process.exit(1);
-});
+// ---- 명령줄 실행 ----
+// node build.js          → 모든 페이지를 dist/에 파일로 만들어요(내 컴퓨터에서 미리 볼 때).
+// node build.js --ssr    → dist/에는 이미지·스타일·스크립트만 넣고, 서버(functions/)가 쓸 꾸러미를 만들어요.
+async function run() {
+  const provider = ARGV.includes('--no-remote') ? noRemoteProvider : restProvider;
+  const res = await generate(provider);
+  fs.rmSync(DIST, { recursive: true, force: true });
+  fs.cpSync(path.join(ROOT, 'assets'), path.join(DIST, 'assets'), { recursive: true });
+  if (ARGV.includes('--ssr')) {
+    syncFunctions();
+    // 서버 함수 틀이 /robots.txt를 가로채서 404를 돌려주므로, 이 파일만은 정적 파일로 올려요.
+    if (res.pages.has('robots.txt')) fs.writeFileSync(path.join(DIST, 'robots.txt'), res.pages.get('robots.txt'));
+    console.log(`완료(서버에서 그리기): 이미지·스타일·스크립트만 ${DIST}에 두고, 서버 꾸러미를 functions/site에 만들었어요. 글 ${res.counts.posts}개`);
+  } else {
+    for (const [rel, body] of res.pages) {
+      const f = path.join(DIST, rel);
+      fs.mkdirSync(path.dirname(f), { recursive: true });
+      fs.writeFileSync(f, body);
+    }
+    console.log(`완료: 글 ${res.counts.posts}개 (파이어베이스 ${res.counts.remote}개, 파일 ${res.counts.local}개), 카테고리 ${res.counts.cats}개${WITH_PRIVATE ? ' (나만 보기 글 포함, 올리지 마세요)' : ''} → ${DIST}`);
+  }
+  if (SITE_URL) console.log(`사이트 주소: ${SITE_URL}`);
+  if (res.warnings.length) console.log('\nSEO 점검 알림:\n' + res.warnings.map((w) => ' - ' + w).join('\n'));
+}
+
+// 서버가 페이지를 만드는 데 필요한 파일만 functions/site로 복사해요. (functions/ 폴더만 서버에 올라가기 때문이에요.)
+function syncFunctions() {
+  const dest = path.join(ROOT, 'functions', 'site');
+  fs.rmSync(dest, { recursive: true, force: true });
+  fs.mkdirSync(path.join(dest, 'assets'), { recursive: true });
+  ['build.js', 'site.config.json', 'about.md'].forEach((f) => fs.copyFileSync(path.join(ROOT, f), path.join(dest, f)));
+  ['markdown.js', 'sanitize.js', 'thumbs.js', 'firebase-config.json', 'og-default.png'].forEach((f) => fs.copyFileSync(path.join(ROOT, 'assets', f), path.join(dest, 'assets', f)));
+  fs.mkdirSync(path.join(dest, 'posts'), { recursive: true }); // 서버에서는 파일 글을 쓰지 않아요(비어 있음)
+}
+
+module.exports = { generate };
+
+if (CLI) {
+  run().catch((e) => {
+    console.error('\n빌드 실패: ' + e.message);
+    process.exit(1);
+  });
+}
