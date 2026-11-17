@@ -476,11 +476,10 @@ ${headHtml({ title: `관리자 로그인 · ${cfg.name}`, root: '../', seo: { no
 <form id="f" novalidate>
 <h1>관리자 로그인</h1>
 <p class="sub">글을 쓰고 고치려면 로그인하세요.</p>
-<label class="field" for="em">이메일<input id="em" name="email" type="email" autocomplete="username" placeholder="admin@example.com"></label>
-<label class="field" for="pw">비밀번호<input id="pw" name="password" type="password" autocomplete="current-password"></label>
+<button class="btn gbtn" id="google" type="button"><span class="gdot" aria-hidden="true">G</span> Google 계정으로 로그인</button>
 <p class="err" id="err" role="alert"></p>
-<button class="btn" type="submit">로그인</button>
 <a class="back" href="../index.html">← 블로그로 돌아가기</a>
+<p class="note">관리자로 지정한 구글 계정만 들어올 수 있어요.</p>
 </form>
 </section>
 </div>

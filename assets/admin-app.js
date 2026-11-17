@@ -1,7 +1,7 @@
 // 관리자 화면(로그인, 글 관리, 글쓰기)의 동작. 파이어베이스 로그인(Authentication)과 데이터베이스(Firestore)를 써요.
 // 관리자인지는 로그인 정보의 admin 표시(custom claim)로 확인하고, 실제 막는 일은 firestore.rules가 해요.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
   getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
@@ -18,7 +18,10 @@ const isAdmin = async (user) => (await user.getIdTokenResult()).claims.admin ===
 
 function authMsg(e) {
   const c = (e && e.code) || '';
-  if (['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-email'].includes(c)) return '이메일 또는 비밀번호가 맞지 않아요.';
+  if (c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') return '로그인 창이 닫혔어요. 다시 눌러 주세요.';
+  if (c === 'auth/popup-blocked') return '팝업이 막혀 있어요. 팝업을 허용한 뒤 다시 눌러 주세요.';
+  if (c === 'auth/unauthorized-domain') return '이 주소에서는 구글 로그인을 쓸 수 없어요. 파이어베이스의 승인된 도메인에 이 주소를 추가해야 해요.';
+  if (c === 'auth/operation-not-allowed') return '구글 로그인이 아직 켜져 있지 않아요. 파이어베이스에서 구글 로그인을 켜 주세요.';
   if (c === 'auth/too-many-requests') return '시도가 너무 많아요. 잠시 뒤에 다시 해 주세요.';
   if (c === 'auth/network-request-failed') return '인터넷 연결을 확인해 주세요.';
   return '로그인하지 못했어요. 잠시 뒤에 다시 해 주세요.';
@@ -37,22 +40,20 @@ function note(el, text, kind) {
 
 // ---------- 로그인 ----------
 if (page === 'login') {
-  const form = $('f'), err = $('err'), btn = form.querySelector('button[type=submit]');
+  const err = $('err'), btn = $('google');
   if (new URLSearchParams(location.search).get('denied')) err.textContent = '이 계정에는 관리자 권한이 없어요.';
   const u = await firstUser();
   if (u && (await isAdmin(u))) location.replace('posts.html');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = $('em').value.trim(), pw = $('pw').value;
-    $('em').setAttribute('aria-invalid', !email);
-    $('pw').setAttribute('aria-invalid', !pw);
-    if (!email || !pw) { err.textContent = '이메일과 비밀번호를 모두 입력해 주세요.'; return; }
+  // 관리자는 구글 계정으로 로그인해요. 로그인한 계정에 admin 표시가 있어야만 들어갈 수 있어요.
+  btn.addEventListener('click', async () => {
     btn.disabled = true; err.textContent = '';
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, pw);
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const cred = await signInWithPopup(auth, provider);
       if (!(await isAdmin(cred.user))) {
         await signOut(auth);
-        err.textContent = '이 계정에는 관리자 권한이 없어요.';
+        err.textContent = '이 구글 계정에는 관리자 권한이 없어요. 관리자로 지정한 계정으로 로그인해 주세요.';
         btn.disabled = false;
         return;
       }
