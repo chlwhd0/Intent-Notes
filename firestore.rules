@@ -1,0 +1,44 @@
+rules_version = '2';
+
+// 글(posts)은 공개 글만 누구나 읽을 수 있고, 쓰기·고치기·지우기는 관리자만 할 수 있어요.
+// 관리자는 로그인 정보에 admin 표시(custom claim)가 붙은 계정 한 명이에요.
+// 회고(retrospective)는 항상 나만 보기(private)여야 하고, 관리자만 읽을 수 있어요.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function validPost(d) {
+      return d.keys().hasOnly(['title', 'slug', 'category', 'visibility', 'summary', 'description', 'body', 'date', 'createdAt', 'updatedAt'])
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 120
+        && d.slug is string && d.slug.size() <= 80 && (d.slug == '' || d.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$'))
+        && d.category in ['portfolio', 'retrospective', 'study']
+        && d.visibility in ['public', 'private']
+        && (d.category != 'retrospective' || d.visibility == 'private')
+        && d.summary is string && d.summary.size() <= 300
+        && d.description is string && d.description.size() <= 300
+        && d.body is string && d.body.size() > 0 && d.body.size() <= 100000
+        && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.createdAt is timestamp && d.updatedAt is timestamp;
+    }
+
+    match /posts/{postId} {
+      allow read: if isAdmin() || resource.data.visibility == 'public';
+      allow create: if isAdmin() && validPost(request.resource.data);
+      allow update: if isAdmin() && validPost(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // 비공개 메뉴 이름처럼 공개하면 안 되는 설정은 관리자만 읽고 써요.
+    match /settings/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // 그 밖의 모든 곳은 막아요.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

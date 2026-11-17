@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "my-blog-test-b439a"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }
