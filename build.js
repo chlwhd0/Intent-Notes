@@ -289,7 +289,7 @@ ${side}
 </aside>
 <main>
 ${body}
-<footer>© ${new Date().getFullYear()} ${esc(cfg.author)} · ${esc(cfg.name)}</footer>
+<footer>© ${new Date().getFullYear()} ${esc(cfg.author)} · ${esc(cfg.name)} · <a href="${root}privacy.html">개인정보 처리방침</a></footer>
 </main>
 </div>
 <script type="application/json" id="cats">${catsJson()}</script>
@@ -495,6 +495,22 @@ ${isPriv ? '' : `<section class="cms" id="comments" data-post="${esc(p.id)}" ari
     })
   );
 
+  // 개인정보 처리방침: privacy.md를 페이지로 만들어요. {{author}}는 작성자 이름으로 바뀌어요.
+  const privacy = parseFile(path.join(ROOT, 'privacy.md'));
+  const privacyHtml = markdown(privacy.body.replace(/\{\{author\}\}/g, cfg.author));
+  write(
+    'privacy.html',
+    layout({
+      title: `${privacy.meta.title || '개인정보 처리방침'} · ${cfg.name}`,
+      active: '',
+      root: '',
+      scripts: ['boot.js', 'site.js'],
+      bodyAttr: ' data-page="public"',
+      seo: { description: privacy.meta.description || excerpt(privacyHtml), rel: 'privacy.html' },
+      body: `<article class="post"><h1>${esc(privacy.meta.title || '개인정보 처리방침')}</h1><div class="body">${privacyHtml}</div></article>`,
+    })
+  );
+
   // @ 알림: 로그인한 방문자가 자신을 @로 부른 댓글을 보는 화면이에요. 검색에서는 빠져요.
   write(
     'mentions.html',
@@ -533,6 +549,7 @@ ${isPriv ? '' : `<section class="cms" id="comments" data-post="${esc(p.id)}" ari
         { rel: 'posts/', last: newest },
         ...visCats.map((c) => ({ rel: `${c.slug}/`, last: (posts.find((p) => p.category === c.slug) || {}).date })),
         { rel: 'about.html', last: aboutDate },
+        { rel: 'privacy.html', last: fs.statSync(path.join(ROOT, 'privacy.md')).mtime.toISOString().slice(0, 10) },
         ...posts.map((p) => ({ rel: `posts/${p.slug}.html`, last: p.date })),
       ];
       write(
@@ -645,7 +662,7 @@ function syncFunctions() {
   const dest = path.join(ROOT, 'functions', 'site');
   fs.rmSync(dest, { recursive: true, force: true });
   fs.mkdirSync(path.join(dest, 'assets'), { recursive: true });
-  ['build.js', 'site.config.json', 'about.md'].forEach((f) => fs.copyFileSync(path.join(ROOT, f), path.join(dest, f)));
+  ['build.js', 'site.config.json', 'about.md', 'privacy.md'].forEach((f) => fs.copyFileSync(path.join(ROOT, f), path.join(dest, f)));
   ['markdown.js', 'sanitize.js', 'thumbs.js', 'firebase-config.json', 'og-default.png'].forEach((f) => fs.copyFileSync(path.join(ROOT, 'assets', f), path.join(dest, 'assets', f)));
   fs.mkdirSync(path.join(dest, 'posts'), { recursive: true }); // 서버에서는 파일 글을 쓰지 않아요(비어 있음)
 }

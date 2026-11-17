@@ -140,9 +140,10 @@ async function comments(me) {
 
   function render(keepFocus) {
     const roots = list.filter((c) => !c.parent), n = list.filter((c) => !c.gone).length;
+    const policy = `<a href="${root}privacy.html">개인정보 처리방침</a>`;
     const compose = me
-      ? `<span class="hint">${esc(me.name)}(으)로 댓글을 쓰고 있어요.</span>${composer('new', draft.new, '댓글 등록', 'cpost', '', '')}`
-      : '<div class="cm-login"><p>댓글을 쓰려면 Google로 로그인하세요. 글은 로그인하지 않아도 읽을 수 있어요.</p><button class="btn gbtn" type="button" data-a="glogin"><span class="gdot" aria-hidden="true">G</span> Google로 로그인</button></div>';
+      ? `<span class="hint">${esc(me.name)}(으)로 댓글을 쓰고 있어요. 이름과 작성 시각이 공개돼요 · ${policy}</span>${composer('new', draft.new, '댓글 등록', 'cpost', '', '')}`
+      : `<div class="cm-login"><p>댓글을 쓰려면 Google로 로그인하세요. 글은 로그인하지 않아도 읽을 수 있어요.</p><p class="hint">로그인하면 구글 프로필 이름이 댓글에 표시돼요 · ${policy}</p><button class="btn gbtn" type="button" data-a="glogin"><span class="gdot" aria-hidden="true">G</span> Google로 로그인</button></div>`;
     box.innerHTML = `<h2 class="sec" id="cmh">댓글 ${n}</h2>${msg ? `<p class="notice${warn ? ' warn' : ''}" role="${warn ? 'alert' : 'status'}">${esc(msg)}</p>` : ''}${compose}${roots.length ? `<ul class="cm-l">${roots.map((r) => item(r, list)).join('')}</ul>` : '<p class="empty">아직 댓글이 없어요. 첫 댓글을 남겨 보세요.</p>'}`;
     msg = ''; warn = false;
     if (keepFocus) focusTa(keepFocus);

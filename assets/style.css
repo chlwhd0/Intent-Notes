@@ -223,3 +223,5 @@ footer{margin-top:auto;padding-top:40px;font-size:11px;letter-spacing:.08em;colo
 .imgrow input[type=text]{flex:1 1 220px;min-height:28px;border:1px solid var(--line);padding:0 8px;font:inherit;font-size:13px}
 .imgrow .btn{min-height:28px;padding:0 10px;font-size:12px}
 .imgrow[hidden]{display:none}
+
+footer a{text-decoration:underline;text-underline-offset:2px}
