@@ -256,6 +256,8 @@ function headHtml({ title, root, seo = {} }) {
   t.push(`<link rel="preload" as="style" href="${FONT_URL}" onload="this.onload=null;this.rel='stylesheet'">`);
   t.push(`<noscript><link rel="stylesheet" href="${FONT_URL}"></noscript>`);
   t.push(`<link rel="stylesheet" href="${root}assets/style.css">`);
+  // 구글 애널리틱스: 측정 ID(analyticsId)가 있고, 검색에서 빠지는 화면(관리자, 404, @ 알림)이 아닐 때만 넣어요.
+  if (/^G-[A-Z0-9]{6,14}$/.test(cfg.analyticsId || '') && !seo.noindex) t.push(`<script src="${root}assets/analytics.js" data-id="${esc(cfg.analyticsId)}"></script>`);
   (seo.jsonld || []).forEach((o) => t.push(`<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`));
   return t.join('\n');
 }
