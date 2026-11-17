@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "my-blog-test-b439a",
     "public": "dist",
     "ignore": [
       "firebase.json",
@@ -24,6 +25,18 @@
             "value": "SAMEORIGIN"
           }
         ]
+      },
+      {
+        "source": "/",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
+        "source": "**/",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
+        "source": "**/*.html",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       }
     ]
   },

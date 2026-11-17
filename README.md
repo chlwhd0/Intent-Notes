@@ -75,3 +75,12 @@ node build.js
 - **사이트에 올리기:** 공개 글은 빌드할 때 파이어베이스에서 가져와 HTML로 만들어요. 글을 쓰거나 고친 뒤에는 `node build.js`로 다시 빌드하고 배포해야 방문자에게 보여요. (나만 보기 글과 회고는 사이트에 들어가지 않아요.) 연결 없이 만들려면 `node build.js --no-remote`를 쓰지만, 이 결과를 배포하면 파이어베이스에 쓴 글이 사이트에서 빠져요.
 - **카테고리를 바꾸려면:** `site.config.json`의 `categories`뿐 아니라 `firestore.rules`의 카테고리 목록도 같이 고치고 배포해야 해요.
 - **비공개 메뉴 이름(회고):** 공개되는 파일에 넣지 않으려고 데이터베이스의 `settings/private` 문서에 두었어요. 관리자가 로그인하면 불러와서 글쓰기 메뉴에 보여 줘요.
+
+## 배포하기 (파이어베이스 호스팅)
+
+- **주소:** https://my-blog-test-b439a.web.app (프로젝트 `my-blog-test-b439a`의 호스팅)
+- **순서:** (1) 글을 쓰고 저장한 뒤 (2) `node build.js --site-url=https://my-blog-test-b439a.web.app`로 빌드하고 (3) Claude에게 "배포해줘"라고 하거나 `firebase deploy --only hosting`을 실행해요.
+- 빌드할 때 `--no-remote`는 쓰지 마세요. 파이어베이스에 쓴 글이 사이트에서 빠져요.
+- 배포하면 `dist/`가 통째로 바뀌어요. 지운 글은 사이트에서도 사라져요.
+- 쪽(HTML)은 캐시를 쓰지 않게 해 두어서, 배포 직후부터 방문자에게 새 내용이 보여요.
+- 구글 로그인은 `my-blog-test-b439a.web.app`과 `localhost`에서 쓸 수 있어요. 새 도메인을 연결하면 파이어베이스 콘솔(Authentication → 설정 → 승인된 도메인)에 추가해야 해요.
