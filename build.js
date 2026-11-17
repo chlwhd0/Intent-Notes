@@ -117,6 +117,7 @@ const restProvider = {
         id: r.document.name.split('/').pop(), title: rf(f, 'title'), slug: rf(f, 'slug'), category: rf(f, 'category'), summary: rf(f, 'summary'),
         description: rf(f, 'description'), body: rf(f, 'body'), format: rf(f, 'format'), img: rf(f, 'img'), date: rf(f, 'date'),
         thumb: f.thumb && f.thumb.integerValue !== undefined ? Number(f.thumb.integerValue) : undefined,
+        files: (((f.files || {}).arrayValue || {}).values || []).map((v) => { const m = (v.mapValue || {}).fields || {}; return { name: rf(m, 'name'), url: rf(m, 'url'), size: Number((m.size || {}).integerValue || 0) }; }),
       };
     });
   },
@@ -178,6 +179,18 @@ const loadPosts = (dir, isPrivateDir) => {
     });
 };
 
+// 첨부 파일 목록: 이름과 크기, 우리 파일 저장소(Firebase Storage) 주소만 받아요. 다른 주소는 버려요.
+const cleanFiles = (arr) =>
+  (Array.isArray(arr) ? arr : [])
+    .filter((f) => f && typeof f.name === 'string' && f.name && T.okImg(f.url))
+    .slice(0, 5)
+    .map((f) => ({ name: f.name.slice(0, 100), url: f.url, size: Number(f.size) || 0 }));
+const fmtSize = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB');
+const filesBlock = (files) =>
+  files && files.length
+    ? `<section class="files" aria-labelledby="fh"><h2 class="sec" id="fh">첨부 파일</h2><ul>${files.map((f) => `<li><a href="${esc(f.url)}" rel="noopener noreferrer">${esc(f.name)}</a> <small>${fmtSize(f.size)} · ${esc((f.name.split('.').pop() || '').toUpperCase().slice(0, 6))}</small></li>`).join('')}</ul></section>`
+    : '';
+
 // 파이어베이스의 공개 글을 사이트에서 쓰는 모양으로 바꿔요.
 // 가져오지 못하면 멈춰요. (그냥 넘어가면 쓴 글이 사이트에서 사라진 채 나갈 수 있어서예요.)
 async function loadRemotePosts(provider) {
@@ -195,6 +208,7 @@ async function loadRemotePosts(provider) {
       id: d.id,
       thumb: th >= 0 && th < 6 ? th : 0,
       img: T.okImg(d.img) ? d.img : '',
+      files: cleanFiles(d.files),
       title: d.title || d.id,
       date: d.date || '',
       category: d.category,
@@ -466,6 +480,7 @@ ${collage}
 ${share}
 <div class="cover">${T.inner(p)}</div>
 <div class="body">${p.html}</div>
+${filesBlock(p.files)}
 <div class="pn">${prev ? `<a href="${prev.slug}.html" rel="prev">← ${esc(prev.title)}</a>` : '<span></span>'}${next ? `<a href="${next.slug}.html" rel="next">${esc(next.title)} →</a>` : '<span></span>'}</div>
 ${isPriv ? '' : `<section class="cms" id="comments" data-post="${esc(p.id)}" aria-labelledby="cmh"><h2 class="sec" id="cmh">댓글</h2><p class="empty">댓글을 불러오는 중…</p></section>`}
 </article>`,

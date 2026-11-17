@@ -225,3 +225,12 @@ footer{margin-top:auto;padding-top:40px;font-size:11px;letter-spacing:.08em;colo
 .imgrow[hidden]{display:none}
 
 footer a{text-decoration:underline;text-underline-offset:2px}
+
+/* 첨부 파일 */
+.files{width:100%;max-width:680px;margin-top:40px;padding-top:24px;border-top:1px solid var(--line);text-align:left}
+.files ul,.flist{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.files li{font-size:15px;line-height:1.5}
+.files li a{color:var(--accent);text-decoration:underline;text-underline-offset:3px;word-break:break-all}
+.flist li{display:flex;gap:10px;align-items:center;font-size:14px}
+.flist .fname{word-break:break-all}
+.thfile[aria-disabled="true"]{opacity:.4;pointer-events:none}

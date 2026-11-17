@@ -6,7 +6,7 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signO
 import {
   getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, orderBy, where,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
-import { getStorage, ref as sref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
+import { getStorage, ref as sref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
 import './sanitize.js';
 import './markdown.js';
 import './thumbs.js';
@@ -132,6 +132,20 @@ let flash = takeFlash();
 const say = (msg, warn) => { flash = [msg, !!warn]; };
 const notice = () => { const f = flash; flash = null; return f ? `<p class="notice${f[1] ? ' warn' : ''}" role="${f[1] ? 'alert' : 'status'}">${esc(f[0])}</p>` : ''; };
 const MAX_IMG = 10485760; // 이미지 한 장의 한도(10MB). storage.rules의 값과 같아야 해요.
+// 첨부 파일: 확장자 허용 목록과 한도. storage.rules의 값(25MB, 확장자)과 같아야 해요.
+const MAX_FILE = 26214400, MAX_FILES = 5;
+const FILE_TYPES = {
+  pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  hwp: 'application/x-hwp', hwpx: 'application/vnd.hancom.hwpx', txt: 'text/plain', csv: 'text/csv', md: 'text/markdown',
+  zip: 'application/zip', json: 'application/json', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+};
+const fmtSize = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB');
+const extOf = (name) => (String(name).split('.').pop() || '').toLowerCase();
+const cleanFiles = (arr) => (Array.isArray(arr) ? arr : []).filter((f) => f && typeof f.name === 'string' && typeof f.url === 'string').map((f) => ({ name: f.name, url: f.url, size: Number(f.size) || 0 }));
+const filesHtml = (files) => (files && files.length ? `<section class="files" aria-labelledby="fh"><h2 class="sec" id="fh">첨부 파일</h2><ul>${files.map((f) => `<li><a href="${esc(f.url)}" rel="noopener noreferrer">${esc(f.name)}</a> <small>${fmtSize(f.size)} · ${esc(extOf(f.name).toUpperCase())}</small></li>`).join('')}</ul></section>` : '');
+const dropFiles = (files) => Promise.all((files || []).map((f) => deleteObject(sref(storage, f.url)).catch(() => {}))); // 저장소 파일 지우기(이미 없으면 넘어가요)
 const NOTE_DEPLOY = ''; // 글·메뉴 변경은 서버가 방문할 때 최신으로 그려서 따로 배포하지 않아도 바로 반영돼요.
 
 // ---------- 글 데이터 ----------
@@ -155,7 +169,10 @@ async function deleteComments(postId) {
   return cs.size;
 }
 async function removePost(p) {
+  let files = p.files;
+  if (!files) { try { const s = await getDoc(doc(db, 'posts', p.id)); files = s.exists() ? cleanFiles(s.data().files) : []; } catch (e) { files = []; } }
   await deleteDoc(doc(db, 'posts', p.id));
+  try { await dropFiles(files); } catch (e) { /* 파일이 남아도 글 삭제는 끝난 상태예요 */ }
   try { await deleteDoc(doc(db, 'views', p.id)); } catch (e) { /* 조회수 문서가 없으면 넘어가요 */ }
   try { await deleteComments(p.id); } catch (e) { /* 댓글이 없거나 지우지 못해도 글 삭제는 끝난 상태예요 */ }
 }
@@ -233,11 +250,11 @@ function viewPage() {
   if (!p) { show('<h1 class="ptitle">글을 찾을 수 없어요</h1><p class="empty">삭제되었거나 없는 글이에요.</p><p><a class="btn" href="posts.html">글 관리로</a></p>'); return; }
   sideKey = 'cat:' + p.category; renderSidebar(sideKey);
   const bar = `<div class="adminbar" role="region" aria-label="관리자 메뉴"><span>관리자로 보는 중 · ${p.visibility === 'public' ? '공개글' : '나만 보기'}</span><div><a class="btn sm" href="posts.html">관리자 페이지</a><a class="btn sm" href="write.html?id=${encodeURIComponent(p.id)}">수정</a><button class="btn sm danger${delArm === p.id ? ' sure' : ''}" type="button" data-a="vdel" data-id="${esc(p.id)}">${delArm === p.id ? '정말 삭제할까요?' : '삭제'}</button></div></div>`;
-  show(bar + notice() + `<article class="post"><a class="tag" href="list.html?cat=${encodeURIComponent(p.category)}">${esc(catName(p.category))}</a><h1>${esc(p.title)}${lock(p)}</h1><p class="summary">${esc(p.summary || '')}</p><div class="meta3"><time>${fd(p.date)}</time>${isPrivCat(p.category) ? '' : `<span class="hint">조회 ${views[p.id] || 0}</span>`}</div><div class="cover">${TH.inner(p)}</div><div class="body">${bodyHtml(p)}</div>${isPrivCat(p.category) || p.visibility !== 'public' ? '<p class="hint" style="margin-top:32px">나만 보기 글에는 댓글이 달리지 않아요.</p>' : ''}</article>`);
+  show(bar + notice() + `<article class="post"><a class="tag" href="list.html?cat=${encodeURIComponent(p.category)}">${esc(catName(p.category))}</a><h1>${esc(p.title)}${lock(p)}</h1><p class="summary">${esc(p.summary || '')}</p><div class="meta3"><time>${fd(p.date)}</time>${isPrivCat(p.category) ? '' : `<span class="hint">조회 ${views[p.id] || 0}</span>`}</div><div class="cover">${TH.inner(p)}</div><div class="body">${bodyHtml(p)}</div>${filesHtml(cleanFiles(p.files))}${isPrivCat(p.category) || p.visibility !== 'public' ? '<p class="hint" style="margin-top:32px">나만 보기 글에는 댓글이 달리지 않아요.</p>' : ''}</article>`);
 }
 
 // ---------- 글쓰기·수정 (NEW POST) ----------
-let draft = null, wtab = 'write', existing = null, savedRange = null, uploading = false;
+let draft = null, wtab = 'write', existing = null, savedRange = null, uploading = false, attaching = false;
 const edEl = () => $('wed');
 function syncDraft() {
   if (!draft || !$('wtitle')) return;
@@ -247,6 +264,11 @@ function syncDraft() {
 function thumbPicker(d) {
   const bs = TH.THUMBS.map((sv, i) => `<button type="button" class="thb" data-a="thumb" data-v="${i}" aria-label="썸네일 모양 ${i + 1}" aria-pressed="${!d.img && d.thumb === i}">${sv}</button>`).join('');
   return `<div class="field" id="thl">썸네일<div class="thpick"><div class="thcur">${thumbHtml(d)}</div>${bs}<label class="thfile btn sm" for="thfile">${uploading ? '올리는 중…' : '이미지 올리기'}</label><input class="sr" id="thfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"${uploading ? ' disabled' : ''}>${d.img ? '<button type="button" class="btn sm" data-a="thumbclear">올린 이미지 지우기</button>' : ''}</div><span class="hint">모양을 고르거나 내 이미지(PNG, JPG, WebP, GIF, 10MB 이하)를 올려요.</span></div>`;
+}
+function filePicker(d) {
+  const items = d.files.map((f, i) => `<li><span class="fname">${esc(f.name)}</span> <small>${fmtSize(f.size)}</small> <button type="button" class="btn sm" data-a="fdel" data-v="${i}" aria-label="${esc(f.name)} 빼기">빼기</button></li>`).join('');
+  const full = d.files.length >= MAX_FILES;
+  return `<div class="field" id="fl">첨부 파일${items ? `<ul class="flist">${items}</ul>` : ''}<div class="thpick"><label class="thfile btn sm" for="ffile"${full ? ' aria-disabled="true"' : ''}>${attaching ? '올리는 중…' : '파일 올리기'}</label><input class="sr" id="ffile" type="file" accept="${Object.keys(FILE_TYPES).map((x) => '.' + x).join(',')}"${attaching || full ? ' disabled' : ''}><span class="hint" id="fnote" role="status">${full ? '파일은 글당 ' + MAX_FILES + '개까지예요.' : ''}</span></div><span class="hint">PDF, 문서(Word·Excel·PowerPoint·한글), 텍스트, 압축(zip), 이미지 · 파일당 25MB 이하 · 글당 5개까지. 실행 파일과 HTML은 올릴 수 없어요. 방문자는 공개 글에서 내려받을 수 있어요.</span></div>`;
 }
 function toolbarHtml() {
   const b = (v, label, title) => `<button type="button" class="tbb" data-a="fmt" data-v="${v}" title="${title}" aria-label="${title}">${label}</button>`;
@@ -277,7 +299,7 @@ function writePage() {
   show(`<div class="head"><h1 class="ptitle">${editing ? '글 수정' : '새 글 쓰기'}</h1><div class="btns"><button class="btn" type="button" data-a="cancel">취소</button><button class="btn pri" type="button" data-a="save" id="save">${editing ? '저장하기' : '발행하기'}</button></div></div>${notice()}` +
     `<label><span class="sr">제목</span><input class="title" id="wtitle" type="text" maxlength="120" placeholder="제목을 입력하세요" value="${esc(d.title)}"></label>` +
     `<div class="meta"><label class="field" for="wcat">카테고리<select id="wcat">${opts}</select></label>${visHtml}<label class="field" for="wdate">날짜<input id="wdate" type="date" value="${esc(d.date)}"></label><label class="field" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록과 검색 결과에 보일 한두 문장" value="${esc(d.sum)}"></label></div>` +
-    thumbPicker(d) +
+    thumbPicker(d) + filePicker(d) +
     `<div class="tabs" role="tablist" aria-label="편집 방식"><button role="tab" type="button" data-a="tab" data-v="write" aria-selected="${wtab === 'write'}">작성</button><button role="tab" type="button" data-a="tab" data-v="preview" aria-selected="${wtab === 'preview'}">미리보기</button></div>` + edit);
 }
 
@@ -339,6 +361,27 @@ async function uploadThumb(file) {
   uploading = false; writePage();
 }
 
+// 첨부 파일 올리기: 확장자·크기·개수를 확인하고 진행률을 보여 주며 올려요.
+async function attachFile(file) {
+  syncDraft();
+  const note = () => $('fnote');
+  const fail = (m) => { say(m, true); writePage(); };
+  const ext = extOf(file.name);
+  if (!FILE_TYPES[ext]) return fail('올릴 수 없는 파일 형식이에요. PDF, 문서(Word·Excel·PowerPoint·한글), 텍스트, 압축(zip), 이미지만 올릴 수 있어요.');
+  if (file.size > MAX_FILE) return fail('첨부 파일은 25MB 이하만 올릴 수 있어요. (이 파일: ' + fmtSize(file.size) + ')');
+  if (draft.files.length >= MAX_FILES) return fail('파일은 글당 ' + MAX_FILES + '개까지 첨부할 수 있어요.');
+  const name = file.name.replace(/[\u0000-\u001f\u007f\\/:*?"<>|]/g, '_').slice(0, 100);
+  attaching = true; writePage();
+  try {
+    const r = sref(storage, `files/${crypto.randomUUID()}.${ext}`);
+    const task = uploadBytesResumable(r, file, { contentType: FILE_TYPES[ext], contentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(name)}` });
+    await new Promise((resolve, reject) => task.on('state_changed', (s) => { if (note()) note().textContent = '올리는 중… ' + Math.round((s.bytesTransferred / s.totalBytes) * 100) + '%'; }, reject, resolve));
+    draft.files.push({ name, url: await getDownloadURL(r), size: file.size });
+    say('“' + name + '” 파일을 올렸어요. 글을 저장하면 첨부돼요.');
+  } catch (e) { say(uploadErr(e), true); }
+  attaching = false; writePage();
+}
+
 // 본문 이미지: 올린 뒤 글 안의 커서 자리에 넣어요.
 async function insertBodyImage(file) {
   const note = $('imgnote'), alt = ($('imgalt').value || '').trim();
@@ -361,13 +404,14 @@ async function savePost() {
   const priv = isPrivCat(d.cat);
   const data = {
     title: d.title.trim(), slug: existing ? existing.slug || '' : '', category: d.cat, visibility: priv ? 'private' : d.vis,
-    summary: d.sum.trim(), description: existing ? existing.description || '' : '', body: html, format: 'html', thumb: d.thumb, img: d.img || '', date: d.date,
+    summary: d.sum.trim(), description: existing ? existing.description || '' : '', body: html, format: 'html', thumb: d.thumb, img: d.img || '', files: cleanFiles(d.files), date: d.date,
   };
   const bad = (m) => { say(m, true); writePage(); };
   if (!data.title) return bad('제목을 입력해 주세요.');
   if (!textOf(html) && !/<img /.test(html)) return bad('본문을 입력해 주세요.');
   if (html.length > 100000) return bad('본문이 너무 길어요. 나눠서 써 주세요.');
   if (data.summary.length > 300) return bad('요약은 300자 이하로 써 주세요.');
+  if (data.files.length > MAX_FILES) return bad('첨부 파일은 글당 ' + MAX_FILES + '개까지예요.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data.date)) return bad('날짜를 입력해 주세요.');
   data.updatedAt = serverTimestamp();
   $('save').disabled = true;
@@ -375,6 +419,7 @@ async function savePost() {
     let id;
     if (existing) { data.createdAt = existing.createdAt; id = existing.id; await setDoc(doc(db, 'posts', id), data); }
     else { data.createdAt = serverTimestamp(); id = (await addDoc(collection(db, 'posts'), data)).id; }
+    if (existing) { const keep = new Set(data.files.map((f) => f.url)); await dropFiles(cleanFiles(existing.files).filter((f) => !keep.has(f.url))); } // 글에서 뺀 파일은 저장소에서도 지워요
     sendFlash(data.visibility === 'public' ? (existing ? '저장했어요.' : '발행했어요.') + NOTE_DEPLOY : '나만 보기 글로 저장했어요. 방문자에게는 보이지 않아요.');
     location.href = `view.html?id=${encodeURIComponent(id)}`;
   } catch (e) { say(dbMsg(e), true); writePage(); }
@@ -419,6 +464,7 @@ main && main.addEventListener('click', async (e) => {
   else if (a === 'cancel') { history.length > 1 ? history.back() : (location.href = 'posts.html'); }
   else if (a === 'save') savePost();
   else if (a === 'thumb') { syncDraft(); draft.thumb = Number(v); draft.img = ''; writePage(); }
+  else if (a === 'fdel') { syncDraft(); draft.files.splice(Number(v), 1); say('목록에서 뺐어요. 글을 저장하면 파일도 지워져요.'); writePage(); }
   else if (a === 'thumbclear') { syncDraft(); draft.img = ''; writePage(); }
   else if (a === 'fmt') fmt(v);
   else if (a === 'imgcancel') { $('imgrow').hidden = true; }
@@ -433,6 +479,7 @@ main && main.addEventListener('click', async (e) => {
 main && main.addEventListener('change', async (e) => {
   const t = e.target;
   if (t.id === 'thfile') { const f = t.files && t.files[0]; if (f) uploadThumb(f); }
+  else if (t.id === 'ffile') { const f = t.files && t.files[0]; if (f) attachFile(f); }
   else if (t.id === 'imgfile') { const f = t.files && t.files[0]; if (f) insertBodyImage(f); }
   else if (t.dataset && t.dataset.tb) {
     const map = { font: 'fontFamily', size: 'fontSize', weight: 'fontWeight', color: 'color' };
@@ -503,8 +550,8 @@ if (['posts', 'menus', 'write', 'list', 'view'].includes(page)) {
       if (id && !existing) { show('<h1 class="ptitle">글을 찾을 수 없어요</h1><p class="empty">삭제되었거나 없는 글이에요.</p><p><a class="btn" href="posts.html">글 관리로</a></p>'); }
       else {
         draft = existing
-          ? { title: existing.title, cat: existing.category, vis: existing.visibility, sum: existing.summary || '', date: existing.date, html: bodyHtml(existing), thumb: Number.isInteger(existing.thumb) ? existing.thumb : 0, img: existing.img || '' }
-          : { title: '', cat: (params.get('cat') && catOf(params.get('cat')) ? params.get('cat') : cats.length ? cats[0].slug : ''), vis: 'public', sum: '', date: today(), html: '', thumb: Math.floor(Math.random() * 6), img: '' };
+          ? { title: existing.title, cat: existing.category, vis: existing.visibility, sum: existing.summary || '', date: existing.date, html: bodyHtml(existing), thumb: Number.isInteger(existing.thumb) ? existing.thumb : 0, img: existing.img || '', files: cleanFiles(existing.files) }
+          : { title: '', cat: (params.get('cat') && catOf(params.get('cat')) ? params.get('cat') : cats.length ? cats[0].slug : ''), vis: 'public', sum: '', date: today(), html: '', thumb: Math.floor(Math.random() * 6), img: '', files: [] };
         writePage();
       }
     }

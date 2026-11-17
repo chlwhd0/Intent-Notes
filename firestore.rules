@@ -16,7 +16,7 @@ service cloud.firestore {
     }
 
     function validPost(d) {
-      return d.keys().hasOnly(['title', 'slug', 'category', 'visibility', 'summary', 'description', 'body', 'format', 'thumb', 'img', 'date', 'createdAt', 'updatedAt'])
+      return d.keys().hasOnly(['title', 'slug', 'category', 'visibility', 'summary', 'description', 'body', 'format', 'thumb', 'img', 'files', 'date', 'createdAt', 'updatedAt'])
         && d.title is string && d.title.size() > 0 && d.title.size() <= 120
         && d.slug is string && d.slug.size() <= 80 && (d.slug == '' || d.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$'))
         && d.category is string && d.category.matches('^[a-z0-9]+(-[a-z0-9]+)*$') && d.category.size() <= 40
@@ -29,6 +29,7 @@ service cloud.firestore {
         && (!('format' in d) || d.format in ['md', 'html'])
         && (!('thumb' in d) || (d.thumb is int && d.thumb >= 0 && d.thumb < 6))
         && (!('img' in d) || (d.img is string && d.img.size() <= 800 && (d.img == '' || d.img.matches('^https://firebasestorage\\.googleapis\\.com/.*'))))
+        && (!('files' in d) || (d.files is list && d.files.size() <= 5))
         && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && d.createdAt is timestamp && d.updatedAt is timestamp;
     }
