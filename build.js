@@ -421,8 +421,11 @@ ${collage}
 
   // 글 페이지
   posts.forEach((p, idx) => {
-    const prev = posts[idx + 1];
-    const next = posts[idx - 1];
+    // 이전·다음 글은 같은 메뉴 안에서만 골라요. (posts는 최신순이라 이전 = 더 오래된 글, 다음 = 더 새 글)
+    const sameMenu = posts.filter((x) => x.category === p.category);
+    const at = sameMenu.indexOf(p);
+    const prev = sameMenu[at + 1];
+    const next = sameMenu[at - 1];
     const c = catBySlug[p.category];
     const rel = `posts/${p.slug}.html`;
     const ld = {
