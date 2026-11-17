@@ -1,5 +1,7 @@
 // 사용법: node build.js  →  dist/ 폴더에 완성된 블로그가 만들어집니다.
 // 글은 posts/ 폴더에 .md 파일로 쓰고, 소개글은 about.md에 씁니다.
+// 사이트 주소는 site.config.json의 "siteUrl"이나 `node build.js --site-url=https://내주소` 로 알려 주세요.
+// 주소가 있어야 대표 주소(canonical), 사이트맵, RSS, 공유 이미지 주소가 만들어져요.
 const fs = require('fs');
 const path = require('path');
 
@@ -8,6 +10,26 @@ const DIST = path.join(ROOT, 'dist');
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'site.config.json'), 'utf8'));
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const isPlaceholder = (s) => !s || /^\[.*\]$/.test(String(s).trim());
+const warnings = [];
+
+// ---- 사이트 주소와 기본 설정 ----
+const argSite = (process.argv.find((a) => a.startsWith('--site-url=')) || '').split('=')[1];
+const SITE_URL = String(argSite || process.env.SITE_URL || cfg.siteUrl || '').trim().replace(/\/+$/, '');
+const DESC = cfg.description || cfg.tagline;
+const FONT_URL =
+  'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Noto+Sans+KR:wght@300;400;500&family=Noto+Serif+KR:wght@500;700&display=swap';
+// 주소를 만들 때 쓰는 규칙: index.html은 폴더 주소로, cleanUrls가 켜져 있으면 .html도 뗍니다.
+const urlFor = (rel) => {
+  let r = rel.replace(/index\.html$/, '');
+  if (cfg.cleanUrls) r = r.replace(/\.html$/, '');
+  return `${SITE_URL}/${r}`;
+};
+const excerpt = (html, n = 150) => {
+  const t = String(html).replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim();
+  return t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t;
+};
+const isoDate = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined);
 
 // ---- 글 머리말(front matter) 읽기 ----
 function parseFile(file) {
@@ -29,7 +51,7 @@ function parseFile(file) {
 function inline(s) {
   s = esc(s);
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
-  s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+  s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy">');
   s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
@@ -48,7 +70,9 @@ function markdown(md) {
       i++;
       out.push('<pre><code>' + esc(code.join('\n')) + '</code></pre>');
     } else if (/^#{1,3} /.test(line)) {
-      const n = line.match(/^#+/)[0].length + 1; // # → h2
+      // 페이지 제목이 h1이라서 본문의 #, ##은 h2, ###은 h3로 만들어요. (제목 단계를 건너뛰지 않게)
+      const level = line.match(/^#+/)[0].length;
+      const n = level === 3 ? 3 : 2;
       out.push(`<h${n}>${inline(line.replace(/^#+ /, ''))}</h${n}>`);
       i++;
     } else if (/^> /.test(line)) {
@@ -93,15 +117,81 @@ const loadPosts = (dir, isPrivateDir) => {
       if (!cat) throw new Error(`${f}: category가 올바르지 않습니다 (${meta.category})`);
       if (cat.private && !isPrivateDir) throw new Error(`${f}: ${cat.title}은 나만 보는 글이라 posts/가 아니라 private/ 폴더에 써야 해요.`);
       if (!cat.private && isPrivateDir) throw new Error(`${f}: private/ 폴더에는 비공개 카테고리 글만 둘 수 있어요.`);
-      return { slug, title: meta.title || slug, date: meta.date || '', category: meta.category, summary: meta.summary || '', html: markdown(body) };
+      const html = markdown(body);
+      if (!isPrivateDir) {
+        if (!meta.summary) warnings.push(`${f}: summary(요약)가 없어 본문 앞부분을 검색 결과 설명으로 써요.`);
+        else if (meta.summary.length > 160) warnings.push(`${f}: 요약이 160자보다 길어서 검색 결과에서 잘릴 수 있어요.`);
+        if (/<img[^>]*alt=""/.test(html)) warnings.push(`${f}: 이미지에 대체 글(alt)이 비어 있어요. ![설명](주소) 형태로 설명을 적어 주세요.`);
+        if ((meta.title || slug).length > 60) warnings.push(`${f}: 제목이 60자보다 길어서 검색 결과에서 잘릴 수 있어요.`);
+      }
+      return {
+        slug,
+        title: meta.title || slug,
+        date: meta.date || '',
+        category: meta.category,
+        summary: meta.summary || '',
+        description: meta.description || meta.summary || excerpt(html),
+        image: meta.image || '',
+        html,
+      };
     });
 };
 const posts = [...loadPosts(path.join(ROOT, 'posts'), false), ...(WITH_PRIVATE ? loadPosts(path.join(ROOT, 'private'), true) : [])].sort((a, b) =>
   a.date < b.date ? 1 : -1
 );
 
+// ---- 검색·공유용 head 만들기 ----
+// seo: { description, rel(대표 주소가 될 파일 경로), type('website'|'article'), noindex, image, published, jsonld[] }
+function headHtml({ title, root, seo = {} }) {
+  const t = [];
+  const desc = seo.description || DESC;
+  t.push('<meta charset="utf-8">');
+  t.push('<meta name="viewport" content="width=device-width, initial-scale=1">');
+  t.push(`<title>${esc(title)}</title>`);
+  t.push(`<meta name="description" content="${esc(desc)}">`);
+  if (!isPlaceholder(cfg.author)) t.push(`<meta name="author" content="${esc(cfg.author)}">`);
+  t.push(seo.noindex ? '<meta name="robots" content="noindex,nofollow">' : '<meta name="robots" content="index,follow,max-image-preview:large">');
+  if (!seo.noindex) {
+    const canonical = SITE_URL && seo.rel !== undefined ? urlFor(seo.rel) : '';
+    if (canonical) t.push(`<link rel="canonical" href="${esc(canonical)}">`);
+    // 공유 카드(Open Graph, Twitter)
+    const imgRel = seo.image || cfg.ogImage || 'assets/og-default.png';
+    const hasImg = SITE_URL && fs.existsSync(path.join(ROOT, imgRel));
+    const imgUrl = hasImg ? `${SITE_URL}/${imgRel.replace(/^\//, '')}` : '';
+    t.push(`<meta property="og:type" content="${seo.type || 'website'}">`);
+    t.push(`<meta property="og:site_name" content="${esc(cfg.name)}">`);
+    t.push(`<meta property="og:locale" content="ko_KR">`);
+    t.push(`<meta property="og:title" content="${esc(title)}">`);
+    t.push(`<meta property="og:description" content="${esc(desc)}">`);
+    if (canonical) t.push(`<meta property="og:url" content="${esc(canonical)}">`);
+    if (imgUrl) {
+      t.push(`<meta property="og:image" content="${esc(imgUrl)}">`);
+      if (imgRel === 'assets/og-default.png') t.push('<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">');
+    }
+    if (seo.type === 'article' && isoDate(seo.published)) t.push(`<meta property="article:published_time" content="${seo.published}">`);
+    t.push(`<meta name="twitter:card" content="${imgUrl ? 'summary_large_image' : 'summary'}">`);
+    t.push(`<meta name="twitter:title" content="${esc(title)}">`);
+    t.push(`<meta name="twitter:description" content="${esc(desc)}">`);
+    if (imgUrl) t.push(`<meta name="twitter:image" content="${esc(imgUrl)}">`);
+  }
+  if (cfg.googleVerification) t.push(`<meta name="google-site-verification" content="${esc(cfg.googleVerification)}">`);
+  if (cfg.naverVerification) t.push(`<meta name="naver-site-verification" content="${esc(cfg.naverVerification)}">`);
+  t.push(`<link rel="icon" href="${root}assets/favicon.svg" type="image/svg+xml">`);
+  t.push(`<link rel="icon" href="${root}assets/icon-192.png" sizes="192x192" type="image/png">`);
+  t.push(`<link rel="apple-touch-icon" href="${root}assets/apple-touch-icon.png">`);
+  if (SITE_URL && !WITH_PRIVATE) t.push(`<link rel="alternate" type="application/rss+xml" title="${esc(cfg.name)} RSS" href="${root}rss.xml">`);
+  // 글꼴은 화면 그리기를 막지 않게 늦게 불러와요.
+  t.push('<link rel="preconnect" href="https://fonts.googleapis.com">');
+  t.push('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');
+  t.push(`<link rel="preload" as="style" href="${FONT_URL}" onload="this.onload=null;this.rel='stylesheet'">`);
+  t.push(`<noscript><link rel="stylesheet" href="${FONT_URL}"></noscript>`);
+  t.push(`<link rel="stylesheet" href="${root}assets/style.css">`);
+  (seo.jsonld || []).forEach((o) => t.push(`<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`));
+  return t.join('\n');
+}
+
 // ---- 공통 레이아웃 ----
-function layout({ title, body, active, root, admin = false, script = '' }) {
+function layout({ title, body, active, root, admin = false, script = '', seo = {} }) {
   const items = admin
     ? [
         { href: root + 'admin/write.html', label: '새 글 쓰기', key: 'write' },
@@ -115,18 +205,12 @@ function layout({ title, body, active, root, admin = false, script = '' }) {
     .map((n) => `<a href="${n.href}"${n.key === active ? ' class="on" aria-current="page"' : ''}>${n.label}</a>`)
     .join('');
   const bottom = admin
-    ? `<div class="who"><span>Firebase 연결 전 미리보기</span><a href="${root}admin/login.html">로그인 화면</a></div>`
-    : `<a class="admin" href="${root}admin/login.html">관리자 로그인</a>`;
+    ? `<div class="who"><span>Firebase 연결 전 미리보기</span><a href="${root}admin/login.html" rel="nofollow">로그인 화면</a></div>`
+    : `<a class="admin" href="${root}admin/login.html" rel="nofollow">관리자 로그인</a>`;
   return `<!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(title)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Noto+Sans+KR:wght@300;400;500&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="${root}assets/style.css">
+${headHtml({ title, root, seo })}
 </head>
 <body>
 <div class="wrap">
@@ -147,8 +231,9 @@ ${script ? `<script src="${root}assets/${script}"></script>` : ''}
 }
 
 const fmtDate = (d) => d.replace(/-/g, '.');
+const timeTag = (d) => (isoDate(d) ? `<time datetime="${d}">${fmtDate(d)}</time>` : `<time>${fmtDate(d)}</time>`);
 const postRow = (p, root) =>
-  `<a class="row" data-q="${esc((p.title + ' ' + p.summary).toLowerCase())}" href="${root}posts/${p.slug}.html"><span class="tag">${esc(catBySlug[p.category].label)}</span><span class="rt"><b>${esc(p.title)}</b><small>${esc(p.summary)}</small></span><time>${fmtDate(p.date)}</time></a>`;
+  `<a class="row" data-q="${esc((p.title + ' ' + p.summary).toLowerCase())}" href="${root}posts/${p.slug}.html"><span class="tag">${esc(catBySlug[p.category].label)}</span><span class="rt"><b>${esc(p.title)}</b><small>${esc(p.summary)}</small></span>${timeTag(p.date)}</a>`;
 
 // 글 목록(정렬·검색 포함). assets/list.js가 동작을 붙입니다.
 const listBlock = (list, root) => `<div class="tools">
@@ -169,6 +254,12 @@ const write = (rel, html) => {
 fs.rmSync(DIST, { recursive: true, force: true });
 fs.cpSync(path.join(ROOT, 'assets'), path.join(DIST, 'assets'), { recursive: true });
 
+const websiteLd = () => {
+  const o = { '@context': 'https://schema.org', '@type': 'WebSite', name: cfg.name, description: DESC, inLanguage: 'ko' };
+  if (SITE_URL) o.url = urlFor('');
+  return o;
+};
+
 // 홈: 카테고리별 최신 글 3개를 콜라주 타일로
 const latest = (slug) => posts.find((p) => p.category === slug);
 const tile = (slug, cls, root) => {
@@ -183,6 +274,7 @@ write(
     title: `${cfg.name} · AI PM 블로그`,
     active: '',
     root: '',
+    seo: { description: DESC, rel: '', jsonld: [websiteLd()] },
     body: `<h1 class="hero">${esc(cfg.headline)}</h1>
 <p class="tagline">${esc(cfg.tagline)}</p>
 <div class="collage">${tile('portfolio', 't1', '')}<div class="col${WITH_PRIVATE ? '' : ' one'}">${WITH_PRIVATE ? tile('retrospective', 't2', '') : ''}${tile('study', 't3', '')}</div></div>
@@ -199,6 +291,7 @@ write(
     active: '',
     root: '../',
     script: 'list.js',
+    seo: { description: `${cfg.name}에 올린 글 ${posts.length}편의 목록입니다. 포트폴리오와 스터디 노트를 최신순으로 볼 수 있어요.`, rel: 'posts/' },
     body: `<h1 class="page-title">전체 글</h1>\n${listBlock(posts, '../')}`,
   })
 );
@@ -213,6 +306,7 @@ visCats.forEach((c) => {
       active: c.slug,
       root: '../',
       script: 'list.js',
+      seo: { description: `${cfg.name}의 ${c.title} 글 ${list.length}편. ${list[0] ? `최근 글: ${list[0].title}` : '곧 글이 올라와요.'}`, rel: `${c.slug}/` },
       body: `<h1 class="page-title">${esc(c.title)}</h1>\n${listBlock(list, '../')}`,
     })
   );
@@ -223,19 +317,52 @@ posts.forEach((p, idx) => {
   const prev = posts[idx + 1];
   const next = posts[idx - 1];
   const c = catBySlug[p.category];
+  const rel = `posts/${p.slug}.html`;
+  const ld = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: p.title,
+    description: p.description,
+    inLanguage: 'ko',
+    articleSection: c.title,
+  };
+  if (isoDate(p.date)) {
+    ld.datePublished = p.date;
+    ld.dateModified = p.date;
+  }
+  if (!isPlaceholder(cfg.author)) ld.author = { '@type': 'Person', name: cfg.author };
+  if (SITE_URL) {
+    ld.mainEntityOfPage = urlFor(rel);
+    ld.url = urlFor(rel);
+    const imgRel = p.image || cfg.ogImage || 'assets/og-default.png';
+    if (fs.existsSync(path.join(ROOT, imgRel))) ld.image = `${SITE_URL}/${imgRel.replace(/^\//, '')}`;
+  }
+  const jsonld = [ld];
+  if (SITE_URL) {
+    jsonld.push({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: cfg.name, item: urlFor('') },
+        { '@type': 'ListItem', position: 2, name: c.title, item: urlFor(`${c.slug}/`) },
+        { '@type': 'ListItem', position: 3, name: p.title, item: urlFor(rel) },
+      ],
+    });
+  }
   write(
-    `posts/${p.slug}.html`,
+    rel,
     layout({
       title: `${p.title} · ${cfg.name}`,
       active: p.category,
       root: '../',
+      seo: { description: p.description, rel, type: 'article', image: p.image, published: p.date, jsonld },
       body: `<article class="post">
 <a class="tag" href="../${c.slug}/">${esc(c.label)}</a>
 <h1>${esc(p.title)}</h1>
 <p class="summary">${esc(p.summary)}</p>
-<time>${fmtDate(p.date)}</time>
+${timeTag(p.date)}
 <div class="body">${p.html}</div>
-<div class="pn">${prev ? `<a href="${prev.slug}.html">← ${esc(prev.title)}</a>` : '<span></span>'}${next ? `<a href="${next.slug}.html">${esc(next.title)} →</a>` : '<span></span>'}</div>
+<div class="pn">${prev ? `<a href="${prev.slug}.html" rel="prev">← ${esc(prev.title)}</a>` : '<span></span>'}${next ? `<a href="${next.slug}.html" rel="next">${esc(next.title)} →</a>` : '<span></span>'}</div>
 </article>`,
     })
   );
@@ -243,31 +370,85 @@ posts.forEach((p, idx) => {
 
 // 소개 페이지
 const about = parseFile(path.join(ROOT, 'about.md'));
+const aboutHtml = markdown(about.body);
+const aboutLd = [];
+if (!isPlaceholder(cfg.author)) {
+  const person = { '@context': 'https://schema.org', '@type': 'Person', name: cfg.author, description: excerpt(aboutHtml, 120) };
+  if (SITE_URL) person.url = urlFor('about.html');
+  aboutLd.push(person);
+}
 write(
   'about.html',
   layout({
     title: `ABOUT · ${cfg.name}`,
     active: 'about',
     root: '',
-    body: `<article class="post"><h1>${esc(about.meta.title || 'About')}</h1><div class="body">${markdown(about.body)}</div></article>`,
+    seo: { description: excerpt(aboutHtml) || DESC, rel: 'about.html', jsonld: aboutLd },
+    body: `<article class="post"><h1>${esc(about.meta.title || 'About')}</h1><div class="body">${aboutHtml}</div></article>`,
   })
 );
 
+// 찾을 수 없는 주소(404). 어느 폴더에서 열려도 깨지지 않게 주소를 /로 시작해요.
+write(
+  '404.html',
+  layout({
+    title: `페이지를 찾을 수 없어요 · ${cfg.name}`,
+    active: '',
+    root: '/',
+    seo: { noindex: true },
+    body: `<article class="post"><h1>페이지를 찾을 수 없어요</h1><p class="summary">주소가 바뀌었거나 없는 글이에요.</p><p><a class="btn" href="/index.html">홈으로 가기</a></p></article>`,
+  })
+);
+
+// ---- robots.txt, 사이트맵, RSS (올리는 용도의 빌드에서만) ----
+if (!WITH_PRIVATE) {
+  write('robots.txt', `User-agent: *\nAllow: /\n${SITE_URL ? `\nSitemap: ${SITE_URL}/sitemap.xml\n` : ''}`);
+  if (SITE_URL) {
+    const newest = posts.map((p) => p.date).filter(isoDate)[0];
+    const aboutDate = fs.statSync(path.join(ROOT, 'about.md')).mtime.toISOString().slice(0, 10);
+    const entries = [
+      { rel: '', last: newest },
+      { rel: 'posts/', last: newest },
+      ...visCats.map((c) => ({ rel: `${c.slug}/`, last: (posts.find((p) => p.category === c.slug) || {}).date })),
+      { rel: 'about.html', last: aboutDate },
+      ...posts.map((p) => ({ rel: `posts/${p.slug}.html`, last: p.date })),
+    ];
+    write(
+      'sitemap.xml',
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+        entries.map((e) => `  <url><loc>${esc(urlFor(e.rel))}</loc>${isoDate(e.last) ? `<lastmod>${e.last}</lastmod>` : ''}</url>`).join('\n') +
+        `\n</urlset>\n`
+    );
+    const items = posts.slice(0, 20).map((p) => {
+      const link = urlFor(`posts/${p.slug}.html`);
+      const pub = isoDate(p.date) ? `<pubDate>${new Date(p.date + 'T00:00:00+09:00').toUTCString()}</pubDate>` : '';
+      return `    <item><title>${esc(p.title)}</title><link>${esc(link)}</link><guid isPermaLink="true">${esc(link)}</guid>${pub}<description>${esc(p.description)}</description></item>`;
+    });
+    write(
+      'rss.xml',
+      `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0">\n  <channel>\n    <title>${esc(cfg.name)}</title>\n    <link>${esc(urlFor(''))}</link>\n    <description>${esc(DESC)}</description>\n    <language>ko</language>\n${items.join('\n')}\n  </channel>\n</rss>\n`
+    );
+  } else {
+    warnings.push('사이트 주소(siteUrl)가 없어 사이트맵, RSS, 대표 주소, 공유 이미지 주소를 만들지 못했어요. site.config.json에 siteUrl을 넣거나 --site-url=https://내주소 로 빌드하세요.');
+  }
+}
+
+// ---- 공개 전에 고쳐야 할 자리표시자 점검 ----
+if (isPlaceholder(cfg.author)) warnings.push('작성자 이름이 자리표시자([이름])예요. 공개 전에 site.config.json의 author를 바꿔 주세요. (구조화 데이터의 작성자 정보도 비어 있어요.)');
+if (isPlaceholder(cfg.contact)) warnings.push('연락처가 자리표시자예요. 공개 전에 바꾸거나 about.md에서 지워 주세요.');
+if (posts.some((p) => /^\[샘플\]/.test(p.title))) warnings.push('[샘플]이 붙은 글이 있어요. 공개 전에 지워 주세요.');
+
 console.log(`완료: 글 ${posts.length}개, 카테고리 ${visCats.length}개${WITH_PRIVATE ? ' (나만 보기 글 포함, 올리지 마세요)' : ''} → ${DIST}`);
+if (SITE_URL) console.log(`사이트 주소: ${SITE_URL}`);
+if (warnings.length) console.log('\nSEO 점검 알림:\n' + warnings.map((w) => ' - ' + w).join('\n'));
 
 // ---- 관리자 화면 (Firebase 연결 전 미리보기) ----
-const fonts = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Noto+Sans+KR:wght@300;400;500&family=Noto+Serif+KR:wght@500;700&display=swap';
-
 write(
   'admin/login.html',
   `<!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>관리자 로그인 · ${esc(cfg.name)}</title>
-<link href="${fonts}" rel="stylesheet">
-<link rel="stylesheet" href="../assets/style.css">
+${headHtml({ title: `관리자 로그인 · ${cfg.name}`, root: '../', seo: { noindex: true } })}
 </head>
 <body class="login">
 <div class="wrap">
@@ -291,6 +472,7 @@ write(
 `
 );
 
+// 공개되는 글쓰기 화면에는 비공개 메뉴(회고) 이름이 드러나지 않게, 올리는 빌드에서는 비공개 카테고리를 뺍니다.
 write(
   'admin/write.html',
   layout({
@@ -299,12 +481,13 @@ write(
     root: '../',
     admin: true,
     script: 'admin.js',
+    seo: { noindex: true },
     body: `<div class="head"><h1 class="page-title">새 글 쓰기</h1><div class="btns"><button class="btn" type="button" data-need-backend>임시저장</button><button class="btn pri" type="button" data-need-backend>발행하기</button></div></div>
 <p class="notice" id="notice" role="status" hidden></p>
 <label><span class="sr">제목</span><input class="title" id="t" type="text" placeholder="제목을 입력하세요"></label>
 <div class="meta">
-<label class="field" for="cat">카테고리<select id="cat">${cfg.categories.map((c) => `<option value="${c.slug}"${c.private ? ' data-private' : ''}>${esc(c.title)}</option>`).join('')}</select></label>
-<div class="field" id="vfixed" hidden>공개 범위<p class="fixed">나만 보기 (고정)</p><span class="hint">회고는 항상 나만 볼 수 있어요. 공개로 바꿀 수 없어요.</span></div>
+<label class="field" for="cat">카테고리<select id="cat">${visCats.map((c) => `<option value="${c.slug}"${c.private ? ' data-private' : ''}>${esc(c.title)}</option>`).join('')}</select></label>
+<div class="field" id="vfixed" hidden>공개 범위<p class="fixed">나만 보기 (고정)</p><span class="hint">이 메뉴는 항상 나만 볼 수 있어요. 공개로 바꿀 수 없어요.</span></div>
 <div class="field" id="vlabel">공개 범위
 <div class="vis" role="group" aria-labelledby="vlabel"><button type="button" id="pub" aria-pressed="true">공개글</button><button type="button" id="priv" aria-pressed="false">나만 보기</button></div>
 <span class="hint" id="vhint">누구나 읽을 수 있어요.</span></div>
