@@ -245,12 +245,20 @@ function listPage() {
 }
 
 // ---------- 글 보기 ----------
+// 같은 메뉴 안의 이전(더 오래된 글)·다음(더 새 글) 링크. 관리자는 나만 보기 글까지 모두 이어서 봐요.
+function neighborsHtml(p) {
+  const same = sorted().filter((x) => x.category === p.category);
+  const at = same.findIndex((x) => x.id === p.id);
+  const prev = same[at + 1], next = same[at - 1];
+  const link = (x, rel, arrow) => `<a href="view.html?id=${encodeURIComponent(x.id)}" rel="${rel}">${rel === 'prev' ? '← ' : ''}${esc(x.title)}${lock(x)}${rel === 'next' ? ' →' : ''}</a>`;
+  return `<div class="pn">${prev ? link(prev, 'prev') : '<span></span>'}${next ? link(next, 'next') : '<span></span>'}</div>`;
+}
 function viewPage() {
   const p = posts.find((x) => x.id === params.get('id'));
   if (!p) { show('<h1 class="ptitle">글을 찾을 수 없어요</h1><p class="empty">삭제되었거나 없는 글이에요.</p><p><a class="btn" href="posts.html">글 관리로</a></p>'); return; }
   sideKey = 'cat:' + p.category; renderSidebar(sideKey);
   const bar = `<div class="adminbar" role="region" aria-label="관리자 메뉴"><span>관리자로 보는 중 · ${p.visibility === 'public' ? '공개글' : '나만 보기'}</span><div><a class="btn sm" href="posts.html">관리자 페이지</a><a class="btn sm" href="write.html?id=${encodeURIComponent(p.id)}">수정</a><button class="btn sm danger${delArm === p.id ? ' sure' : ''}" type="button" data-a="vdel" data-id="${esc(p.id)}">${delArm === p.id ? '정말 삭제할까요?' : '삭제'}</button></div></div>`;
-  show(bar + notice() + `<article class="post"><a class="tag" href="list.html?cat=${encodeURIComponent(p.category)}">${esc(catName(p.category))}</a><h1>${esc(p.title)}${lock(p)}</h1><p class="summary">${esc(p.summary || '')}</p><div class="meta3"><time>${fd(p.date)}</time>${isPrivCat(p.category) ? '' : `<span class="hint">조회 ${views[p.id] || 0}</span>`}</div><div class="cover">${TH.inner(p)}</div><div class="body">${bodyHtml(p)}</div>${filesHtml(cleanFiles(p.files))}${isPrivCat(p.category) || p.visibility !== 'public' ? '<p class="hint" style="margin-top:32px">나만 보기 글에는 댓글이 달리지 않아요.</p>' : ''}</article>`);
+  show(bar + notice() + `<article class="post"><a class="tag" href="list.html?cat=${encodeURIComponent(p.category)}">${esc(catName(p.category))}</a><h1>${esc(p.title)}${lock(p)}</h1><p class="summary">${esc(p.summary || '')}</p><div class="meta3"><time>${fd(p.date)}</time>${isPrivCat(p.category) ? '' : `<span class="hint">조회 ${views[p.id] || 0}</span>`}</div><div class="cover">${TH.inner(p)}</div><div class="body">${bodyHtml(p)}</div>${filesHtml(cleanFiles(p.files))}${neighborsHtml(p)}${isPrivCat(p.category) || p.visibility !== 'public' ? '<p class="hint" style="margin-top:32px">나만 보기 글에는 댓글이 달리지 않아요.</p>' : ''}</article>`);
 }
 
 // ---------- 글쓰기·수정 (NEW POST) ----------
