@@ -144,3 +144,8 @@ textarea{width:100%;min-height:340px;border:1px solid var(--line);padding:16px;f
   .visual{padding:32px 16px;gap:24px}
   .visual p{font-size:44px}
 }
+
+/* 공개 범위 고정 표시, 비공개 카테고리가 없을 때의 홈 타일 */
+.fixed{margin:0;min-height:44px;display:flex;align-items:center;padding:0 12px;border:1px solid var(--line);background:var(--side);color:var(--ink);font-size:14px;letter-spacing:0}
+#vlabel[hidden],#vfixed[hidden]{display:none}
+.col.one{grid-template-rows:1fr}

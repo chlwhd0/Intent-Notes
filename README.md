@@ -15,7 +15,15 @@ summary: 목록에 보일 한두 문장 요약
 ---
 ```
 
-`category`는 `portfolio`, `retrospective`, `study` 중 하나입니다. 본문은 마크다운(제목 `##`, 목록 `-`, 굵게 `**`, 링크, 이미지, 코드, 인용)을 쓸 수 있습니다.
+`category`는 `portfolio`, `retrospective`, `study` 중 하나입니다. 공개 글(`portfolio`, `study`)은 `posts/` 폴더에 둡니다. 본문은 마크다운(제목 `##`, 목록 `-`, 굵게 `**`, 링크, 이미지, 코드, 인용)을 쓸 수 있습니다.
+
+## 회고는 나만 보는 글
+
+회고(`retrospective`)는 `private/` 폴더에 쓰세요. 이 폴더는 깃헙에 올라가지 않고, 기본 빌드에도 들어가지 않습니다. `posts/`에 회고 글을 두면 빌드가 오류로 알려 줍니다. 내 컴퓨터에서 회고까지 포함해 보려면 아래처럼 빌드하세요. 이 결과(`dist/`)는 인터넷에 올리지 마세요.
+
+```
+node build.js --with-private
+```
 
 ## 만들고 확인하기
 

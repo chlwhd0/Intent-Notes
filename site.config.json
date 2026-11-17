@@ -5,8 +5,21 @@
   "author": "[이름]",
   "contact": "[이메일 주소]",
   "categories": [
-    { "slug": "portfolio", "label": "PORTFOLIO", "title": "포트폴리오" },
-    { "slug": "retrospective", "label": "RETROSPECTIVE", "title": "회고" },
-    { "slug": "study", "label": "STUDY", "title": "스터디" }
+    {
+      "slug": "portfolio",
+      "label": "PORTFOLIO",
+      "title": "포트폴리오"
+    },
+    {
+      "slug": "retrospective",
+      "label": "RETROSPECTIVE",
+      "title": "회고",
+      "private": true
+    },
+    {
+      "slug": "study",
+      "label": "STUDY",
+      "title": "스터디"
+    }
   ]
 }

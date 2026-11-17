@@ -75,18 +75,30 @@ function markdown(md) {
 }
 
 // ---- 데이터 모으기 ----
+// 비공개 카테고리(site.config.json의 "private": true, 예: 회고)는 나만 볼 수 있어요.
+// 기본 빌드(인터넷에 올리는 용도)에는 아예 들어가지 않고,
+// 내 컴퓨터에서 미리 볼 때만 `node build.js --with-private`로 private/ 폴더의 글을 포함해요.
+const WITH_PRIVATE = process.argv.includes('--with-private');
 const catBySlug = Object.fromEntries(cfg.categories.map((c) => [c.slug, c]));
-const postsDir = path.join(ROOT, 'posts');
-const posts = fs
-  .readdirSync(postsDir)
-  .filter((f) => f.endsWith('.md'))
-  .map((f) => {
-    const { meta, body } = parseFile(path.join(postsDir, f));
-    const slug = f.replace(/\.md$/, '');
-    if (!catBySlug[meta.category]) throw new Error(`${f}: category가 올바르지 않습니다 (${meta.category})`);
-    return { slug, title: meta.title || slug, date: meta.date || '', category: meta.category, summary: meta.summary || '', html: markdown(body) };
-  })
-  .sort((a, b) => (a.date < b.date ? 1 : -1));
+const visCats = cfg.categories.filter((c) => !c.private || WITH_PRIVATE);
+const loadPosts = (dir, isPrivateDir) => {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.md'))
+    .map((f) => {
+      const { meta, body } = parseFile(path.join(dir, f));
+      const slug = f.replace(/\.md$/, '');
+      const cat = catBySlug[meta.category];
+      if (!cat) throw new Error(`${f}: category가 올바르지 않습니다 (${meta.category})`);
+      if (cat.private && !isPrivateDir) throw new Error(`${f}: ${cat.title}은 나만 보는 글이라 posts/가 아니라 private/ 폴더에 써야 해요.`);
+      if (!cat.private && isPrivateDir) throw new Error(`${f}: private/ 폴더에는 비공개 카테고리 글만 둘 수 있어요.`);
+      return { slug, title: meta.title || slug, date: meta.date || '', category: meta.category, summary: meta.summary || '', html: markdown(body) };
+    });
+};
+const posts = [...loadPosts(path.join(ROOT, 'posts'), false), ...(WITH_PRIVATE ? loadPosts(path.join(ROOT, 'private'), true) : [])].sort((a, b) =>
+  a.date < b.date ? 1 : -1
+);
 
 // ---- 공통 레이아웃 ----
 function layout({ title, body, active, root, admin = false, script = '' }) {
@@ -97,7 +109,7 @@ function layout({ title, body, active, root, admin = false, script = '' }) {
       ]
     : [
         { href: root + 'about.html', label: 'ABOUT', key: 'about' },
-        ...cfg.categories.map((c) => ({ href: `${root}${c.slug}/`, label: c.label, key: c.slug })),
+        ...visCats.map((c) => ({ href: `${root}${c.slug}/`, label: c.label, key: c.slug })),
       ];
   const nav = items
     .map((n) => `<a href="${n.href}"${n.key === active ? ' class="on" aria-current="page"' : ''}>${n.label}</a>`)
@@ -173,7 +185,7 @@ write(
     root: '',
     body: `<h1 class="hero">${esc(cfg.headline)}</h1>
 <p class="tagline">${esc(cfg.tagline)}</p>
-<div class="collage">${tile('portfolio', 't1', '')}<div class="col">${tile('retrospective', 't2', '')}${tile('study', 't3', '')}</div></div>
+<div class="collage">${tile('portfolio', 't1', '')}<div class="col${WITH_PRIVATE ? '' : ' one'}">${WITH_PRIVATE ? tile('retrospective', 't2', '') : ''}${tile('study', 't3', '')}</div></div>
 <div class="bar"><span><b>최근 글</b> ${Math.min(5, posts.length)}개</span><a href="posts/">전체 글 보기 →</a></div>
 <div class="list">${posts.slice(0, 5).map((p) => postRow(p, '')).join('')}</div>`,
   })
@@ -192,7 +204,7 @@ write(
 );
 
 // 카테고리 페이지
-cfg.categories.forEach((c) => {
+visCats.forEach((c) => {
   const list = posts.filter((p) => p.category === c.slug);
   write(
     `${c.slug}/index.html`,
@@ -241,7 +253,7 @@ write(
   })
 );
 
-console.log(`완료: 글 ${posts.length}개, 카테고리 ${cfg.categories.length}개 → ${DIST}`);
+console.log(`완료: 글 ${posts.length}개, 카테고리 ${visCats.length}개${WITH_PRIVATE ? ' (나만 보기 글 포함, 올리지 마세요)' : ''} → ${DIST}`);
 
 // ---- 관리자 화면 (Firebase 연결 전 미리보기) ----
 const fonts = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Noto+Sans+KR:wght@300;400;500&family=Noto+Serif+KR:wght@500;700&display=swap';
@@ -291,7 +303,8 @@ write(
 <p class="notice" id="notice" role="status" hidden></p>
 <label><span class="sr">제목</span><input class="title" id="t" type="text" placeholder="제목을 입력하세요"></label>
 <div class="meta">
-<label class="field" for="cat">카테고리<select id="cat">${cfg.categories.map((c) => `<option value="${c.slug}">${esc(c.title)}</option>`).join('')}</select></label>
+<label class="field" for="cat">카테고리<select id="cat">${cfg.categories.map((c) => `<option value="${c.slug}"${c.private ? ' data-private' : ''}>${esc(c.title)}</option>`).join('')}</select></label>
+<div class="field" id="vfixed" hidden>공개 범위<p class="fixed">나만 보기 (고정)</p><span class="hint">회고는 항상 나만 볼 수 있어요. 공개로 바꿀 수 없어요.</span></div>
 <div class="field" id="vlabel">공개 범위
 <div class="vis" role="group" aria-labelledby="vlabel"><button type="button" id="pub" aria-pressed="true">공개글</button><button type="button" id="priv" aria-pressed="false">나만 보기</button></div>
 <span class="hint" id="vhint">누구나 읽을 수 있어요.</span></div>

@@ -28,6 +28,17 @@
   pub.onclick = function () { vis(true); };
   priv.onclick = function () { vis(false); };
 
+  // 회고처럼 나만 보는 카테고리는 공개 범위를 고르지 못하게 고정해요.
+  var cat = $('cat');
+  function syncCat() {
+    var isPrivate = cat.options[cat.selectedIndex].hasAttribute('data-private');
+    $('vlabel').hidden = isPrivate;
+    $('vfixed').hidden = !isPrivate;
+    if (isPrivate) vis(false);
+  }
+  cat.addEventListener('change', syncCat);
+  syncCat();
+
   var tw = $('tw'), tp = $('tp'), wrap = $('bodywrap'), pv = $('pv'), ta = $('body');
   function inline(parent, text) {
     text.split(/(\*\*[^*]+\*\*)/).forEach(function (part) {
