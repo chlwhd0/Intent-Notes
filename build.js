@@ -532,9 +532,7 @@ ${headHtml({ title: `관리자 로그인 · ${cfg.name}`, root: '../', seo: { no
 <span class="hint" id="vhint">누구나 읽을 수 있어요.</span></div>
 <div class="field" id="vfixed" hidden>공개 범위<p class="fixed">나만 보기 (고정)</p><span class="hint">이 메뉴는 항상 나만 볼 수 있어요. 공개로 바꿀 수 없어요.</span></div>
 <label class="field" for="wdate">날짜<input id="wdate" type="date"></label>
-<label class="field" for="wslug">글 주소 (영어, 선택)<input id="wslug" type="text" maxlength="80" placeholder="예: ai-chatbot-planning"></label>
-<label class="field" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록에 보일 한두 문장"></label>
-<label class="field" for="wdesc">검색 결과 설명 (선택)<input id="wdesc" type="text" maxlength="300" placeholder="비우면 요약을 써요"></label>
+<label class="field" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록과 검색 결과에 보일 한두 문장"></label>
 </div>
 <div class="tabs" role="tablist" aria-label="편집 방식"><button role="tab" type="button" id="tw" aria-selected="true">작성</button><button role="tab" type="button" id="tp" aria-selected="false">미리보기</button></div>
 <label id="bodywrap"><span class="sr">본문</span><textarea id="wbody" placeholder="## 제목&#10;&#10;본문을 마크다운으로 쓰세요. 제목은 ##, 목록은 -, 굵게는 **글자** 예요."></textarea></label>

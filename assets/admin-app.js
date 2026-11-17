@@ -153,8 +153,8 @@ if (page === 'write') {
         if (!s.exists()) { note(msg, '글을 찾을 수 없어요.', 'warn'); $('form').hidden = true; }
         else {
           existing = s.data();
-          $('wtitle').value = existing.title; $('wslug').value = existing.slug; cat.value = existing.category; vis = existing.visibility;
-          $('wsum').value = existing.summary; $('wdesc').value = existing.description; $('wdate').value = existing.date; $('wbody').value = existing.body;
+          $('wtitle').value = existing.title; cat.value = existing.category; vis = existing.visibility;
+          $('wsum').value = existing.summary; $('wdate').value = existing.date; $('wbody').value = existing.body;
           $('heading').textContent = '글 수정';
         }
       } catch (e) { note(msg, dbMsg(e), 'warn'); }
@@ -172,15 +172,15 @@ if (page === 'write') {
     $('form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const d = {
-        title: $('wtitle').value.trim(), slug: $('wslug').value.trim(), category: cat.value,
+        // 글 주소와 검색 설명 입력칸은 없애서, 새 글은 빈 값(주소는 글 번호, 설명은 요약을 씀)이고 기존 값은 그대로 둬요.
+        title: $('wtitle').value.trim(), slug: existing ? existing.slug : '', category: cat.value,
         visibility: isPriv() ? 'private' : vis,
-        summary: $('wsum').value.trim(), description: $('wdesc').value.trim(), body: $('wbody').value, date: $('wdate').value,
+        summary: $('wsum').value.trim(), description: existing ? existing.description : '', body: $('wbody').value, date: $('wdate').value,
       };
       if (!d.title) return note(msg, '제목을 입력해 주세요.', 'warn');
       if (d.title.length > 120) return note(msg, '제목은 120자 이하로 써 주세요.', 'warn');
       if (!d.body.trim()) return note(msg, '본문을 입력해 주세요.', 'warn');
-      if (d.slug && !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(d.slug)) return note(msg, '글 주소는 영어 소문자, 숫자, 하이픈(-)만 쓸 수 있어요. 예: ai-chatbot-planning', 'warn');
-      if (d.summary.length > 300 || d.description.length > 300) return note(msg, '요약과 검색 설명은 300자 이하로 써 주세요.', 'warn');
+      if (d.summary.length > 300) return note(msg, '요약은 300자 이하로 써 주세요.', 'warn');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date)) return note(msg, '날짜를 YYYY-MM-DD 형식으로 입력해 주세요.', 'warn');
       d.updatedAt = serverTimestamp();
       const btn = $('save'); btn.disabled = true;
