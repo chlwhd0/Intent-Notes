@@ -89,13 +89,22 @@ const posts = fs
   .sort((a, b) => (a.date < b.date ? 1 : -1));
 
 // ---- 공통 레이아웃 ----
-function layout({ title, body, active, root }) {
-  const nav = [
-    { href: root + 'about.html', label: 'ABOUT', key: 'about' },
-    ...cfg.categories.map((c) => ({ href: `${root}${c.slug}/`, label: c.label, key: c.slug })),
-  ]
+function layout({ title, body, active, root, admin = false, script = '' }) {
+  const items = admin
+    ? [
+        { href: root + 'admin/write.html', label: '새 글 쓰기', key: 'write' },
+        { href: root + 'index.html', label: '블로그 보기', key: 'home' },
+      ]
+    : [
+        { href: root + 'about.html', label: 'ABOUT', key: 'about' },
+        ...cfg.categories.map((c) => ({ href: `${root}${c.slug}/`, label: c.label, key: c.slug })),
+      ];
+  const nav = items
     .map((n) => `<a href="${n.href}"${n.key === active ? ' class="on" aria-current="page"' : ''}>${n.label}</a>`)
     .join('');
+  const bottom = admin
+    ? `<div class="who"><span>Firebase 연결 전 미리보기</span><a href="${root}admin/login.html">로그인 화면</a></div>`
+    : `<a class="admin" href="${root}admin/login.html">관리자 로그인</a>`;
   return `<!doctype html>
 <html lang="ko">
 <head>
@@ -111,13 +120,15 @@ function layout({ title, body, active, root }) {
 <div class="wrap">
 <aside>
 <a class="brand" href="${root}index.html">${esc(cfg.name)}</a>
-<nav aria-label="주 메뉴">${nav}</nav>
+<nav aria-label="${admin ? '관리자 메뉴' : '주 메뉴'}">${nav}</nav>
+${bottom}
 </aside>
 <main>
 ${body}
 <footer>© ${new Date().getFullYear()} ${esc(cfg.author)} · ${esc(cfg.name)}</footer>
 </main>
 </div>
+${script ? `<script src="${root}assets/${script}"></script>` : ''}
 </body>
 </html>
 `;
@@ -125,7 +136,16 @@ ${body}
 
 const fmtDate = (d) => d.replace(/-/g, '.');
 const postRow = (p, root) =>
-  `<a class="row" href="${root}posts/${p.slug}.html"><span class="tag">${esc(catBySlug[p.category].label)}</span><span class="rt"><b>${esc(p.title)}</b><small>${esc(p.summary)}</small></span><time>${fmtDate(p.date)}</time></a>`;
+  `<a class="row" data-q="${esc((p.title + ' ' + p.summary).toLowerCase())}" href="${root}posts/${p.slug}.html"><span class="tag">${esc(catBySlug[p.category].label)}</span><span class="rt"><b>${esc(p.title)}</b><small>${esc(p.summary)}</small></span><time>${fmtDate(p.date)}</time></a>`;
+
+// 글 목록(정렬·검색 포함). assets/list.js가 동작을 붙입니다.
+const listBlock = (list, root) => `<div class="tools">
+<div class="chips" role="group" aria-label="정렬"><button class="chip" type="button" data-sort="desc" aria-pressed="true">최신순</button><button class="chip" type="button" data-sort="asc" aria-pressed="false">오래된순</button></div>
+<label><span class="sr">글 검색</span><input class="search" id="q" type="search" placeholder="제목으로 검색"></label>
+</div>
+<div class="bar"><span><b>전체보기</b> <span id="count">${list.length}</span>개의 글</span></div>
+<div class="list" id="list">${list.length ? list.map((p) => postRow(p, root)).join('') : ''}</div>
+<p class="empty" id="empty"${list.length ? ' hidden' : ''}>${list.length ? '검색 결과가 없습니다.' : '아직 글이 없습니다.'}</p>`;
 
 const write = (rel, html) => {
   const f = path.join(DIST, rel);
@@ -154,8 +174,20 @@ write(
     body: `<h1 class="hero">${esc(cfg.headline)}</h1>
 <p class="tagline">${esc(cfg.tagline)}</p>
 <div class="collage">${tile('portfolio', 't1', '')}<div class="col">${tile('retrospective', 't2', '')}${tile('study', 't3', '')}</div></div>
-<div class="bar"><span><b>전체보기</b> ${posts.length}개의 글</span></div>
-<div class="list">${posts.map((p) => postRow(p, '')).join('')}</div>`,
+<div class="bar"><span><b>최근 글</b> ${Math.min(5, posts.length)}개</span><a href="posts/">전체 글 보기 →</a></div>
+<div class="list">${posts.slice(0, 5).map((p) => postRow(p, '')).join('')}</div>`,
+  })
+);
+
+// 전체 글 목록
+write(
+  'posts/index.html',
+  layout({
+    title: `전체 글 · ${cfg.name}`,
+    active: '',
+    root: '../',
+    script: 'list.js',
+    body: `<h1 class="page-title">전체 글</h1>\n${listBlock(posts, '../')}`,
   })
 );
 
@@ -168,9 +200,8 @@ cfg.categories.forEach((c) => {
       title: `${c.title} · ${cfg.name}`,
       active: c.slug,
       root: '../',
-      body: `<h1 class="page-title">${esc(c.title)}</h1>
-<div class="bar"><span><b>전체보기</b> ${list.length}개의 글</span></div>
-<div class="list">${list.length ? list.map((p) => postRow(p, '../')).join('') : '<p class="empty">아직 글이 없습니다.</p>'}</div>`,
+      script: 'list.js',
+      body: `<h1 class="page-title">${esc(c.title)}</h1>\n${listBlock(list, '../')}`,
     })
   );
 });
@@ -211,3 +242,64 @@ write(
 );
 
 console.log(`완료: 글 ${posts.length}개, 카테고리 ${cfg.categories.length}개 → ${DIST}`);
+
+// ---- 관리자 화면 (Firebase 연결 전 미리보기) ----
+const fonts = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Noto+Sans+KR:wght@300;400;500&family=Noto+Serif+KR:wght@500;700&display=swap';
+
+write(
+  'admin/login.html',
+  `<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>관리자 로그인 · ${esc(cfg.name)}</title>
+<link href="${fonts}" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body class="login">
+<div class="wrap">
+<section class="visual"><a class="brand" href="../index.html">${esc(cfg.name)}</a><p>${esc(cfg.headline)}</p><small>글쓰기는 로그인한 관리자만 할 수 있어요.</small></section>
+<section class="panel">
+<form id="f" novalidate>
+<h1>관리자 로그인</h1>
+<p class="sub">글을 쓰고 고치려면 로그인하세요.</p>
+<label class="field" for="em">이메일<input id="em" name="email" type="email" autocomplete="username" placeholder="admin@example.com"></label>
+<label class="field" for="pw">비밀번호<input id="pw" name="password" type="password" autocomplete="current-password"></label>
+<p class="err" id="err" role="alert"></p>
+<button class="btn" type="submit">로그인</button>
+<a class="back" href="../index.html">← 블로그로 돌아가기</a>
+<p class="note">아직 파이어베이스와 연결되지 않아 로그인되지 않아요.</p>
+</form>
+</section>
+</div>
+<script src="../assets/admin.js"></script>
+</body>
+</html>
+`
+);
+
+write(
+  'admin/write.html',
+  layout({
+    title: `새 글 쓰기 · ${cfg.name}`,
+    active: 'write',
+    root: '../',
+    admin: true,
+    script: 'admin.js',
+    body: `<div class="head"><h1 class="page-title">새 글 쓰기</h1><div class="btns"><button class="btn" type="button" data-need-backend>임시저장</button><button class="btn pri" type="button" data-need-backend>발행하기</button></div></div>
+<p class="notice" id="notice" role="status" hidden></p>
+<label><span class="sr">제목</span><input class="title" id="t" type="text" placeholder="제목을 입력하세요"></label>
+<div class="meta">
+<label class="field" for="cat">카테고리<select id="cat">${cfg.categories.map((c) => `<option value="${c.slug}">${esc(c.title)}</option>`).join('')}</select></label>
+<div class="field" id="vlabel">공개 범위
+<div class="vis" role="group" aria-labelledby="vlabel"><button type="button" id="pub" aria-pressed="true">공개글</button><button type="button" id="priv" aria-pressed="false">나만 보기</button></div>
+<span class="hint" id="vhint">누구나 읽을 수 있어요.</span></div>
+<label class="field" for="sum">한 줄 요약<input id="sum" type="text" placeholder="목록에 보일 한두 문장"></label>
+</div>
+<div class="tabs" role="tablist" aria-label="편집 방식"><button role="tab" type="button" id="tw" aria-selected="true">작성</button><button role="tab" type="button" id="tp" aria-selected="false">미리보기</button></div>
+<label id="bodywrap"><span class="sr">본문</span><textarea id="body" placeholder="## 제목&#10;&#10;본문을 마크다운으로 쓰세요."></textarea></label>
+<div class="preview" id="pv" hidden></div>
+<div class="status">저장 기능은 파이어베이스를 연결한 뒤에 켜져요.</div>`,
+  })
+);

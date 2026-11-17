@@ -80,3 +80,67 @@ footer{margin-top:auto;padding-top:48px;font-size:11px;letter-spacing:.08em;colo
   .row{grid-template-columns:1fr;gap:6px}
   .post h1{font-size:28px}
 }
+
+/* ---- 시안 5화면 반영: 사이드바 하단, 목록 도구, 관리자 화면 ---- */
+aside{gap:56px}
+.admin{margin-top:auto;font-size:12px;color:var(--mute)}
+.who{margin-top:auto;font-size:12px;color:var(--mute);display:flex;flex-direction:column;gap:6px}
+.sr{position:absolute;left:-9999px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+.tools{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;font-size:13px;padding:6px 16px;min-height:36px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.search{border:0;border-bottom:1px solid var(--ink);font:inherit;font-size:14px;padding:6px 2px;min-height:36px;width:220px;background:transparent;color:var(--ink)}
+.row[hidden]{display:none}
+
+/* 관리자: 글쓰기 */
+.head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px}
+.head .page-title{font-size:30px}
+.btns{display:flex;gap:8px}
+.btn{font:inherit;font-size:14px;min-height:44px;padding:0 22px;border:1px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.notice{margin:0;padding:10px 16px;background:#fbf1ee;border:1px solid #efd5cd;font-size:13px}
+.title{width:100%;border:0;border-bottom:1px solid var(--line);font-family:var(--serif-kr);font-size:30px;font-weight:700;padding:8px 0;background:transparent;color:var(--ink);letter-spacing:-.02em}
+.title::placeholder{color:#b5b0a6}
+.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
+.field{display:flex;flex-direction:column;gap:6px;font-size:12px;letter-spacing:.08em;color:var(--sub)}
+.field input,.field select{font:inherit;font-size:15px;letter-spacing:0;min-height:44px;padding:0 12px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+.vis{display:flex;border:1px solid var(--line)}
+.vis button{flex:1;font:inherit;font-size:14px;min-height:44px;border:0;background:#fff;color:var(--ink);cursor:pointer}
+.vis button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.hint{font-size:12px;color:var(--mute);letter-spacing:0}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{font:inherit;font-size:14px;min-height:44px;padding:0 18px;border:0;background:none;color:var(--sub);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:500}
+textarea{width:100%;min-height:340px;border:1px solid var(--line);padding:16px;font:inherit;font-size:15px;line-height:1.9;resize:vertical;color:var(--ink);background:#fff}
+.preview{min-height:340px;border:1px solid var(--line);padding:16px 24px;line-height:1.9}
+.preview h2{font-family:var(--serif-kr);font-size:22px;margin:.6em 0}
+.preview blockquote{margin:1em 0;padding-left:16px;border-left:2px solid var(--accent);color:var(--sub)}
+.status{font-size:12px;color:var(--mute)}
+
+/* 관리자: 로그인 */
+.login .wrap{min-height:100vh}
+.visual{flex:1 1 380px;background:var(--accent);color:#fff;padding:56px;display:flex;flex-direction:column;justify-content:space-between;gap:48px}
+.visual .brand{font-family:var(--serif);font-size:24px;font-weight:600;color:#fff}
+.visual p{margin:0;font-family:var(--serif);font-style:italic;font-size:64px;line-height:1.05;text-wrap:balance}
+.visual small{font-size:13px;opacity:.95}
+.panel{flex:1 1 380px;display:flex;align-items:center;justify-content:center;padding:48px 16px}
+.panel form{width:100%;max-width:360px;display:flex;flex-direction:column;gap:20px}
+.panel h1{margin:0;font-family:var(--serif-kr);font-weight:700;font-size:30px;letter-spacing:-.02em}
+.panel .sub{margin:-8px 0 0;font-size:14px;color:var(--sub);font-weight:300}
+.panel .field{font-size:13px;letter-spacing:0}
+.panel .field input{font-size:16px;min-height:48px;padding:0 14px;border-color:#bdb7ac}
+.panel .field input[aria-invalid="true"]{border-color:#a33a2a}
+.panel .btn{background:var(--ink);color:#fff;border:0;min-height:48px;font-size:15px;font-weight:500}
+.panel .err{margin:0;font-size:13px;color:#a33a2a;min-height:1.4em}
+.panel .back{font-size:13px;color:var(--mute)}
+.panel .note{margin:0;font-size:12px;color:var(--mute);border-top:1px solid var(--line);padding-top:16px}
+
+@media(max-width:800px){
+  .admin,.who{margin-top:0}
+  .search{width:100%}
+  .visual{padding:32px 16px;gap:24px}
+  .visual p{font-size:44px}
+}
