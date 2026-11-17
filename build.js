@@ -7,6 +7,8 @@
 const fs = require('fs');
 const path = require('path');
 const { markdown, esc } = require('./assets/markdown.js');
+const { sanitizeHtml, textOf } = require('./assets/sanitize.js');
+const T = require('./assets/thumbs.js');
 
 const ROOT = __dirname;
 const DIST = path.join(ROOT, 'dist');
@@ -55,9 +57,38 @@ function parseFile(file) {
 // 기본 빌드(인터넷에 올리는 용도)에는 아예 들어가지 않고,
 // 내 컴퓨터에서 미리 볼 때만 `node build.js --with-private`로 private/ 폴더의 글을 포함해요.
 const WITH_PRIVATE = process.argv.includes('--with-private');
-const catBySlug = Object.fromEntries(cfg.categories.map((c) => [c.slug, c]));
-const visCats = cfg.categories.filter((c) => !c.private || WITH_PRIVATE);
-const publicCats = cfg.categories.filter((c) => !c.private);
+// 메뉴(카테고리)는 파이어베이스의 settings/menus에서 가져와요. 관리자 화면의 "MANAGE MENUS"에서 고치는 값이에요.
+// 가져오지 못하거나 아직 없으면 site.config.json의 공개 메뉴를 써요. 이름은 하나(label)만 써서 어디서나 똑같이 보여요.
+let catBySlug = {};
+let visCats = [];
+let publicCats = [];
+const toCat = (c, priv) => ({ slug: c.slug, label: c.label || c.name || c.title, title: c.label || c.name || c.title, private: !!priv });
+function setCats(list) {
+  const priv = cfg.categories.filter((c) => c.private).map((c) => toCat(c, true));
+  publicCats = list;
+  visCats = WITH_PRIVATE ? [...list, ...priv] : list;
+  catBySlug = Object.fromEntries([...list, ...priv].map((c) => [c.slug, c]));
+}
+setCats(cfg.categories.filter((c) => !c.private).map((c) => toCat(c, false)));
+
+async function fetchMenus() {
+  if (process.argv.includes('--no-remote')) return;
+  const url = `https://firestore.googleapis.com/v1/projects/${fbCfg.projectId}/databases/(default)/documents/settings/menus`;
+  let res;
+  try { res = await fetch(url); } catch (e) { throw new Error('파이어베이스에서 메뉴를 가져오지 못했어요. 인터넷 연결을 확인하거나 --no-remote 옵션을 쓰세요.'); }
+  if (res.status === 404) { warnings.push('파이어베이스에 메뉴 설정(settings/menus)이 아직 없어서 site.config.json의 메뉴를 썼어요.'); return; }
+  if (!res.ok) throw new Error(`파이어베이스에서 메뉴를 가져오지 못했어요 (오류 ${res.status}).`);
+  const doc = await res.json();
+  const vals = (((doc.fields || {}).categories || {}).arrayValue || {}).values || [];
+  const list = vals.map((v) => {
+    const f = (v.mapValue || {}).fields || {};
+    return { slug: (f.slug || {}).stringValue || '', name: (f.name || {}).stringValue || '' };
+  }).filter((c) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(c.slug) && c.name);
+  if (list.length) setCats(list.map((c) => toCat(c, false)));
+}
+
+// 썸네일 모양: 글에 정해 둔 값이 없으면 주소(slug)로 정해요.
+const hashN = (s) => [...String(s)].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 6;
 
 function checkPost(p, where) {
   if (!p.summary) warnings.push(`${where}: summary(요약)가 없어 본문 앞부분을 검색 결과 설명으로 써요.`);
@@ -82,6 +113,9 @@ const loadPosts = (dir, isPrivateDir) => {
       const html = markdown(body);
       const post = {
         slug,
+        id: 'md-' + slug,
+        thumb: /^[0-5]$/.test(meta.thumb || '') ? Number(meta.thumb) : hashN(slug),
+        img: '',
         title: meta.title || slug,
         date: meta.date || '',
         category: meta.category,
@@ -131,10 +165,13 @@ async function fetchRemotePosts() {
       warnings.push(`파이어베이스 글 ${id}: 알 수 없거나 비공개인 카테고리(${s('category')})라 건너뛰었어요.`);
       continue;
     }
-    const html = markdown(s('body'));
+    const html = s('format') === 'html' ? sanitizeHtml(s('body')) : markdown(s('body'));
+    const th = f.thumb && f.thumb.integerValue !== undefined ? Number(f.thumb.integerValue) : hashN(id);
     const post = {
       slug: s('slug') || id,
       id,
+      thumb: th >= 0 && th < 6 ? th : 0,
+      img: T.okImg(s('img')) ? s('img') : '',
       title: s('title') || id,
       date: s('date'),
       category: s('category'),
@@ -166,7 +203,8 @@ function headHtml({ title, root, seo = {} }) {
     // 공유 카드(Open Graph, Twitter)
     const imgRel = seo.image || cfg.ogImage || 'assets/og-default.png';
     const hasImg = SITE_URL && fs.existsSync(path.join(ROOT, imgRel));
-    const imgUrl = hasImg ? `${SITE_URL}/${imgRel.replace(/^\//, '')}` : '';
+    // 올린 썸네일 이미지는 공유 카드에도 써요(PNG·JPG·WebP·GIF라서 공유에 쓸 수 있어요).
+    const imgUrl = seo.imageUrl || (hasImg ? `${SITE_URL}/${imgRel.replace(/^\//, '')}` : '');
     t.push(`<meta property="og:type" content="${seo.type || 'website'}">`);
     t.push(`<meta property="og:site_name" content="${esc(cfg.name)}">`);
     t.push(`<meta property="og:locale" content="ko_KR">`);
@@ -175,7 +213,7 @@ function headHtml({ title, root, seo = {} }) {
     if (canonical) t.push(`<meta property="og:url" content="${esc(canonical)}">`);
     if (imgUrl) {
       t.push(`<meta property="og:image" content="${esc(imgUrl)}">`);
-      if (imgRel === 'assets/og-default.png') t.push('<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">');
+      if (!seo.imageUrl && imgRel === 'assets/og-default.png') t.push('<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">');
     }
     if (seo.type === 'article' && isoDate(seo.published)) t.push(`<meta property="article:published_time" content="${seo.published}">`);
     t.push(`<meta name="twitter:card" content="${imgUrl ? 'summary_large_image' : 'summary'}">`);
@@ -200,41 +238,37 @@ function headHtml({ title, root, seo = {} }) {
 }
 
 // ---- 공통 레이아웃 ----
-function layout({ title, body, active, root, admin = false, script = '', extraScripts = '', bodyAttr = '', seo = {} }) {
-  const items = admin
-    ? [
-        { href: root + 'admin/write.html', label: '새 글 쓰기', key: 'write' },
-        { href: root + 'admin/posts.html', label: '글 관리', key: 'posts' },
-        { href: root + 'index.html', label: '블로그 보기', key: 'home' },
-      ]
-    : [
-        { href: root + 'about.html', label: 'ABOUT', key: 'about' },
-        ...visCats.map((c) => ({ href: `${root}${c.slug}/`, label: c.label, key: c.slug })),
-      ];
-  const nav = items
-    .map((n) => `<a href="${n.href}"${n.key === active ? ' class="on" aria-current="page"' : ''}>${n.label}</a>`)
-    .join('');
-  const bottom = admin
-    ? `<div class="who"><span id="who">확인 중…</span><button type="button" id="logout" class="linkbtn">로그아웃</button></div>`
-    : `<a class="admin" href="${root}admin/login.html" rel="nofollow">관리자 로그인</a>`;
+// 사이드바는 방문자용 메뉴가 기본이에요. 관리자가 로그인하면 assets/admin-app.js가 관리자 메뉴로 바꿔 줘요.
+// 관리자 화면(admin/)의 사이드바는 처음부터 비어 있다가 로그인 확인 뒤에 채워져요.
+const catsJson = () => JSON.stringify(publicCats.map((c) => ({ slug: c.slug, name: c.label }))).replace(/</g, '\\u003c');
+function layout({ title, body, active, root, admin = false, scripts = [], bodyAttr = '', seo = {} }) {
+  const items = [
+    { href: root + 'about.html', label: 'ABOUT', key: 'about' },
+    ...visCats.map((c) => ({ href: `${root}${c.slug}/`, label: c.label, key: c.slug })),
+  ];
+  const nav = items.map((n) => `<a href="${n.href}"${n.key === active ? ' class="on" aria-current="page"' : ''}>${esc(n.label)}</a>`).join('');
+  const side = admin
+    ? `<nav id="nav" aria-label="관리자 메뉴"></nav>\n<div class="bottom" id="bottom"></div>`
+    : `<nav id="nav" aria-label="주 메뉴">${nav}</nav>\n<div class="bottom" id="bottom"><button type="button" class="linkbtn" id="vlogin">Google 로그인</button><a class="admin" href="${root}admin/login.html" rel="nofollow">관리자 로그인</a></div>`;
+  const tags = scripts.map((s) => (/^(admin-app|site)\.js$/.test(s) ? `<script type="module" src="${root}assets/${s}"></script>` : `<script src="${root}assets/${s}"></script>`)).join('\n');
   return `<!doctype html>
 <html lang="ko">
 <head>
 ${headHtml({ title, root, seo })}
 </head>
-<body${bodyAttr}>
+<body data-root="${root}"${bodyAttr}>
 <div class="wrap">
 <aside>
 <a class="brand" href="${root}index.html">${esc(cfg.name)}</a>
-<nav aria-label="${admin ? '관리자 메뉴' : '주 메뉴'}">${nav}</nav>
-${bottom}
+${side}
 </aside>
 <main>
 ${body}
 <footer>© ${new Date().getFullYear()} ${esc(cfg.author)} · ${esc(cfg.name)}</footer>
 </main>
 </div>
-${script ? `<script src="${root}assets/${script}"></script>` : ''}${extraScripts}
+<script type="application/json" id="cats">${catsJson()}</script>
+${tags}
 </body>
 </html>
 `;
@@ -242,8 +276,11 @@ ${script ? `<script src="${root}assets/${script}"></script>` : ''}${extraScripts
 
 const fmtDate = (d) => d.replace(/-/g, '.');
 const timeTag = (d) => (isoDate(d) ? `<time datetime="${d}">${fmtDate(d)}</time>` : `<time>${fmtDate(d)}</time>`);
+const isPrivCat = (slug) => !!(catBySlug[slug] && catBySlug[slug].private);
+// 조회수 자리: 나만 보기 메뉴의 글에는 만들지 않아요. 숫자는 assets/site.js가 채워요.
+const viewsSpan = (p, cls = 'v') => (isPrivCat(p.category) ? '' : `<span class="${cls}" data-views="${esc(p.id)}" hidden></span>`);
 const postRow = (p, root) =>
-  `<a class="row" data-q="${esc((p.title + ' ' + p.summary).toLowerCase())}" href="${root}posts/${p.slug}.html"><span class="tag">${esc(catBySlug[p.category].label)}</span><span class="rt"><b>${esc(p.title)}</b><small>${esc(p.summary)}</small></span>${timeTag(p.date)}</a>`;
+  `<a class="row" data-q="${esc((p.title + ' ' + p.summary).toLowerCase())}" href="${root}posts/${p.slug}.html"><span class="thumb">${T.inner(p)}</span><span class="tag">${esc(catBySlug[p.category].label)}</span><span class="rt"><b>${esc(p.title)}</b><small>${esc(p.summary)}</small></span><span class="meta2">${timeTag(p.date)}${viewsSpan(p)}</span></a>`;
 
 // 글 목록(정렬·검색 포함). assets/list.js가 동작을 붙입니다.
 const listBlock = (list, root) => `<div class="tools">
@@ -268,6 +305,7 @@ const websiteLd = () => {
 
 // ---- 빌드 ----
 async function main() {
+  await fetchMenus();
   const remote = await fetchRemotePosts();
   const local = [...loadPosts(path.join(ROOT, 'posts'), false), ...(WITH_PRIVATE ? loadPosts(path.join(ROOT, 'private'), true) : [])];
   // 주소(slug)가 겹치면 파이어베이스 글 뒤에 글 번호 앞 6자를 붙여요.
@@ -284,24 +322,29 @@ async function main() {
   fs.rmSync(DIST, { recursive: true, force: true });
   fs.cpSync(path.join(ROOT, 'assets'), path.join(DIST, 'assets'), { recursive: true });
 
-  // 홈: 카테고리별 최신 글 3개를 콜라주 타일로
+  // 홈: 메뉴별 최신 글 최대 3개를 콜라주 타일로(글 썸네일이 타일 배경이에요)
   const latest = (slug) => posts.find((p) => p.category === slug);
-  const tile = (slug, cls, root) => {
-    const p = latest(slug);
-    const c = catBySlug[slug];
-    if (!p) return `<div class="tile ${cls}"><span>${esc(c.title)}</span></div>`;
-    return `<a class="tile ${cls}" href="${root}posts/${p.slug}.html"><small>${esc(c.label)}</small><span>${esc(p.title)}</span></a>`;
+  const tile = (c, cls, root) => {
+    const p = latest(c.slug);
+    if (!p) return `<div class="tile ${cls}"><small>${esc(c.label)}</small><span>아직 글이 없어요</span></div>`;
+    return `<a class="tile has ${cls}" href="${root}posts/${p.slug}.html"><div class="tbgi">${T.inner(p)}</div><small>${esc(c.label)}</small><span>${esc(p.title)}</span></a>`;
   };
+  const vc = visCats.slice(0, 3);
+  const collage = vc.length
+    ? `<div class="collage"${vc.length < 2 ? ' style="grid-template-columns:1fr"' : ''}>${tile(vc[0], 't1', '')}${vc.length > 1 ? `<div class="col${vc.length === 2 ? ' one' : ''}">${vc.slice(1).map((c, i) => tile(c, i === 0 ? 't2' : 't3', '')).join('')}</div>` : ''}</div>`
+    : '';
   write(
     'index.html',
     layout({
       title: `${cfg.name} · AI PM 블로그`,
       active: '',
       root: '',
+      scripts: ['boot.js', 'site.js'],
+      bodyAttr: ' data-page="public"',
       seo: { description: DESC, rel: '', jsonld: [websiteLd()] },
       body: `<h1 class="hero">${esc(cfg.headline)}</h1>
 <p class="tagline">${esc(cfg.tagline)}</p>
-<div class="collage">${tile('portfolio', 't1', '')}<div class="col${WITH_PRIVATE ? '' : ' one'}">${WITH_PRIVATE ? tile('retrospective', 't2', '') : ''}${tile('study', 't3', '')}</div></div>
+${collage}
 <div class="bar"><span><b>최근 글</b> ${Math.min(5, posts.length)}개</span><a href="posts/">전체 글 보기 →</a></div>
 <div class="list">${posts.slice(0, 5).map((p) => postRow(p, '')).join('')}</div>`,
     })
@@ -314,13 +357,14 @@ async function main() {
       title: `전체 글 · ${cfg.name}`,
       active: '',
       root: '../',
-      script: 'list.js',
+      scripts: ['boot.js', 'list.js', 'site.js'],
+      bodyAttr: ' data-page="public"',
       seo: { description: `${cfg.name}에 올린 글 ${posts.length}편의 목록입니다. 포트폴리오와 스터디 노트를 최신순으로 볼 수 있어요.`, rel: 'posts/' },
-      body: `<h1 class="page-title">전체 글</h1>\n${listBlock(posts, '../')}`,
+      body: `<h1 class="ptitle">전체 글</h1>\n${listBlock(posts, '../')}`,
     })
   );
 
-  // 카테고리 페이지
+  // 메뉴(카테고리) 페이지
   visCats.forEach((c) => {
     const list = posts.filter((p) => p.category === c.slug);
     write(
@@ -329,9 +373,10 @@ async function main() {
         title: `${c.title} · ${cfg.name}`,
         active: c.slug,
         root: '../',
-        script: 'list.js',
+        scripts: ['boot.js', 'list.js', 'site.js'],
+        bodyAttr: ' data-page="public"',
         seo: { description: `${cfg.name}의 ${c.title} 글 ${list.length}편. ${list[0] ? `최근 글: ${list[0].title}` : '곧 글이 올라와요.'}`, rel: `${c.slug}/` },
-        body: `<h1 class="page-title">${esc(c.title)}</h1>\n${listBlock(list, '../')}`,
+        body: `<h1 class="ptitle">${esc(c.title)}</h1>\n${listBlock(list, '../')}`,
       })
     );
   });
@@ -359,7 +404,8 @@ async function main() {
       ld.mainEntityOfPage = urlFor(rel);
       ld.url = urlFor(rel);
       const imgRel = p.image || cfg.ogImage || 'assets/og-default.png';
-      if (fs.existsSync(path.join(ROOT, imgRel))) ld.image = `${SITE_URL}/${imgRel.replace(/^\//, '')}`;
+      if (p.img) ld.image = p.img;
+      else if (fs.existsSync(path.join(ROOT, imgRel))) ld.image = `${SITE_URL}/${imgRel.replace(/^\//, '')}`;
     }
     const jsonld = [ld];
     if (SITE_URL) {
@@ -373,20 +419,31 @@ async function main() {
         ],
       });
     }
+    const isPriv = !!c.private;
+    // 공유하기는 공개 메뉴의 글에만 있어요. 주소는 assets/share.js가 만들어요.
+    const share = isPriv
+      ? ''
+      : `<div class="share"><button class="btn sm" type="button" id="sharebtn" aria-expanded="false" aria-controls="sharep">공유하기</button><div class="sharep" id="sharep" hidden><label class="sr" for="surl">글 주소</label><input id="surl" type="text" readonly value=""><button class="btn sm pri" type="button" id="copybtn">링크 복사</button><span class="hint" id="smsg" role="status" style="width:100%;text-align:center"></span><div class="slinks" id="slinks"></div></div></div>`;
+    const remoteId = p.id.startsWith('md-') ? '' : ` data-pid="${esc(p.id)}"`;
     write(
       rel,
       layout({
         title: `${p.title} · ${cfg.name}`,
         active: p.category,
         root: '../',
-        seo: { description: p.description, rel, type: 'article', image: p.image, published: p.date, jsonld },
+        scripts: ['boot.js', ...(isPriv ? [] : ['share.js']), 'site.js'],
+        bodyAttr: ` data-page="public"${remoteId}`,
+        seo: { description: p.description, rel, type: 'article', image: p.image, imageUrl: p.img, published: p.date, jsonld },
         body: `<article class="post">
 <a class="tag" href="../${c.slug}/">${esc(c.label)}</a>
 <h1>${esc(p.title)}</h1>
 <p class="summary">${esc(p.summary)}</p>
-${timeTag(p.date)}
+<div class="meta3">${timeTag(p.date)}${viewsSpan(p, 'hint')}</div>
+${share}
+<div class="cover">${T.inner(p)}</div>
 <div class="body">${p.html}</div>
 <div class="pn">${prev ? `<a href="${prev.slug}.html" rel="prev">← ${esc(prev.title)}</a>` : '<span></span>'}${next ? `<a href="${next.slug}.html" rel="next">${esc(next.title)} →</a>` : '<span></span>'}</div>
+${isPriv ? '' : `<section class="cms" id="comments" data-post="${esc(p.id)}" aria-labelledby="cmh"><h2 class="sec" id="cmh">댓글</h2><p class="empty">댓글을 불러오는 중…</p></section>`}
 </article>`,
       })
     );
@@ -407,8 +464,24 @@ ${timeTag(p.date)}
       title: `ABOUT · ${cfg.name}`,
       active: 'about',
       root: '',
+      scripts: ['boot.js', 'site.js'],
+      bodyAttr: ' data-page="public"',
       seo: { description: excerpt(aboutHtml) || DESC, rel: 'about.html', jsonld: aboutLd },
       body: `<article class="post"><h1>${esc(about.meta.title || 'About')}</h1><div class="body">${aboutHtml}</div></article>`,
+    })
+  );
+
+  // @ 알림: 로그인한 방문자가 자신을 @로 부른 댓글을 보는 화면이에요. 검색에서는 빠져요.
+  write(
+    'mentions.html',
+    layout({
+      title: `@ 알림 · ${cfg.name}`,
+      active: '',
+      root: '',
+      scripts: ['boot.js', 'site.js'],
+      bodyAttr: ' data-page="mentions"',
+      seo: { noindex: true },
+      body: `<h1 class="ptitle">@ 알림</h1><p class="hint" style="margin:0">나를 @로 부른 댓글이에요.</p><div id="mentions"><p class="empty">불러오는 중…</p></div>`,
     })
   );
 
@@ -419,6 +492,7 @@ ${timeTag(p.date)}
       title: `페이지를 찾을 수 없어요 · ${cfg.name}`,
       active: '',
       root: '/',
+      scripts: ['boot.js'],
       seo: { noindex: true },
       body: `<article class="post"><h1>페이지를 찾을 수 없어요</h1><p class="summary">주소가 바뀌었거나 없는 글이에요.</p><p><a class="btn" href="/index.html">홈으로 가기</a></p></article>`,
     })
@@ -458,10 +532,7 @@ ${timeTag(p.date)}
   }
 
   // ---- 관리자 화면 (파이어베이스 로그인과 데이터베이스에 연결) ----
-  // 비공개 메뉴(회고)의 이름은 공개되는 이 파일들에 넣지 않아요. 관리자가 로그인한 뒤 데이터베이스에서 불러와요.
-  const catsJson = JSON.stringify(Object.fromEntries(publicCats.map((c) => [c.slug, c.title]))).replace(/</g, '\\u003c');
-  const appScripts = `\n<script type="application/json" id="cats">${catsJson}</script>\n<script src="../assets/markdown.js"></script>\n<script type="module" src="../assets/admin-app.js"></script>`;
-
+  // 나만 보기 메뉴(회고)의 이름은 공개되는 이 파일들에 넣지 않아요. 관리자가 로그인한 뒤 데이터베이스에서 불러와요.
   write(
     'admin/login.html',
     `<!doctype html>
@@ -469,13 +540,13 @@ ${timeTag(p.date)}
 <head>
 ${headHtml({ title: `관리자 로그인 · ${cfg.name}`, root: '../', seo: { noindex: true } })}
 </head>
-<body class="login" data-page="login">
-<div class="wrap">
-<section class="visual"><a class="brand" href="../index.html">${esc(cfg.name)}</a><p>${esc(cfg.headline)}</p><small>글쓰기는 로그인한 관리자만 할 수 있어요.</small></section>
+<body class="login" data-page="login" data-root="../">
+<div class="lwrap">
+<section class="visual"><a class="brand" href="../index.html">${esc(cfg.name)}</a><p>${esc(cfg.headline)}</p><small>글쓰기와 관리는 로그인한 관리자만 할 수 있어요.</small></section>
 <section class="panel">
 <form id="f" novalidate>
 <h1>관리자 로그인</h1>
-<p class="sub">글을 쓰고 고치려면 로그인하세요.</p>
+<p class="sub">글을 쓰고 블로그를 관리하려면 로그인하세요.</p>
 <button class="btn gbtn" id="google" type="button"><span class="gdot" aria-hidden="true">G</span> Google 계정으로 로그인</button>
 <p class="err" id="err" role="alert"></p>
 <a class="back" href="../index.html">← 블로그로 돌아가기</a>
@@ -483,71 +554,41 @@ ${headHtml({ title: `관리자 로그인 · ${cfg.name}`, root: '../', seo: { no
 </form>
 </section>
 </div>
+<script type="application/json" id="cats">${catsJson()}</script>
 <script type="module" src="../assets/admin-app.js"></script>
 </body>
 </html>
 `
   );
 
-  write(
-    'admin/posts.html',
-    layout({
-      title: `글 관리 · ${cfg.name}`,
-      active: 'posts',
-      root: '../',
-      admin: true,
-      bodyAttr: ' data-page="posts"',
-      extraScripts: appScripts,
-      seo: { noindex: true },
-      body: `<p id="gate" class="empty">로그인 확인 중…</p>
-<div id="adminapp" hidden>
-<div class="head"><h1 class="page-title">글 관리</h1><a class="btn pri" href="write.html">새 글 쓰기</a></div>
-<p class="notice" id="msg" role="status" hidden></p>
-<p class="hint">공개 글은 사이트를 다시 빌드하고 배포해야 방문자에게 보여요. · 글 <span id="count">0</span>개</p>
-<div class="tblwrap"><table class="tbl"><thead><tr><th scope="col">제목</th><th scope="col">카테고리</th><th scope="col">공개 범위</th><th scope="col">날짜</th><th scope="col"><span class="sr">작업</span></th></tr></thead><tbody id="rows"></tbody></table></div>
-</div>`,
-    })
-  );
-
-  write(
-    'admin/write.html',
-    layout({
-      title: `글쓰기 · ${cfg.name}`,
-      active: 'write',
-      root: '../',
-      admin: true,
-      bodyAttr: ' data-page="write"',
-      extraScripts: appScripts,
-      seo: { noindex: true },
-      body: `<p id="gate" class="empty">로그인 확인 중…</p>
-<div id="adminapp" hidden>
-<div class="head"><h1 class="page-title" id="heading">새 글 쓰기</h1></div>
-<p class="notice" id="msg" role="status" hidden></p>
-<form id="form" novalidate>
-<label><span class="sr">제목</span><input class="title" id="wtitle" type="text" maxlength="120" placeholder="제목을 입력하세요"></label>
-<div class="meta">
-<label class="field" for="wcat">카테고리<select id="wcat">${publicCats.map((c) => `<option value="${c.slug}">${esc(c.title)}</option>`).join('')}</select></label>
-<div class="field" id="vgroup">공개 범위
-<div class="vis" role="group" aria-label="공개 범위"><button type="button" id="pub" aria-pressed="true">공개글</button><button type="button" id="priv" aria-pressed="false">나만 보기</button></div>
-<span class="hint" id="vhint">누구나 읽을 수 있어요.</span></div>
-<div class="field" id="vfixed" hidden>공개 범위<p class="fixed">나만 보기 (고정)</p><span class="hint">이 메뉴는 항상 나만 볼 수 있어요. 공개로 바꿀 수 없어요.</span></div>
-<label class="field" for="wdate">날짜<input id="wdate" type="date"></label>
-<label class="field" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록과 검색 결과에 보일 한두 문장"></label>
-</div>
-<div class="tabs" role="tablist" aria-label="편집 방식"><button role="tab" type="button" id="tw" aria-selected="true">작성</button><button role="tab" type="button" id="tp" aria-selected="false">미리보기</button></div>
-<label id="bodywrap"><span class="sr">본문</span><textarea id="wbody" placeholder="## 제목&#10;&#10;본문을 마크다운으로 쓰세요. 제목은 ##, 목록은 -, 굵게는 **글자** 예요."></textarea></label>
-<div class="preview body" id="pv" hidden></div>
-<div class="btns"><button class="btn pri" id="save" type="submit">저장하기</button><a class="btn" href="posts.html">글 관리로</a></div>
-</form>
-</div>`,
-    })
-  );
+  // 관리자 화면은 모두 같은 틀이에요. 내용은 로그인 확인 뒤 assets/admin-app.js가 채워요.
+  [
+    ['posts', 'MANAGE POSTS'],
+    ['menus', 'MANAGE MENUS'],
+    ['write', 'NEW POST'],
+    ['list', '글 목록'],
+    ['view', '글 보기'],
+  ].forEach(([key, label]) => {
+    write(
+      `admin/${key}.html`,
+      layout({
+        title: `${label} · ${cfg.name}`,
+        active: key,
+        root: '../',
+        admin: true,
+        scripts: ['admin-app.js'],
+        bodyAttr: ` data-page="${key}"`,
+        seo: { noindex: true },
+        body: `<p id="gate" class="empty">로그인 확인 중…</p>\n<div id="adminapp" hidden></div>`,
+      })
+    );
+  });
 
   console.log(`완료: 글 ${posts.length}개 (파이어베이스 ${remote.length}개, 파일 ${local.length}개), 카테고리 ${visCats.length}개${WITH_PRIVATE ? ' (나만 보기 글 포함, 올리지 마세요)' : ''} → ${DIST}`);
 
   // ---- 공개 전에 고쳐야 할 자리표시자 점검 ----
   if (isPlaceholder(cfg.author)) warnings.push('작성자 이름이 자리표시자([이름])예요. 공개 전에 site.config.json의 author를 바꿔 주세요. (구조화 데이터의 작성자 정보도 비어 있어요.)');
-  if (isPlaceholder(cfg.contact)) warnings.push('연락처가 자리표시자예요. 공개 전에 바꾸거나 about.md에서 지워 주세요.');
+  if (cfg.contact && isPlaceholder(cfg.contact)) warnings.push('연락처가 자리표시자예요. 공개 전에 바꾸거나 about.md에서 지워 주세요.');
   if (posts.some((p) => /^\[샘플\]/.test(p.title))) warnings.push('[샘플]이 붙은 글이 있어요. 공개 전에 지워 주세요.');
   if (SITE_URL) console.log(`사이트 주소: ${SITE_URL}`);
   if (warnings.length) console.log('\nSEO 점검 알림:\n' + warnings.map((w) => ' - ' + w).join('\n'));

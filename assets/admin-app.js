@@ -1,17 +1,34 @@
-// 관리자 화면(로그인, 글 관리, 글쓰기)의 동작. 파이어베이스 로그인(Authentication)과 데이터베이스(Firestore)를 써요.
-// 관리자인지는 로그인 정보의 admin 표시(custom claim)로 확인하고, 실제 막는 일은 firestore.rules가 해요.
+// 관리자 화면의 동작. 파이어베이스 로그인(Authentication), 데이터베이스(Firestore), 파일 저장소(Storage)를 써요.
+// 관리자인지는 로그인 정보의 admin 표시(custom claim)로 확인하고, 실제로 막는 일은 firestore.rules와 storage.rules가 해요.
+// 같은 파일이 (1) 관리자 화면 6개와 (2) 관리자가 로그인한 채로 보는 공개 화면의 사이드바를 맡아요.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
-  getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy,
+  getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, orderBy, where,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+import { getStorage, ref as sref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
+import './sanitize.js';
+import './markdown.js';
+import './thumbs.js';
+
+const { sanitizeHtml, textOf, FAM } = self.IntentSan;
+const MD = self.IntentMd;
+const TH = self.IntentThumbs;
 
 const cfg = await (await fetch(new URL('./firebase-config.json', import.meta.url))).json();
-const app = initializeApp(cfg);
+const app = initializeApp(cfg, 'admin');
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
+const body = document.body;
+const page = body.dataset.page;
+const root = body.dataset.root || '';
 const $ = (id) => document.getElementById(id);
-const page = document.body.dataset.page;
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const fd = (d) => String(d || '').replace(/-/g, '.');
+const today = () => new Date().toLocaleDateString('sv-SE');
+const params = new URLSearchParams(location.search);
+const setHint = (on) => { try { on ? localStorage.setItem('intentAdmin', '1') : localStorage.removeItem('intentAdmin'); } catch (e) { /* 무시 */ } };
 
 const firstUser = () => new Promise((resolve) => { const off = onAuthStateChanged(auth, (u) => { off(); resolve(u); }); });
 const isAdmin = async (user) => (await user.getIdTokenResult()).claims.admin === true;
@@ -28,22 +45,18 @@ function authMsg(e) {
 }
 function dbMsg(e) {
   const c = (e && e.code) || '';
-  if (c === 'permission-denied') return '권한이 없어요. 관리자로 다시 로그인해 주세요.';
-  if (c === 'unavailable') return '인터넷 연결을 확인해 주세요.';
+  if (c === 'permission-denied' || c === 'storage/unauthorized') return '권한이 없어요. 관리자로 다시 로그인해 주세요.';
+  if (c === 'unavailable' || c === 'storage/retry-limit-exceeded') return '인터넷 연결을 확인해 주세요.';
+  if (c === 'storage/bucket-not-found' || c === 'storage/project-not-found') return '이미지 저장소가 아직 준비되지 않았어요. 파이어베이스 콘솔에서 Storage를 시작해 주세요.';
   return '저장하지 못했어요. 잠시 뒤에 다시 해 주세요.';
-}
-function note(el, text, kind) {
-  el.hidden = !text;
-  el.textContent = text || '';
-  el.className = 'notice' + (kind === 'warn' ? ' warn' : '');
 }
 
 // ---------- 로그인 ----------
 if (page === 'login') {
   const err = $('err'), btn = $('google');
-  if (new URLSearchParams(location.search).get('denied')) err.textContent = '이 계정에는 관리자 권한이 없어요.';
+  if (params.get('denied')) err.textContent = '이 계정에는 관리자 권한이 없어요.';
   const u = await firstUser();
-  if (u && (await isAdmin(u))) location.replace('posts.html');
+  if (u && (await isAdmin(u))) { setHint(true); location.replace('posts.html'); }
   // 관리자는 구글 계정으로 로그인해요. 로그인한 계정에 admin 표시가 있어야만 들어갈 수 있어요.
   btn.addEventListener('click', async () => {
     btn.disabled = true; err.textContent = '';
@@ -52,152 +65,449 @@ if (page === 'login') {
       provider.setCustomParameters({ prompt: 'select_account' });
       const cred = await signInWithPopup(auth, provider);
       if (!(await isAdmin(cred.user))) {
-        await signOut(auth);
+        await signOut(auth); setHint(false);
         err.textContent = '이 구글 계정에는 관리자 권한이 없어요. 관리자로 지정한 계정으로 로그인해 주세요.';
         btn.disabled = false;
         return;
       }
+      setHint(true);
+      sessionStorage.setItem('flash', JSON.stringify(['로그인했어요. 관리자 페이지에서 블로그를 관리하세요.', false]));
       location.replace('posts.html');
-    } catch (ex) {
-      err.textContent = authMsg(ex);
-      btn.disabled = false;
-    }
+    } catch (ex) { err.textContent = authMsg(ex); btn.disabled = false; }
   });
 }
 
-// ---------- 관리자 공통 ----------
-async function guard() {
-  const user = await firstUser();
-  if (!user) { location.replace('login.html'); return null; }
-  if (!(await isAdmin(user))) { await signOut(auth); location.replace('login.html?denied=1'); return null; }
-  $('who').textContent = '로그인: ' + user.email;
-  $('logout').addEventListener('click', async () => { await signOut(auth); location.replace('login.html'); });
-  $('gate').hidden = true;
-  $('adminapp').hidden = false;
-  return user;
-}
-const publicCats = JSON.parse(($('cats') || { textContent: '{}' }).textContent); // { slug: 이름 }
-async function privateCats() {
+// ---------- 공통: 로그인 확인, 메뉴, 사이드바 ----------
+const embedded = JSON.parse(($('cats') || { textContent: '[]' }).textContent); // 공개 메뉴 [{slug,name}]
+let cats = []; // 모든 메뉴(공개 + 나만 보기), 정한 순서대로 [{slug,name,priv}]
+const catOf = (slug) => cats.find((c) => c.slug === slug);
+const catName = (slug) => (catOf(slug) ? catOf(slug).name : '(삭제된 메뉴)');
+const isPrivCat = (slug) => !!(catOf(slug) && catOf(slug).priv);
+const nm = (c) => c.name || c.label || c.title || c.slug;
+
+async function loadMenus() {
+  let pub = embedded, priv = [], order = [];
+  try { const m = await getDoc(doc(db, 'settings', 'menus')); if (m.exists() && Array.isArray(m.data().categories)) pub = m.data().categories; } catch (e) { /* 빌드 때 넣어 둔 메뉴를 써요 */ }
   try {
-    const s = await getDoc(doc(db, 'settings', 'private'));
-    return s.exists() && Array.isArray(s.data().categories) ? s.data().categories : [];
-  } catch (e) { return []; }
+    const p = await getDoc(doc(db, 'settings', 'private'));
+    if (p.exists()) { priv = Array.isArray(p.data().categories) ? p.data().categories : []; order = Array.isArray(p.data().order) ? p.data().order : []; }
+  } catch (e) { /* 나만 보기 메뉴가 없는 것으로 봐요 */ }
+  const all = [...pub.map((c) => ({ slug: c.slug, name: nm(c), priv: false })), ...priv.map((c) => ({ slug: c.slug, name: nm(c), priv: true }))];
+  const idx = (s) => { const i = order.indexOf(s); return i < 0 ? 999 : i; };
+  cats = all.map((c, i) => [c, i]).sort((a, b) => idx(a[0].slug) - idx(b[0].slug) || a[1] - b[1]).map((x) => x[0]);
 }
 
-// ---------- 글 관리 ----------
-if (page === 'posts') {
-  if (await guard()) {
-    const priv = await privateCats();
-    const privMap = Object.fromEntries(priv.map((c) => [c.slug, c.title]));
-    const titleOf = (slug) => publicCats[slug] || privMap[slug] || slug;
-    const body = $('rows'), msg = $('msg');
-    let armed = '';
-    async function load() {
-      body.textContent = '';
-      let snap;
-      try { snap = await getDocs(query(collection(db, 'posts'), orderBy('date', 'desc'))); } catch (e) { note(msg, dbMsg(e), 'warn'); return; }
-      $('count').textContent = snap.size;
-      if (snap.empty) { const tr = body.insertRow(); const td = tr.insertCell(); td.colSpan = 5; td.className = 'empty'; td.textContent = '아직 글이 없어요. “새 글 쓰기”로 첫 글을 써 보세요.'; return; }
-      snap.forEach((d) => {
-        const p = d.data(), id = d.id, fixed = p.category in privMap;
-        const tr = body.insertRow();
-        const a = document.createElement('a'); a.href = 'write.html?id=' + encodeURIComponent(id); a.textContent = p.title;
-        tr.insertCell().appendChild(a);
-        tr.insertCell().textContent = titleOf(p.category);
-        const bc = tr.insertCell(); const badge = document.createElement('span'); badge.className = 'badge' + (p.visibility === 'private' ? ' pv' : ''); badge.textContent = (p.visibility === 'public' ? '공개' : '나만 보기') + (fixed ? ' · 고정' : ''); bc.appendChild(badge);
-        tr.insertCell().textContent = p.date;
-        const ac = tr.insertCell(); ac.className = 'acts';
-        const edit = document.createElement('a'); edit.className = 'btn sm'; edit.href = a.href; edit.textContent = '수정'; ac.appendChild(edit);
-        if (!fixed) {
-          const t = document.createElement('button'); t.type = 'button'; t.className = 'btn sm'; t.textContent = p.visibility === 'public' ? '나만 보기로' : '공개로';
-          t.addEventListener('click', async () => {
-            try { await updateDoc(doc(db, 'posts', id), { visibility: p.visibility === 'public' ? 'private' : 'public', updatedAt: serverTimestamp() }); note(msg, '공개 범위를 바꿨어요. 사이트에 반영하려면 다시 빌드하고 배포해야 해요.'); load(); } catch (e) { note(msg, dbMsg(e), 'warn'); }
-          });
-          ac.appendChild(t);
-        }
-        const del = document.createElement('button'); del.type = 'button'; del.className = 'btn sm danger' + (armed === id ? ' sure' : ''); del.textContent = armed === id ? '정말 삭제할까요?' : '삭제';
-        del.addEventListener('click', async () => {
-          if (armed !== id) { armed = id; load(); setTimeout(() => { if (armed === id) { armed = ''; load(); } }, 3500); return; }
-          try { await deleteDoc(doc(db, 'posts', id)); armed = ''; note(msg, '글을 삭제했어요.'); load(); } catch (e) { note(msg, dbMsg(e), 'warn'); }
-        });
-        ac.appendChild(del);
-      });
+async function persistMenus() {
+  const pub = cats.filter((c) => !c.priv), priv = cats.filter((c) => c.priv);
+  const b = writeBatch(db);
+  b.set(doc(db, 'settings', 'private'), { categories: priv.map((c) => ({ slug: c.slug, name: c.name })), slugs: priv.map((c) => c.slug), order: cats.map((c) => c.slug) });
+  b.set(doc(db, 'settings', 'menus'), { categories: pub.map((c) => ({ slug: c.slug, name: c.name })), updatedAt: serverTimestamp() });
+  await b.commit();
+}
+
+let user = null;
+async function requireAdmin() {
+  user = await firstUser();
+  if (!user) { setHint(false); location.replace(root + 'admin/login.html'); return false; }
+  if (!(await isAdmin(user))) { await signOut(auth); setHint(false); location.replace(root + 'admin/login.html?denied=1'); return false; }
+  setHint(true);
+  return true;
+}
+
+function renderSidebar(active) {
+  const a = (href, label, key, cls) => `<a${cls ? ` class="${cls}${active === key ? ' on' : ''}"` : active === key ? ' class="on"' : ''} href="${root}admin/${href}"${active === key ? ' aria-current="page"' : ''}>${label}</a>`;
+  $('nav').setAttribute('aria-label', '관리자 메뉴');
+  $('nav').innerHTML =
+    a('list.html', 'ALL POSTS', 'all') + cats.map((c) => a('list.html?cat=' + encodeURIComponent(c.slug), esc(c.name), 'cat:' + c.slug)).join('') +
+    '<span class="sep" role="presentation"></span>' + a('write.html', 'NEW POST', 'write') +
+    '<span class="grp">ADMIN</span>' + a('menus.html', 'MANAGE MENUS', 'menus', 'subl') + a('posts.html', 'MANAGE POSTS', 'posts', 'subl');
+  $('bottom').innerHTML = `<span class="who">로그인: 관리자</span><a href="${root}index.html">블로그 보기</a><button type="button" class="linkbtn" id="logout">로그아웃</button>`;
+  $('logout').addEventListener('click', async () => { await signOut(auth); setHint(false); location.href = root + 'index.html'; });
+}
+
+// 화면을 옮길 때 보여 줄 안내 문구
+const takeFlash = () => { try { const f = JSON.parse(sessionStorage.getItem('flash') || 'null'); sessionStorage.removeItem('flash'); return f; } catch (e) { return null; } };
+const sendFlash = (msg, warn) => { try { sessionStorage.setItem('flash', JSON.stringify([msg, !!warn])); } catch (e) { /* 무시 */ } };
+let flash = takeFlash();
+const say = (msg, warn) => { flash = [msg, !!warn]; };
+const notice = () => { const f = flash; flash = null; return f ? `<p class="notice${f[1] ? ' warn' : ''}" role="${f[1] ? 'alert' : 'status'}">${esc(f[0])}</p>` : ''; };
+const NOTE_DEPLOY = ' 방문자 화면에 반영하려면 사이트를 다시 빌드하고 배포해야 해요.';
+
+// ---------- 글 데이터 ----------
+let posts = [], views = {};
+async function loadPosts() {
+  const snap = await getDocs(query(collection(db, 'posts'), orderBy('date', 'desc')));
+  posts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  try { views = {}; (await getDocs(collection(db, 'views'))).forEach((d) => { views[d.id] = Number(d.data().count) || 0; }); } catch (e) { views = {}; }
+}
+const sorted = () => posts.slice().sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1));
+const thumbHtml = (p, cls = '') => `<span class="thumb ${cls}">${TH.inner(p)}</span>`;
+const lock = (p) => (p.visibility === 'private' ? '<span class="lock">나만 보기</span>' : '');
+const viewsOf = (p) => (isPrivCat(p.category) ? '-' : String(views[p.id] || 0));
+const adminHead = (title) => `<div class="head"><div><p class="hint" style="margin:0">관리자 페이지</p><h1 class="ptitle">${title}</h1></div><a class="btn pri" href="${root}admin/write.html">새 글 쓰기</a></div>`;
+const bodyHtml = (p) => (p.format === 'html' ? sanitizeHtml(p.body) : MD.markdown(p.body || ''));
+
+// 글이 지워지거나 나만 보기로 바뀌면 그 글의 댓글도 지워요. (나만 보기 글의 댓글이 주소만 알면 읽히는 일을 막아요.)
+async function deleteComments(postId) {
+  const cs = await getDocs(query(collection(db, 'comments'), where('post', '==', postId)));
+  await Promise.all(cs.docs.map((d) => deleteDoc(d.ref)));
+  return cs.size;
+}
+async function removePost(p) {
+  await deleteDoc(doc(db, 'posts', p.id));
+  try { await deleteDoc(doc(db, 'views', p.id)); } catch (e) { /* 조회수 문서가 없으면 넘어가요 */ }
+  try { await deleteComments(p.id); } catch (e) { /* 댓글이 없거나 지우지 못해도 글 삭제는 끝난 상태예요 */ }
+}
+
+const main = $('adminapp');
+const show = (html) => { $('gate').hidden = true; main.hidden = false; main.innerHTML = html; };
+let delArm = '', aCat = 'all', aVis = 'all', aq = '', sort = 'desc', q = '', menuDel = '';
+const armReset = (key, cb) => setTimeout(() => { if (key() ) { cb(); } }, 3500);
+
+// ---------- 글 관리 (MANAGE POSTS) ----------
+function mrows() {
+  const w = aq.trim().toLowerCase();
+  const v = sorted().filter((p) => (aCat === 'all' || p.category === aCat) && (aVis === 'all' || p.visibility === aVis) && (!w || (p.title + ' ' + (p.summary || '')).toLowerCase().includes(w)));
+  if (!v.length) return { n: 0, html: '<tr><td colspan="6"><p class="empty" style="padding:12px 0">조건에 맞는 글이 없어요.</p></td></tr>' };
+  return {
+    n: v.length,
+    html: v.map((p) => {
+      const fixed = isPrivCat(p.category);
+      const toggle = fixed ? '' : `<button class="btn sm" type="button" data-a="toggle" data-id="${esc(p.id)}">${p.visibility === 'public' ? '나만 보기로' : '공개로'}</button>`;
+      return `<tr><td class="t">${thumbHtml(p, 'sm')}<a href="${root}admin/view.html?id=${encodeURIComponent(p.id)}">${esc(p.title)}</a></td><td>${esc(catName(p.category))}</td><td><span class="badge${p.visibility === 'private' ? ' pv' : ''}">${p.visibility === 'public' ? '공개' : '나만 보기'}${fixed ? ' · 고정' : ''}</span></td><td class="d">${fd(p.date)}</td><td class="d">${viewsOf(p)}</td><td><div class="acts"><a class="btn sm" href="${root}admin/write.html?id=${encodeURIComponent(p.id)}">수정</a>${toggle}<button class="btn sm danger${delArm === p.id ? ' sure' : ''}" type="button" data-a="del" data-id="${esc(p.id)}">${delArm === p.id ? '정말 삭제할까요?' : '삭제'}</button></div></td></tr>`;
+    }).join(''),
+  };
+}
+function postsPage() {
+  const chip = (a, cur, val, label) => `<button class="chip" type="button" data-a="${a}" data-v="${esc(val)}" aria-pressed="${cur === val}">${label}</button>`;
+  const r = mrows();
+  show(notice() + adminHead('글 관리') +
+    `<section class="section"><div class="fgroup"><div class="chips" role="group" aria-label="카테고리 필터"><span class="flabel">카테고리</span>${chip('acat', aCat, 'all', '전체')}${cats.map((c) => chip('acat', aCat, c.slug, esc(c.name))).join('')}</div><div class="chips" role="group" aria-label="공개 범위 필터"><span class="flabel">공개 범위</span>${chip('avis', aVis, 'all', '전체')}${chip('avis', aVis, 'public', '공개')}${chip('avis', aVis, 'private', '나만 보기')}</div><label><span class="sr">글 검색</span><input class="search" id="aq" type="search" placeholder="제목으로 검색" value="${esc(aq)}"></label></div>` +
+    `<div class="bar"><span><b>글 목록</b> <span id="acount">${r.n}</span>개</span></div><div class="tblwrap"><table class="tbl"><thead><tr><th scope="col">제목</th><th scope="col">카테고리</th><th scope="col">공개 범위</th><th scope="col">날짜</th><th scope="col">조회수</th><th scope="col"><span class="sr">작업</span></th></tr></thead><tbody id="arows">${r.html}</tbody></table></div></section>`);
+}
+
+// ---------- 메뉴 관리 (MANAGE MENUS) ----------
+function menuRows() {
+  return cats.map((c, i) => {
+    const n = posts.filter((p) => p.category === c.slug).length;
+    return `<tr><td><label><span class="sr">메뉴 이름</span><input class="mname" type="text" maxlength="12" data-mname="${esc(c.slug)}" value="${esc(c.name)}"></label></td>` +
+      `<td><label class="chk"><input type="checkbox" data-mpriv="${esc(c.slug)}"${c.priv ? ' checked' : ''}> 나만 보기 메뉴</label></td><td class="d">글 ${n}개</td>` +
+      `<td><div class="acts"><button class="btn sm" type="button" data-a="mup" data-id="${esc(c.slug)}" aria-label="${esc(c.name)} 위로"${i === 0 ? ' disabled' : ''}>↑</button><button class="btn sm" type="button" data-a="mdown" data-id="${esc(c.slug)}" aria-label="${esc(c.name)} 아래로"${i === cats.length - 1 ? ' disabled' : ''}>↓</button><button class="btn sm danger${menuDel === c.slug ? ' sure' : ''}" type="button" data-a="mdel" data-id="${esc(c.slug)}">${menuDel === c.slug ? '정말 삭제할까요?' : '삭제'}</button></div></td></tr>`;
+  }).join('');
+}
+function menusPage() {
+  show(notice() + adminHead('메뉴 관리') +
+    `<section class="section"><p class="hint" style="margin:0">여기서 정한 이름이 사이드바, 글 목록, 글쓰기, 글 관리 필터에 똑같이 쓰여요. 영문 대문자로 쓰면 사이드바와 가장 잘 어울려요. 이름을 바꾸거나 메뉴를 추가·삭제한 뒤에는 사이트를 다시 빌드하고 배포해야 방문자 화면에 반영돼요.</p>` +
+    `<div class="tblwrap"><table class="tbl"><thead><tr><th scope="col">메뉴 이름</th><th scope="col">공개 설정</th><th scope="col">글</th><th scope="col"><span class="sr">작업</span></th></tr></thead><tbody>${cats.length ? menuRows() : '<tr><td colspan="4"><p class="empty" style="padding:12px 0">메뉴가 없어요. 아래에서 추가하세요.</p></td></tr>'}</tbody></table></div>` +
+    `<form class="addrow" id="mf" novalidate><label class="field" for="mnew">새 메뉴 이름<input id="mnew" type="text" maxlength="12" placeholder="예: PROJECT"></label><button class="btn pri" type="submit">메뉴 추가</button></form></section>`);
+}
+async function menuSave(okMsg) {
+  try { await persistMenus(); say(okMsg); } catch (e) { say(dbMsg(e), true); await loadMenus(); }
+  renderSidebar(sideKey); menusPage();
+}
+const slugFor = (name) => {
+  let s = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
+  if (!s || catOf(s)) s = 'menu-' + Date.now().toString(36);
+  return s;
+};
+
+// ---------- 글 목록 (사이드바의 ALL POSTS와 메뉴) ----------
+function listBody() {
+  const cat = params.get('cat');
+  const c = cat ? catOf(cat) : null;
+  const w = q.trim().toLowerCase();
+  let v = sorted().filter((p) => (!cat || p.category === cat) && (!w || (p.title + ' ' + (p.summary || '')).toLowerCase().includes(w)));
+  if (sort === 'asc') v = v.slice().reverse();
+  return `<div class="bar"><span><b>전체보기</b> <span id="lcount">${v.length}</span>개의 글</span></div><div id="rows">${v.length ? v.map((p) => `<a class="row" href="${root}admin/view.html?id=${encodeURIComponent(p.id)}">${thumbHtml(p)}<span class="tag">${esc(catName(p.category))}</span><span class="rt"><b>${esc(p.title)}${lock(p)}</b><small>${esc(p.summary || '')}</small></span><span class="meta2"><time>${fd(p.date)}</time>${isPrivCat(p.category) ? '' : `<span class="v">조회 ${views[p.id] || 0}</span>`}</span></a>`).join('') : `<p class="empty">${w ? '검색 결과가 없습니다.' : '아직 글이 없습니다.'}</p>`}</div>`;
+}
+function listPage() {
+  const cat = params.get('cat');
+  if (cat && !catOf(cat)) { show('<h1 class="ptitle">메뉴를 찾을 수 없어요</h1><p class="empty">삭제되었거나 없는 메뉴예요.</p><p><a class="btn" href="posts.html">글 관리로</a></p>'); return; }
+  show(notice() + `<h1 class="ptitle">${cat ? esc(catName(cat)) : '전체 글'}</h1><div class="tools"><div class="chips" role="group" aria-label="정렬"><button class="chip" type="button" data-a="sort" data-v="desc" aria-pressed="${sort === 'desc'}">최신순</button><button class="chip" type="button" data-a="sort" data-v="asc" aria-pressed="${sort === 'asc'}">오래된순</button></div><label><span class="sr">글 검색</span><input class="search" id="q" type="search" placeholder="제목으로 검색" value="${esc(q)}"></label></div><div id="lbody">${listBody()}</div>`);
+}
+
+// ---------- 글 보기 ----------
+function viewPage() {
+  const p = posts.find((x) => x.id === params.get('id'));
+  if (!p) { show('<h1 class="ptitle">글을 찾을 수 없어요</h1><p class="empty">삭제되었거나 없는 글이에요.</p><p><a class="btn" href="posts.html">글 관리로</a></p>'); return; }
+  sideKey = 'cat:' + p.category; renderSidebar(sideKey);
+  const bar = `<div class="adminbar" role="region" aria-label="관리자 메뉴"><span>관리자로 보는 중 · ${p.visibility === 'public' ? '공개글' : '나만 보기'}</span><div><a class="btn sm" href="posts.html">관리자 페이지</a><a class="btn sm" href="write.html?id=${encodeURIComponent(p.id)}">수정</a><button class="btn sm danger${delArm === p.id ? ' sure' : ''}" type="button" data-a="vdel" data-id="${esc(p.id)}">${delArm === p.id ? '정말 삭제할까요?' : '삭제'}</button></div></div>`;
+  show(bar + notice() + `<article class="post"><a class="tag" href="list.html?cat=${encodeURIComponent(p.category)}">${esc(catName(p.category))}</a><h1>${esc(p.title)}${lock(p)}</h1><p class="summary">${esc(p.summary || '')}</p><div class="meta3"><time>${fd(p.date)}</time>${isPrivCat(p.category) ? '' : `<span class="hint">조회 ${views[p.id] || 0}</span>`}</div><div class="cover">${TH.inner(p)}</div><div class="body">${bodyHtml(p)}</div>${isPrivCat(p.category) || p.visibility !== 'public' ? '<p class="hint" style="margin-top:32px">나만 보기 글에는 댓글이 달리지 않아요.</p>' : ''}</article>`);
+}
+
+// ---------- 글쓰기·수정 (NEW POST) ----------
+let draft = null, wtab = 'write', existing = null, savedRange = null, uploading = false;
+const edEl = () => $('wed');
+function syncDraft() {
+  if (!draft || !$('wtitle')) return;
+  draft.title = $('wtitle').value; draft.cat = $('wcat').value; draft.sum = $('wsum').value; draft.date = $('wdate').value;
+  const ed = edEl(); if (ed) draft.html = ed.innerHTML;
+}
+function thumbPicker(d) {
+  const bs = TH.THUMBS.map((sv, i) => `<button type="button" class="thb" data-a="thumb" data-v="${i}" aria-label="썸네일 모양 ${i + 1}" aria-pressed="${!d.img && d.thumb === i}">${sv}</button>`).join('');
+  return `<div class="field" id="thl">썸네일<div class="thpick"><div class="thcur">${thumbHtml(d)}</div>${bs}<label class="thfile btn sm" for="thfile">${uploading ? '올리는 중…' : '이미지 올리기'}</label><input class="sr" id="thfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"${uploading ? ' disabled' : ''}>${d.img ? '<button type="button" class="btn sm" data-a="thumbclear">올린 이미지 지우기</button>' : ''}</div><span class="hint">모양을 고르거나 내 이미지(PNG, JPG, WebP, GIF, 1MB 이하)를 올려요.</span></div>`;
+}
+function toolbarHtml() {
+  const b = (v, label, title) => `<button type="button" class="tbb" data-a="fmt" data-v="${v}" title="${title}" aria-label="${title}">${label}</button>`;
+  const sel = (k, label, opts) => `<label class="tbs"><span class="sr">${label}</span><select data-tb="${k}"><option value="">${label}</option>${opts.map((o) => `<option value="${esc(o[0])}">${o[1]}</option>`).join('')}</select></label>`;
+  return '<div class="tb" role="toolbar" aria-label="글 서식">' +
+    `<div class="tbg">${sel('font', '글꼴', [[FAM.sans, '고딕'], [FAM.serif, '명조'], [FAM.disp, 'Cormorant'], [FAM.mono, '고정폭']])}${sel('size', '크기', [['14px', '작게 14'], ['16px', '보통 16'], ['20px', '크게 20'], ['28px', '아주 크게 28'], ['36px', '제목 36']])}${sel('weight', '굵기', [['300', '가늘게'], ['400', '보통'], ['500', '중간'], ['700', '굵게']])}</div>` +
+    `<div class="tbg">${b('bold', '<b>B</b>', '굵게')}${b('italic', '<i>I</i>', '기울임')}${b('underline', '<u>U</u>', '밑줄')}${b('strike', '<s>S</s>', '취소선')}${sel('color', '글자색', [['#222222', '검정'], ['#b5573f', '테라코타'], ['#2f4a6d', '파랑'], ['#3f5d4a', '초록'], ['#767676', '회색']])}</div>` +
+    `<div class="tbg">${b('h2', '제목', '제목 크기로')}${b('h3', '소제목', '소제목 크기로')}${b('p', '본문', '본문으로')}</div>` +
+    `<div class="tbg">${b('left', '왼쪽', '왼쪽 정렬')}${b('center', '가운데', '가운데 정렬')}${b('right', '오른쪽', '오른쪽 정렬')}</div>` +
+    `<div class="tbg">${b('ul', '• 목록', '글머리 목록')}${b('ol', '1. 목록', '번호 목록')}${b('quote', '인용', '인용')}${b('link', '링크', '링크 넣기')}${b('clear', '서식 지우기', '서식 지우기')}</div></div>` +
+    '<p class="hint" id="tbnote" role="status" hidden></p>' +
+    '<div class="linkrow" id="linkrow" hidden><label class="sr" for="linkurl">링크 주소</label><input id="linkurl" type="url" placeholder="https://"><button type="button" class="btn sm pri" data-a="linkok">적용</button><button type="button" class="btn sm" data-a="linkcancel">취소</button></div>';
+}
+function writePage() {
+  if (!cats.length) { show('<h1 class="ptitle">새 글 쓰기</h1><p class="notice warn" role="alert">글을 올릴 메뉴가 없어요. 메뉴 관리에서 메뉴를 먼저 추가하세요.</p><p><a class="btn" href="menus.html">메뉴 관리로</a></p>'); return; }
+  const d = draft;
+  const fixed = isPrivCat(d.cat); if (fixed) d.vis = 'private';
+  const visHtml = fixed
+    ? `<div class="field">공개 범위<p class="fixed">나만 보기 (고정)</p><span class="hint">“${esc(catName(d.cat))}” 메뉴는 항상 나만 볼 수 있어요. 공개로 바꿀 수 없어요.</span></div>`
+    : `<div class="field" id="vl">공개 범위<div class="vis" role="group" aria-labelledby="vl"><button type="button" data-a="vis" data-v="public" aria-pressed="${d.vis === 'public'}">공개글</button><button type="button" data-a="vis" data-v="private" aria-pressed="${d.vis === 'private'}">나만 보기</button></div><span class="hint">${d.vis === 'public' ? '누구나 읽을 수 있어요.' : '로그인한 관리자만 볼 수 있어요.'}</span></div>`;
+  const opts = cats.map((c) => `<option value="${esc(c.slug)}"${d.cat === c.slug ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+  const clean = sanitizeHtml(d.html);
+  const edit = wtab === 'write'
+    ? toolbarHtml() + `<div id="wed" class="ed" contenteditable="true" role="textbox" aria-multiline="true" aria-label="본문" data-ph="본문을 입력하세요. 글자를 선택한 뒤 위의 도구로 서식을 바꿔요.">${clean}</div>`
+    : `<div class="preview">${textOf(clean) ? clean : '<p style="color:var(--mute)">미리 볼 내용이 없어요.</p>'}</div>`;
+  const editing = !!existing;
+  show(`<div class="head"><h1 class="ptitle">${editing ? '글 수정' : '새 글 쓰기'}</h1><div class="btns"><button class="btn" type="button" data-a="cancel">취소</button><button class="btn pri" type="button" data-a="save" id="save">${editing ? '저장하기' : '발행하기'}</button></div></div>${notice()}` +
+    `<label><span class="sr">제목</span><input class="title" id="wtitle" type="text" maxlength="120" placeholder="제목을 입력하세요" value="${esc(d.title)}"></label>` +
+    `<div class="meta"><label class="field" for="wcat">카테고리<select id="wcat">${opts}</select></label>${visHtml}<label class="field" for="wdate">날짜<input id="wdate" type="date" value="${esc(d.date)}"></label><label class="field" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록과 검색 결과에 보일 한두 문장" value="${esc(d.sum)}"></label></div>` +
+    thumbPicker(d) +
+    `<div class="tabs" role="tablist" aria-label="편집 방식"><button role="tab" type="button" data-a="tab" data-v="write" aria-selected="${wtab === 'write'}">작성</button><button role="tab" type="button" data-a="tab" data-v="preview" aria-selected="${wtab === 'preview'}">미리보기</button></div>` + edit);
+}
+
+// ---- 글 서식 도구 ----
+const restoreSel = () => { const ed = edEl(); if (!ed) return false; ed.focus(); const s = getSelection(); if (savedRange) { s.removeAllRanges(); s.addRange(savedRange); } return s.rangeCount > 0 && ed.contains(s.anchorNode); };
+const hasSel = () => { const s = getSelection(); return s.rangeCount > 0 && !s.isCollapsed; };
+const syncEd = () => { const ed = edEl(); if (ed && draft) draft.html = ed.innerHTML; };
+const tbNote = (msg) => { const n = $('tbnote'); if (n) { n.textContent = msg; n.hidden = !msg; } };
+// 글꼴, 크기, 굵기, 색은 선택한 글자에만 적용해요.
+function applyStyle(st) {
+  if (!restoreSel() || !hasSel()) { tbNote('먼저 서식을 바꿀 글자를 드래그해서 선택하세요.'); return; }
+  tbNote('');
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand('foreColor', false, '#010203');
+  edEl().querySelectorAll('span,font').forEach((s0) => {
+    let s = s0;
+    const c = (s.style && s.style.color) || s.getAttribute('color') || '';
+    if (c === 'rgb(1, 2, 3)' || String(c).toLowerCase() === '#010203') {
+      if (s.tagName === 'FONT') { const sp = document.createElement('span'); while (s.firstChild) sp.appendChild(s.firstChild); s.parentNode.replaceChild(sp, s); s = sp; }
+      s.style.color = '';
+      Object.keys(st).forEach((k) => { s.style[k] = st[k]; });
+      if (!s.getAttribute('style')) s.removeAttribute('style');
     }
-    load();
+  });
+  document.execCommand('styleWithCSS', false, false);
+  syncEd();
+}
+function fmt(v) {
+  if (v === 'link') { if (!restoreSel() || !hasSel()) { tbNote('링크로 만들 글자를 먼저 선택하세요.'); return; } tbNote(''); $('linkrow').hidden = false; $('linkurl').focus(); return; }
+  if (!restoreSel()) return;
+  const m = { bold: 'bold', italic: 'italic', underline: 'underline', strike: 'strikeThrough', ul: 'insertUnorderedList', ol: 'insertOrderedList' };
+  const al = { left: 'justifyLeft', center: 'justifyCenter', right: 'justifyRight' };
+  document.execCommand('styleWithCSS', false, !!al[v]);
+  if (m[v]) document.execCommand(m[v]);
+  else if (al[v]) document.execCommand(al[v]);
+  else if (v === 'h2' || v === 'h3' || v === 'p') document.execCommand('formatBlock', false, v.toUpperCase());
+  else if (v === 'quote') document.execCommand('formatBlock', false, 'BLOCKQUOTE');
+  else if (v === 'clear') { document.execCommand('removeFormat'); document.execCommand('formatBlock', false, 'P'); }
+  document.execCommand('styleWithCSS', false, false);
+  syncEd();
+}
+
+async function uploadThumb(file) {
+  syncDraft();
+  if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) { say('PNG, JPG, WebP, GIF 이미지만 올릴 수 있어요.', true); writePage(); return; }
+  if (file.size > 1048576) { say('이미지는 1MB 이하만 올릴 수 있어요.', true); writePage(); return; }
+  uploading = true; writePage();
+  try {
+    const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }[file.type];
+    const r = sref(storage, `thumbs/${crypto.randomUUID()}.${ext}`);
+    await uploadBytes(r, file, { contentType: file.type });
+    draft.img = await getDownloadURL(r);
+    say('이미지를 올렸어요. 글을 저장하면 썸네일로 쓰여요.');
+  } catch (e) { say(dbMsg(e), true); }
+  uploading = false; writePage();
+}
+
+async function savePost() {
+  syncDraft();
+  const d = draft;
+  const html = sanitizeHtml(d.html);
+  const priv = isPrivCat(d.cat);
+  const data = {
+    title: d.title.trim(), slug: existing ? existing.slug || '' : '', category: d.cat, visibility: priv ? 'private' : d.vis,
+    summary: d.sum.trim(), description: existing ? existing.description || '' : '', body: html, format: 'html', thumb: d.thumb, img: d.img || '', date: d.date,
+  };
+  const bad = (m) => { say(m, true); writePage(); };
+  if (!data.title) return bad('제목을 입력해 주세요.');
+  if (!textOf(html)) return bad('본문을 입력해 주세요.');
+  if (html.length > 100000) return bad('본문이 너무 길어요. 나눠서 써 주세요.');
+  if (data.summary.length > 300) return bad('요약은 300자 이하로 써 주세요.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data.date)) return bad('날짜를 입력해 주세요.');
+  data.updatedAt = serverTimestamp();
+  $('save').disabled = true;
+  try {
+    let id;
+    if (existing) { data.createdAt = existing.createdAt; id = existing.id; await setDoc(doc(db, 'posts', id), data); }
+    else { data.createdAt = serverTimestamp(); id = (await addDoc(collection(db, 'posts'), data)).id; }
+    sendFlash(data.visibility === 'public' ? (existing ? '저장했어요.' : '발행했어요.') + NOTE_DEPLOY : '나만 보기 글로 저장했어요. 방문자에게는 보이지 않아요.');
+    location.href = `view.html?id=${encodeURIComponent(id)}`;
+  } catch (e) { say(dbMsg(e), true); writePage(); }
+}
+
+// ---------- 이벤트 ----------
+let sideKey = '';
+main && main.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-a]'); if (!b) return;
+  const a = b.dataset.a, v = b.dataset.v, id = b.dataset.id;
+  const arm = (key) => { delArm = key; rerender(); setTimeout(() => { if (delArm === key) { delArm = ''; rerender(); } }, 3500); };
+  if (a === 'sort') { sort = v; listPage(); }
+  else if (a === 'acat') { aCat = v; postsPage(); }
+  else if (a === 'avis') { aVis = v; postsPage(); }
+  else if (a === 'toggle') {
+    const p = posts.find((x) => x.id === id); if (!p || isPrivCat(p.category)) return;
+    const nv = p.visibility === 'public' ? 'private' : 'public';
+    try {
+      await updateDoc(doc(db, 'posts', id), { visibility: nv, updatedAt: serverTimestamp() }); p.visibility = nv;
+      let n = 0; if (nv === 'private') { try { n = await deleteComments(id); } catch (x) { n = 0; } }
+      say(`“${p.title}”을(를) ${nv === 'public' ? '공개로' : '나만 보기로'} 바꿨어요.` + (n ? ` 댓글 ${n}개도 함께 지웠어요.` : '') + NOTE_DEPLOY);
+    } catch (ex) { say(dbMsg(ex), true); }
+    postsPage();
+  } else if (a === 'del' || a === 'vdel') {
+    if (delArm !== id) return arm(id);
+    const p = posts.find((x) => x.id === id);
+    try { await removePost(p); posts = posts.filter((x) => x.id !== id); delArm = ''; if (a === 'vdel') { sendFlash('글을 삭제했어요.' + NOTE_DEPLOY); location.href = 'posts.html'; return; } say('글을 삭제했어요.' + NOTE_DEPLOY); } catch (ex) { delArm = ''; say(dbMsg(ex), true); }
+    rerender();
+  } else if (a === 'mup' || a === 'mdown') {
+    const i = cats.findIndex((c) => c.slug === id), j = i + (a === 'mup' ? -1 : 1);
+    if (i < 0 || j < 0 || j >= cats.length) return;
+    [cats[i], cats[j]] = [cats[j], cats[i]];
+    await menuSave('메뉴 순서를 바꿨어요.');
+  } else if (a === 'mdel') {
+    const c = catOf(id), n = posts.filter((p) => p.category === id).length;
+    if (n) { say(`“${c.name}” 메뉴에 글이 ${n}개 있어요. 글을 다른 메뉴로 옮기거나 삭제한 뒤에 지울 수 있어요.`, true); return menusPage(); }
+    if (menuDel !== id) { menuDel = id; menusPage(); setTimeout(() => { if (menuDel === id) { menuDel = ''; menusPage(); } }, 3500); return; }
+    menuDel = ''; cats = cats.filter((x) => x.slug !== id);
+    await menuSave(`“${c.name}” 메뉴를 삭제했어요.`);
+  } else if (a === 'vis') { syncDraft(); draft.vis = v; writePage(); }
+  else if (a === 'tab') { syncDraft(); wtab = v; writePage(); }
+  else if (a === 'cancel') { history.length > 1 ? history.back() : (location.href = 'posts.html'); }
+  else if (a === 'save') savePost();
+  else if (a === 'thumb') { syncDraft(); draft.thumb = Number(v); draft.img = ''; writePage(); }
+  else if (a === 'thumbclear') { syncDraft(); draft.img = ''; writePage(); }
+  else if (a === 'fmt') fmt(v);
+  else if (a === 'linkcancel') { $('linkrow').hidden = true; tbNote(''); }
+  else if (a === 'linkok') {
+    const u = ($('linkurl').value || '').trim();
+    if (!/^https?:\/\//i.test(u)) { tbNote('주소는 http:// 또는 https:// 로 시작해야 해요.'); return; }
+    if (!restoreSel() || !hasSel()) { tbNote('링크로 만들 글자를 먼저 선택하세요.'); return; }
+    document.execCommand('createLink', false, u); $('linkrow').hidden = true; $('linkurl').value = ''; tbNote(''); syncEd();
+  }
+});
+main && main.addEventListener('change', async (e) => {
+  const t = e.target;
+  if (t.id === 'thfile') { const f = t.files && t.files[0]; if (f) uploadThumb(f); }
+  else if (t.dataset && t.dataset.tb) {
+    const map = { font: 'fontFamily', size: 'fontSize', weight: 'fontWeight', color: 'color' };
+    if (!t.value) return;
+    applyStyle({ [map[t.dataset.tb]]: t.value }); t.value = '';
+  } else if (t.id === 'wcat') { syncDraft(); writePage(); }
+  else if (t.dataset && t.dataset.mname) {
+    const c = catOf(t.dataset.mname), name = t.value.trim();
+    if (!c) return;
+    if (!name) { say('메뉴 이름을 입력해 주세요.', true); return menusPage(); }
+    if (cats.some((o) => o.slug !== c.slug && o.name === name)) { say(`“${name}” 이름의 메뉴가 이미 있어요.`, true); return menusPage(); }
+    if (name === c.name) return;
+    c.name = name; await menuSave(`메뉴 이름을 “${name}”(으)로 바꿨어요. 사이드바와 글쓰기에도 같은 이름으로 보여요.`);
+  } else if (t.dataset && t.dataset.mpriv) {
+    const c = catOf(t.dataset.mpriv); if (!c) return;
+    c.priv = t.checked;
+    try {
+      if (c.priv) { // 나만 보기 메뉴로 바꾸면 그 메뉴의 공개 글도 모두 나만 보기로 바꿔요.
+        for (const p of posts.filter((x) => x.category === c.slug && x.visibility === 'public')) {
+          await updateDoc(doc(db, 'posts', p.id), { visibility: 'private', updatedAt: serverTimestamp() }); p.visibility = 'private';
+          try { await deleteComments(p.id); } catch (x) { /* 댓글이 없으면 넘어가요 */ }
+        }
+      }
+    } catch (ex) { c.priv = !c.priv; say(dbMsg(ex), true); return menusPage(); }
+    await menuSave(c.priv ? `“${c.name}” 메뉴를 나만 보기로 바꿨어요. 로그인 전에는 메뉴와 글이 보이지 않아요.` + NOTE_DEPLOY : `“${c.name}” 메뉴를 공개 메뉴로 바꿨어요. 글은 하나씩 공개로 바꿀 수 있어요.`);
+  }
+});
+main && main.addEventListener('input', (e) => {
+  const t = e.target;
+  if (t.id === 'wed') { if (draft) draft.html = t.innerHTML; }
+  else if (t.id === 'aq') { aq = t.value; const r = mrows(); $('arows').innerHTML = r.html; $('acount').textContent = r.n; }
+  else if (t.id === 'q') { q = t.value; $('lbody').innerHTML = listBody(); }
+});
+main && main.addEventListener('submit', async (e) => {
+  if (e.target.id !== 'mf') return;
+  e.preventDefault();
+  const name = $('mnew').value.trim();
+  if (!name) { say('새 메뉴 이름을 입력해 주세요.', true); return menusPage(); }
+  if (cats.some((o) => o.name === name)) { say(`“${name}” 이름의 메뉴가 이미 있어요.`, true); return menusPage(); }
+  cats.push({ slug: slugFor(name), name, priv: false });
+  await menuSave(`“${name}” 메뉴를 추가했어요. 사이드바와 글쓰기에서 바로 쓸 수 있어요.` + NOTE_DEPLOY);
+});
+// 도구 버튼을 눌러도 글자 선택이 풀리지 않게 해요.
+main && main.addEventListener('mousedown', (e) => { if (e.target.closest && e.target.closest('.tbb')) e.preventDefault(); });
+main && main.addEventListener('paste', (e) => {
+  if (!e.target.closest || !e.target.closest('#wed')) return;
+  e.preventDefault();
+  const h = e.clipboardData.getData('text/html'), t = e.clipboardData.getData('text/plain');
+  document.execCommand('insertHTML', false, h ? sanitizeHtml(h) : esc(t).replace(/\n/g, '<br>'));
+  syncEd();
+});
+document.addEventListener('selectionchange', () => { const ed = edEl(), s = getSelection(); if (ed && s.rangeCount && ed.contains(s.anchorNode)) savedRange = s.getRangeAt(0).cloneRange(); });
+
+function rerender() { if (page === 'posts') postsPage(); else if (page === 'view') viewPage(); }
+
+// ---------- 화면별 시작 ----------
+if (['posts', 'menus', 'write', 'list', 'view'].includes(page)) {
+  if (await requireAdmin()) {
+    try { await loadMenus(); await loadPosts(); } catch (e) { $('gate').textContent = dbMsg(e); throw e; }
+    if (page === 'posts') { sideKey = 'posts'; renderSidebar(sideKey); postsPage(); }
+    else if (page === 'menus') { sideKey = 'menus'; renderSidebar(sideKey); menusPage(); }
+    else if (page === 'list') { sideKey = params.get('cat') ? 'cat:' + params.get('cat') : 'all'; renderSidebar(sideKey); listPage(); }
+    else if (page === 'view') { viewPage(); }
+    else if (page === 'write') {
+      sideKey = 'write'; renderSidebar(sideKey);
+      const id = params.get('id');
+      existing = id ? posts.find((p) => p.id === id) || null : null;
+      if (id && !existing) { show('<h1 class="ptitle">글을 찾을 수 없어요</h1><p class="empty">삭제되었거나 없는 글이에요.</p><p><a class="btn" href="posts.html">글 관리로</a></p>'); }
+      else {
+        draft = existing
+          ? { title: existing.title, cat: existing.category, vis: existing.visibility, sum: existing.summary || '', date: existing.date, html: bodyHtml(existing), thumb: Number.isInteger(existing.thumb) ? existing.thumb : 0, img: existing.img || '' }
+          : { title: '', cat: (params.get('cat') && catOf(params.get('cat')) ? params.get('cat') : cats.length ? cats[0].slug : ''), vis: 'public', sum: '', date: today(), html: '', thumb: Math.floor(Math.random() * 6), img: '' };
+        writePage();
+      }
+    }
   }
 }
 
-// ---------- 글쓰기·수정 ----------
-if (page === 'write') {
-  if (await guard()) {
-    const msg = $('msg'), cat = $('wcat'), editId = new URLSearchParams(location.search).get('id');
-    const priv = await privateCats();
-    priv.forEach((c) => { const o = document.createElement('option'); o.value = c.slug; o.textContent = c.title; o.dataset.private = '1'; cat.appendChild(o); });
-    let vis = 'public', existing = null;
-    const isPriv = () => !!cat.options[cat.selectedIndex].dataset.private;
-    function syncVis() {
-      if (isPriv()) vis = 'private';
-      $('vfixed').hidden = !isPriv();
-      $('vgroup').hidden = isPriv();
-      $('pub').setAttribute('aria-pressed', vis === 'public');
-      $('priv').setAttribute('aria-pressed', vis === 'private');
-      $('vhint').textContent = vis === 'public' ? '누구나 읽을 수 있어요.' : '로그인한 관리자만 볼 수 있어요.';
+// ---------- 공개 화면에서: 관리자가 로그인한 상태면 사이드바를 관리자 메뉴로 바꿔요 ----------
+if (page === 'public') {
+  const u = await firstUser();
+  if (!u || !(await isAdmin(u))) setHint(false);
+  else {
+    user = u;
+    await loadMenus();
+    renderSidebar('');
+    const pid = body.dataset.pid;
+    if (pid) {
+      const mainEl = document.querySelector('main');
+      const bar = document.createElement('div');
+      bar.className = 'adminbar'; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', '관리자 메뉴');
+      bar.innerHTML = `<span>관리자로 보는 중</span><div><a class="btn sm" href="${root}admin/posts.html">관리자 페이지</a><a class="btn sm" href="${root}admin/write.html?id=${encodeURIComponent(pid)}">수정</a><button class="btn sm danger" type="button">삭제</button></div>`;
+      mainEl.insertBefore(bar, mainEl.firstChild);
+      const del = bar.querySelector('.danger'); let armed = false;
+      del.addEventListener('click', async () => {
+        if (!armed) { armed = true; del.textContent = '정말 삭제할까요?'; del.classList.add('sure'); setTimeout(() => { armed = false; del.textContent = '삭제'; del.classList.remove('sure'); }, 3500); return; }
+        try { await removePost({ id: pid }); sendFlash('글을 삭제했어요.' + NOTE_DEPLOY); location.href = root + 'admin/posts.html'; } catch (ex) { del.textContent = dbMsg(ex); }
+      });
     }
-    $('pub').addEventListener('click', () => { vis = 'public'; syncVis(); });
-    $('priv').addEventListener('click', () => { vis = 'private'; syncVis(); });
-    cat.addEventListener('change', syncVis);
-    $('wdate').value = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
-    if (editId) {
-      try {
-        const s = await getDoc(doc(db, 'posts', editId));
-        if (!s.exists()) { note(msg, '글을 찾을 수 없어요.', 'warn'); $('form').hidden = true; }
-        else {
-          existing = s.data();
-          $('wtitle').value = existing.title; cat.value = existing.category; vis = existing.visibility;
-          $('wsum').value = existing.summary; $('wdate').value = existing.date; $('wbody').value = existing.body;
-          $('heading').textContent = '글 수정';
-        }
-      } catch (e) { note(msg, dbMsg(e), 'warn'); }
-    }
-    syncVis();
-    if (new URLSearchParams(location.search).get('saved')) note(msg, '저장했어요. 공개 글은 사이트를 다시 빌드하고 배포해야 방문자에게 보여요.');
-    // 작성 / 미리보기
-    const setTab = (prev) => {
-      $('tw').setAttribute('aria-selected', !prev); $('tp').setAttribute('aria-selected', prev);
-      $('bodywrap').hidden = prev; $('pv').hidden = !prev;
-      if (prev) $('pv').innerHTML = window.IntentMd.markdown($('wbody').value) || '<p class="hint">미리 볼 내용이 없어요.</p>';
-    };
-    $('tw').addEventListener('click', () => setTab(false));
-    $('tp').addEventListener('click', () => setTab(true));
-    $('form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const d = {
-        // 글 주소와 검색 설명 입력칸은 없애서, 새 글은 빈 값(주소는 글 번호, 설명은 요약을 씀)이고 기존 값은 그대로 둬요.
-        title: $('wtitle').value.trim(), slug: existing ? existing.slug : '', category: cat.value,
-        visibility: isPriv() ? 'private' : vis,
-        summary: $('wsum').value.trim(), description: existing ? existing.description : '', body: $('wbody').value, date: $('wdate').value,
-      };
-      if (!d.title) return note(msg, '제목을 입력해 주세요.', 'warn');
-      if (d.title.length > 120) return note(msg, '제목은 120자 이하로 써 주세요.', 'warn');
-      if (!d.body.trim()) return note(msg, '본문을 입력해 주세요.', 'warn');
-      if (d.summary.length > 300) return note(msg, '요약은 300자 이하로 써 주세요.', 'warn');
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date)) return note(msg, '날짜를 YYYY-MM-DD 형식으로 입력해 주세요.', 'warn');
-      d.updatedAt = serverTimestamp();
-      const btn = $('save'); btn.disabled = true;
-      try {
-        if (editId && existing) {
-          d.createdAt = existing.createdAt;
-          await setDoc(doc(db, 'posts', editId), d);
-          existing = { ...existing, ...d };
-          note(msg, d.visibility === 'public' ? '저장했어요. 공개 글은 사이트를 다시 빌드하고 배포해야 방문자에게 보여요.' : '저장했어요. 나만 보기 글이라 방문자에게는 보이지 않아요.');
-        } else {
-          d.createdAt = serverTimestamp();
-          const ref = await addDoc(collection(db, 'posts'), d);
-          location.replace('write.html?id=' + encodeURIComponent(ref.id) + '&saved=1');
-          return;
-        }
-      } catch (ex) { note(msg, dbMsg(ex), 'warn'); }
-      btn.disabled = false;
-    });
   }
 }

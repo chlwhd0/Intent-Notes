@@ -2,7 +2,7 @@ rules_version = '2';
 
 // 글(posts)은 공개 글만 누구나 읽을 수 있고, 쓰기·고치기·지우기는 관리자만 할 수 있어요.
 // 관리자는 로그인 정보에 admin 표시(custom claim)가 붙은 계정 한 명이에요.
-// 회고(retrospective)는 항상 나만 보기(private)여야 하고, 관리자만 읽을 수 있어요.
+// 나만 보기 메뉴(예: 회고)의 글은 항상 나만 보기(private)여야 하고, 관리자만 읽을 수 있어요.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -10,16 +10,25 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.admin == true;
     }
 
+    // 나만 보기로 정한 메뉴 목록(관리자만 읽는 settings/private 문서에 들어 있어요).
+    function privSlugs() {
+      return get(/databases/$(database)/documents/settings/private).data.slugs;
+    }
+
     function validPost(d) {
-      return d.keys().hasOnly(['title', 'slug', 'category', 'visibility', 'summary', 'description', 'body', 'date', 'createdAt', 'updatedAt'])
+      return d.keys().hasOnly(['title', 'slug', 'category', 'visibility', 'summary', 'description', 'body', 'format', 'thumb', 'img', 'date', 'createdAt', 'updatedAt'])
         && d.title is string && d.title.size() > 0 && d.title.size() <= 120
         && d.slug is string && d.slug.size() <= 80 && (d.slug == '' || d.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$'))
-        && d.category in ['portfolio', 'retrospective', 'study']
+        && d.category is string && d.category.matches('^[a-z0-9]+(-[a-z0-9]+)*$') && d.category.size() <= 40
         && d.visibility in ['public', 'private']
         && (d.category != 'retrospective' || d.visibility == 'private')
+        && (d.visibility == 'private' || !(d.category in privSlugs()))
         && d.summary is string && d.summary.size() <= 300
         && d.description is string && d.description.size() <= 300
         && d.body is string && d.body.size() > 0 && d.body.size() <= 100000
+        && (!('format' in d) || d.format in ['md', 'html'])
+        && (!('thumb' in d) || (d.thumb is int && d.thumb >= 0 && d.thumb < 6))
+        && (!('img' in d) || (d.img is string && d.img.size() <= 800 && (d.img == '' || d.img.matches('^https://firebasestorage\\.googleapis\\.com/.*'))))
         && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && d.createdAt is timestamp && d.updatedAt is timestamp;
     }
@@ -31,7 +40,64 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // 비공개 메뉴 이름처럼 공개하면 안 되는 설정은 관리자만 읽고 써요.
+    // 조회수: 누구나 읽을 수 있고, 공개 글의 숫자만 1씩 올릴 수 있어요. 나만 보기 메뉴의 글에는 만들 수 없어요.
+    // (같은 사람이 새로고침으로 올리는 것은 이 브라우저에서 한 번만 세는 것으로 줄였어요. 완전히 막지는 못해요.)
+    function viewable(id) {
+      return id.matches('^md-[a-z0-9-]+$')
+        || (exists(/databases/$(database)/documents/posts/$(id))
+            && get(/databases/$(database)/documents/posts/$(id)).data.visibility == 'public');
+    }
+    match /views/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['count']) && request.resource.data.count == 1 && viewable(id);
+      allow update: if request.resource.data.keys().hasOnly(['count']) && request.resource.data.count == resource.data.count + 1 && viewable(id);
+      allow delete: if isAdmin();
+    }
+
+    // 댓글: 누구나 읽을 수 있어요. 구글로 로그인한 사람만 쓰고, 쓴 사람만 내용을 고치고,
+    // 쓴 사람과 관리자만 지울 수 있어요. 공개 글에만 쓸 수 있고, 나만 보기 글(회고)에는 쓸 수 없어요.
+    // 이름만 저장하고 이메일은 저장하지 않아요. "관리자" 이름과 관리자 표시는 관리자만 쓸 수 있어요.
+    function validMentions(m) {
+      return m is list && m.size() <= 10;
+    }
+    function validNewComment(d) {
+      return d.keys().hasOnly(['post', 'parent', 'uid', 'name', 'admin', 'text', 'mentions', 'createdAt'])
+        && d.post is string && d.post.size() > 0 && d.post.size() <= 60 && viewable(d.post)
+        && d.parent is string && d.parent.size() <= 60
+        && (d.parent == '' || get(/databases/$(database)/documents/comments/$(d.parent)).data.post == d.post)
+        && d.uid == request.auth.uid
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 40 && (d.name != '관리자' || isAdmin())
+        && d.admin == isAdmin()
+        && d.text is string && d.text.size() > 0 && d.text.size() <= 500
+        && validMentions(d.mentions)
+        && d.createdAt == request.time;
+    }
+    match /comments/{id} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.token.firebase.sign_in_provider == 'google.com' && validNewComment(request.resource.data);
+      allow update: if request.auth != null && (
+        // 쓴 사람이 내용 고치기
+        (resource.data.uid == request.auth.uid && resource.data.get('gone', false) == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt', 'mentions'])
+          && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500
+          && validMentions(request.resource.data.mentions)
+          && request.resource.data.editedAt == request.time)
+        // 답글이 달린 댓글을 지울 때: 내용을 비우고 삭제 표시만 해요(쓴 사람 또는 관리자)
+        || ((resource.data.uid == request.auth.uid || isAdmin())
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'gone', 'mentions'])
+          && request.resource.data.gone == true && request.resource.data.text == ''
+          && validMentions(request.resource.data.mentions))
+      );
+      allow delete: if request.auth != null && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    // 공개 메뉴 이름은 누구나 읽을 수 있고(사이트를 만들 때 써요), 고치는 건 관리자만 해요.
+    match /settings/menus {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 나만 보기 메뉴 이름 같은 설정은 관리자만 읽고 써요.
     match /settings/{docId} {
       allow read, write: if isAdmin();
     }

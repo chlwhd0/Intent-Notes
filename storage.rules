@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// 썸네일 이미지: 누구나 볼 수 있고, 올리고 지우는 건 관리자만 해요.
+// PNG·JPG·WebP·GIF만, 1MB 이하만 받아요. (SVG는 안에 코드가 들어갈 수 있어서 받지 않아요.)
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /thumbs/{file} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.token.admin == true
+        && request.resource.size <= 1048576
+        && request.resource.contentType.matches('image/(png|jpeg|webp|gif)');
+      allow delete: if request.auth != null && request.auth.token.admin == true;
+      allow update: if false;
+    }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
