@@ -216,3 +216,10 @@ footer{margin-top:auto;padding-top:40px;font-size:11px;letter-spacing:.08em;colo
 .cover svg,.thumb svg,.tbgi svg{display:block}
 .head .ptitle{font-size:30px}
 .status{font-size:12px;color:var(--mute)}
+
+/* 글쓰기 본문과 미리보기의 이미지 */
+.ed img,.preview img{display:block;max-width:100%;height:auto;margin:1em 0}
+.imgrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;border:1px solid var(--line);border-bottom:0;padding:4px 6px;background:#fff}
+.imgrow input[type=text]{flex:1 1 220px;min-height:28px;border:1px solid var(--line);padding:0 8px;font:inherit;font-size:13px}
+.imgrow .btn{min-height:28px;padding:0 10px;font-size:12px}
+.imgrow[hidden]{display:none}

@@ -25,9 +25,10 @@
   };
   const TAGS = {
     p: 'p', div: 'p', h1: 'h2', h2: 'h2', h3: 'h3', h4: 'h3', br: 'br', strong: 'strong', b: 'strong', em: 'em', i: 'em',
-    u: 'u', s: 's', strike: 's', del: 's', ul: 'ul', ol: 'ol', li: 'li', blockquote: 'blockquote', span: 'span', font: 'span', a: 'a',
+    u: 'u', s: 's', strike: 's', del: 's', ul: 'ul', ol: 'ol', li: 'li', blockquote: 'blockquote', span: 'span', font: 'span', a: 'a', img: 'img',
   };
   const SKIP = new Set(['script', 'style', 'iframe', 'object', 'embed', 'template', 'noscript', 'textarea', 'title', 'svg', 'math']);
+  const IMG_SRC = /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[^\/\s"'<>]+\/o\/[^\s"'<>]+$/;
   const decode = (s) => String(s).replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
   const escText = (s) =>
     s.replace(/&(?!(?:[a-zA-Z][a-zA-Z0-9]{1,8}|#\d{1,6}|#x[0-9a-fA-F]{1,5});)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -88,6 +89,14 @@
       if (SKIP.has(raw)) { if (!closing) { skip = raw; skipDepth = 1; } continue; }
       const name = TAGS[raw];
       if (!name) continue; // 모르는 태그는 버리고 안의 글자는 남겨요.
+      if (name === 'img') { // 우리 파일 저장소(Firebase Storage)의 이미지 주소만 받아요. 그 밖의 주소와 data: 주소는 버려요.
+        if (closing) continue;
+        const a = parseAttrs(m[3]);
+        const src = (a.src || '').trim();
+        if (!IMG_SRC.test(src) || src.length > 800) continue;
+        out.push('<img src="' + escAttr(src) + '" alt="' + escAttr((a.alt || '').slice(0, 200)) + '" loading="lazy">');
+        continue;
+      }
       if (closing) {
         if (name === 'br') continue;
         const i = stack.lastIndexOf(name);

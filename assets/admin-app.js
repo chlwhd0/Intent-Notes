@@ -131,6 +131,7 @@ const sendFlash = (msg, warn) => { try { sessionStorage.setItem('flash', JSON.st
 let flash = takeFlash();
 const say = (msg, warn) => { flash = [msg, !!warn]; };
 const notice = () => { const f = flash; flash = null; return f ? `<p class="notice${f[1] ? ' warn' : ''}" role="${f[1] ? 'alert' : 'status'}">${esc(f[0])}</p>` : ''; };
+const MAX_IMG = 10485760; // 이미지 한 장의 한도(10MB). storage.rules의 값과 같아야 해요.
 const NOTE_DEPLOY = ''; // 글·메뉴 변경은 서버가 방문할 때 최신으로 그려서 따로 배포하지 않아도 바로 반영돼요.
 
 // ---------- 글 데이터 ----------
@@ -245,7 +246,7 @@ function syncDraft() {
 }
 function thumbPicker(d) {
   const bs = TH.THUMBS.map((sv, i) => `<button type="button" class="thb" data-a="thumb" data-v="${i}" aria-label="썸네일 모양 ${i + 1}" aria-pressed="${!d.img && d.thumb === i}">${sv}</button>`).join('');
-  return `<div class="field" id="thl">썸네일<div class="thpick"><div class="thcur">${thumbHtml(d)}</div>${bs}<label class="thfile btn sm" for="thfile">${uploading ? '올리는 중…' : '이미지 올리기'}</label><input class="sr" id="thfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"${uploading ? ' disabled' : ''}>${d.img ? '<button type="button" class="btn sm" data-a="thumbclear">올린 이미지 지우기</button>' : ''}</div><span class="hint">모양을 고르거나 내 이미지(PNG, JPG, WebP, GIF, 1MB 이하)를 올려요.</span></div>`;
+  return `<div class="field" id="thl">썸네일<div class="thpick"><div class="thcur">${thumbHtml(d)}</div>${bs}<label class="thfile btn sm" for="thfile">${uploading ? '올리는 중…' : '이미지 올리기'}</label><input class="sr" id="thfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"${uploading ? ' disabled' : ''}>${d.img ? '<button type="button" class="btn sm" data-a="thumbclear">올린 이미지 지우기</button>' : ''}</div><span class="hint">모양을 고르거나 내 이미지(PNG, JPG, WebP, GIF, 10MB 이하)를 올려요.</span></div>`;
 }
 function toolbarHtml() {
   const b = (v, label, title) => `<button type="button" class="tbb" data-a="fmt" data-v="${v}" title="${title}" aria-label="${title}">${label}</button>`;
@@ -255,8 +256,9 @@ function toolbarHtml() {
     `<div class="tbg">${b('bold', '<b>B</b>', '굵게')}${b('italic', '<i>I</i>', '기울임')}${b('underline', '<u>U</u>', '밑줄')}${b('strike', '<s>S</s>', '취소선')}${sel('color', '글자색', [['#222222', '검정'], ['#b5573f', '테라코타'], ['#2f4a6d', '파랑'], ['#3f5d4a', '초록'], ['#767676', '회색']])}</div>` +
     `<div class="tbg">${b('h2', '제목', '제목 크기로')}${b('h3', '소제목', '소제목 크기로')}${b('p', '본문', '본문으로')}</div>` +
     `<div class="tbg">${b('left', '왼쪽', '왼쪽 정렬')}${b('center', '가운데', '가운데 정렬')}${b('right', '오른쪽', '오른쪽 정렬')}</div>` +
-    `<div class="tbg">${b('ul', '• 목록', '글머리 목록')}${b('ol', '1. 목록', '번호 목록')}${b('quote', '인용', '인용')}${b('link', '링크', '링크 넣기')}${b('clear', '서식 지우기', '서식 지우기')}</div></div>` +
+    `<div class="tbg">${b('ul', '• 목록', '글머리 목록')}${b('ol', '1. 목록', '번호 목록')}${b('quote', '인용', '인용')}${b('link', '링크', '링크 넣기')}${b('image', '이미지', '본문에 이미지 넣기')}${b('clear', '서식 지우기', '서식 지우기')}</div></div>` +
     '<p class="hint" id="tbnote" role="status" hidden></p>' +
+    '<div class="imgrow" id="imgrow" hidden><label class="sr" for="imgfile">본문에 넣을 이미지</label><input id="imgfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><label class="sr" for="imgalt">이미지 설명</label><input id="imgalt" type="text" maxlength="200" placeholder="이미지 설명(대체 글): 눈이 불편한 분과 검색에 쓰여요"><button type="button" class="btn sm" data-a="imgcancel">닫기</button><span class="hint" id="imgnote" role="status"></span></div>' +
     '<div class="linkrow" id="linkrow" hidden><label class="sr" for="linkurl">링크 주소</label><input id="linkurl" type="url" placeholder="https://"><button type="button" class="btn sm pri" data-a="linkok">적용</button><button type="button" class="btn sm" data-a="linkcancel">취소</button></div>';
 }
 function writePage() {
@@ -270,7 +272,7 @@ function writePage() {
   const clean = sanitizeHtml(d.html);
   const edit = wtab === 'write'
     ? toolbarHtml() + `<div id="wed" class="ed" contenteditable="true" role="textbox" aria-multiline="true" aria-label="본문" data-ph="본문을 입력하세요. 글자를 선택한 뒤 위의 도구로 서식을 바꿔요.">${clean}</div>`
-    : `<div class="preview">${textOf(clean) ? clean : '<p style="color:var(--mute)">미리 볼 내용이 없어요.</p>'}</div>`;
+    : `<div class="preview">${textOf(clean) || /<img /.test(clean) ? clean : '<p style="color:var(--mute)">미리 볼 내용이 없어요.</p>'}</div>`;
   const editing = !!existing;
   show(`<div class="head"><h1 class="ptitle">${editing ? '글 수정' : '새 글 쓰기'}</h1><div class="btns"><button class="btn" type="button" data-a="cancel">취소</button><button class="btn pri" type="button" data-a="save" id="save">${editing ? '저장하기' : '발행하기'}</button></div></div>${notice()}` +
     `<label><span class="sr">제목</span><input class="title" id="wtitle" type="text" maxlength="120" placeholder="제목을 입력하세요" value="${esc(d.title)}"></label>` +
@@ -304,6 +306,7 @@ function applyStyle(st) {
   syncEd();
 }
 function fmt(v) {
+  if (v === 'image') { restoreSel(); tbNote(''); $('imgrow').hidden = false; $('imgalt').focus(); $('imgnote').textContent = 'PNG, JPG, WebP, GIF · 10MB 이하. 설명을 먼저 쓰고 이미지를 고르세요.'; return; }
   if (v === 'link') { if (!restoreSel() || !hasSel()) { tbNote('링크로 만들 글자를 먼저 선택하세요.'); return; } tbNote(''); $('linkrow').hidden = false; $('linkurl').focus(); return; }
   if (!restoreSel()) return;
   const m = { bold: 'bold', italic: 'italic', underline: 'underline', strike: 'strikeThrough', ul: 'insertUnorderedList', ol: 'insertOrderedList' };
@@ -318,19 +321,37 @@ function fmt(v) {
   syncEd();
 }
 
+// 이미지를 파일 저장소에 올리고 주소를 돌려줘요. 형식과 크기가 맞지 않으면 이유를 담은 오류를 던져요.
+async function uploadImage(file, folder) {
+  if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) throw new Error('PNG, JPG, WebP, GIF 이미지만 올릴 수 있어요.');
+  if (file.size > MAX_IMG) throw new Error('이미지는 10MB 이하만 올릴 수 있어요.');
+  const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }[file.type];
+  const r = sref(storage, `${folder}/${crypto.randomUUID()}.${ext}`);
+  await uploadBytes(r, file, { contentType: file.type });
+  return getDownloadURL(r);
+}
+const uploadErr = (e) => (e && e.message && !e.code ? e.message : dbMsg(e));
+
 async function uploadThumb(file) {
   syncDraft();
-  if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) { say('PNG, JPG, WebP, GIF 이미지만 올릴 수 있어요.', true); writePage(); return; }
-  if (file.size > 1048576) { say('이미지는 1MB 이하만 올릴 수 있어요.', true); writePage(); return; }
   uploading = true; writePage();
-  try {
-    const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }[file.type];
-    const r = sref(storage, `thumbs/${crypto.randomUUID()}.${ext}`);
-    await uploadBytes(r, file, { contentType: file.type });
-    draft.img = await getDownloadURL(r);
-    say('이미지를 올렸어요. 글을 저장하면 썸네일로 쓰여요.');
-  } catch (e) { say(dbMsg(e), true); }
+  try { draft.img = await uploadImage(file, 'thumbs'); say('이미지를 올렸어요. 글을 저장하면 썸네일로 쓰여요.'); } catch (e) { say(uploadErr(e), true); }
   uploading = false; writePage();
+}
+
+// 본문 이미지: 올린 뒤 글 안의 커서 자리에 넣어요.
+async function insertBodyImage(file) {
+  const note = $('imgnote'), alt = ($('imgalt').value || '').trim();
+  note.textContent = '올리는 중…';
+  try {
+    const url = await uploadImage(file, 'images');
+    const html = `<img src="${esc(url)}" alt="${esc(alt)}" loading="lazy">`;
+    if (restoreSel()) document.execCommand('insertHTML', false, html);
+    else edEl().insertAdjacentHTML('beforeend', html);
+    syncEd();
+    $('imgfile').value = ''; $('imgalt').value = '';
+    note.textContent = '이미지를 넣었어요. 또 넣으려면 설명을 쓰고 이미지를 고르세요.';
+  } catch (e) { note.textContent = uploadErr(e); $('imgfile').value = ''; }
 }
 
 async function savePost() {
@@ -344,7 +365,7 @@ async function savePost() {
   };
   const bad = (m) => { say(m, true); writePage(); };
   if (!data.title) return bad('제목을 입력해 주세요.');
-  if (!textOf(html)) return bad('본문을 입력해 주세요.');
+  if (!textOf(html) && !/<img /.test(html)) return bad('본문을 입력해 주세요.');
   if (html.length > 100000) return bad('본문이 너무 길어요. 나눠서 써 주세요.');
   if (data.summary.length > 300) return bad('요약은 300자 이하로 써 주세요.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data.date)) return bad('날짜를 입력해 주세요.');
@@ -400,6 +421,7 @@ main && main.addEventListener('click', async (e) => {
   else if (a === 'thumb') { syncDraft(); draft.thumb = Number(v); draft.img = ''; writePage(); }
   else if (a === 'thumbclear') { syncDraft(); draft.img = ''; writePage(); }
   else if (a === 'fmt') fmt(v);
+  else if (a === 'imgcancel') { $('imgrow').hidden = true; }
   else if (a === 'linkcancel') { $('linkrow').hidden = true; tbNote(''); }
   else if (a === 'linkok') {
     const u = ($('linkurl').value || '').trim();
@@ -411,6 +433,7 @@ main && main.addEventListener('click', async (e) => {
 main && main.addEventListener('change', async (e) => {
   const t = e.target;
   if (t.id === 'thfile') { const f = t.files && t.files[0]; if (f) uploadThumb(f); }
+  else if (t.id === 'imgfile') { const f = t.files && t.files[0]; if (f) insertBodyImage(f); }
   else if (t.dataset && t.dataset.tb) {
     const map = { font: 'fontFamily', size: 'fontSize', weight: 'fontWeight', color: 'color' };
     if (!t.value) return;
