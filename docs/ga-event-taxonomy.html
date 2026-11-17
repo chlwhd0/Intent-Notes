@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Intent Notes · GA 이벤트 택소노미 설계 보고서</title>
+<style>
+@page{size:1280px 720px;margin:0}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo','AppleGothic',sans-serif;color:#222;counter-reset:pg;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.slide{width:1280px;height:720px;position:relative;overflow:hidden;break-after:page;page-break-after:always;padding:50px 68px 64px;background:#fff;counter-increment:pg;display:flex;flex-direction:column}
+.slide.cream{background:#f4f1ec}
+.sec{font-size:15px;letter-spacing:.12em;color:#b5573f;font-weight:600}
+h2{font-family:'AppleMyungjo','Georgia',serif;font-size:36px;line-height:1.3;margin:6px 0 20px;font-weight:400;letter-spacing:-.01em}
+footer{position:absolute;left:68px;right:68px;bottom:24px;display:flex;justify-content:space-between;font-size:13px;color:#8a857b}
+footer .pg::after{content:counter(pg)}
+p{margin:0}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.cols3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+.card{border:1px solid #ddd7cc;background:#fff;padding:18px 22px}
+.card h3{margin:0 0 9px;font-size:21px;font-weight:700}
+.card p,.card li{font-size:18px;line-height:1.55;color:#333}
+.card ul{margin:0;padding-left:20px}
+.card li{margin-bottom:4px}
+.card.dark{background:#222;border-color:#222}.card.dark h3,.card.dark p,.card.dark li{color:#fff}
+.card.acc{border-color:#b5573f;border-width:2px}
+.tag{display:inline-block;font-size:13px;font-weight:700;padding:1px 9px;background:#b5573f;color:#fff;margin-bottom:6px}
+.tag.g{background:#8d8a85}
+table{border-collapse:collapse;width:100%;font-size:17px;line-height:1.42;background:#fff}
+th{text-align:left;font-size:14.5px;letter-spacing:.04em;color:#6e6a62;font-weight:600;padding:7px 10px;border-bottom:2px solid #222;background:#fff}
+td{padding:9px 11px;border-bottom:1px solid #ddd7cc;vertical-align:top}
+td.k{font-weight:700;white-space:nowrap}
+.p0{font-weight:700;color:#b5573f}
+.ok{font-weight:700;color:#2f5d46}
+.no{color:#8a857b}
+.note{font-size:17px;color:#555;line-height:1.55}
+.hl{color:#b5573f;font-weight:700}
+.ev{font-family:ui-monospace,Menlo,monospace;font-size:15px;background:#f1ece3;padding:1px 6px;white-space:nowrap}
+.cream .ev{background:#fff}
+.star{color:#b5573f;font-weight:700}
+small{font-size:14.5px;color:#6e6a62}
+/* 흐름 도식 */
+.flow{display:grid;grid-template-columns:92px repeat(5,1fr);gap:10px 26px;align-items:stretch}
+.flow .hd{font-size:18px;font-weight:700;text-align:center;padding:6px 0;border-bottom:2px solid #222}
+.flow .lb{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;color:#fff;background:#8d8a85;text-align:center;padding:4px}
+.flow .lb.t{background:#b5573f}
+.flow .st{position:relative;border:2px solid #8d8a85;background:#fff;padding:12px 13px;font-size:16px;line-height:1.45;min-height:136px}
+.flow .st.t{border-color:#b5573f}
+.flow .st.x{border-style:dashed;color:#8a857b;background:#f7f5f1}
+.flow .st b{display:block;font-size:17px;margin-bottom:5px}
+.flow .st:not(:nth-child(6n+1)):not(.nolink)::before{content:"▶";position:absolute;left:-22px;top:50%;transform:translateY(-50%);font-size:14px;color:#8a857b}
+.flow .st .ev{font-size:14.5px}
+.legend{display:flex;gap:26px;font-size:16px;color:#555;margin-top:14px}
+.legend i{display:inline-block;width:22px;height:12px;vertical-align:middle;margin-right:6px;border:2px solid #8d8a85;background:#fff}
+.legend i.t{border-color:#b5573f}.legend i.x{border-style:dashed;background:#f7f5f1}
+/* 구조 도식 */
+.arch{display:grid;grid-template-columns:86px repeat(4,1fr);gap:10px 30px;align-items:stretch}
+.arch .lb{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;color:#fff;background:#8d8a85;text-align:center;padding:4px}
+.arch .lb.t{background:#b5573f}
+.arch .bx{position:relative;border:2px solid #8d8a85;background:#fff;padding:13px 14px;font-size:16px;line-height:1.5;min-height:150px}
+.arch .bx.t{border-color:#b5573f}
+.arch .bx b{display:block;font-size:17px;margin-bottom:5px}
+.arch .bx:not(:nth-child(5n+2))::before{content:"▶";position:absolute;left:-24px;top:50%;transform:translateY(-50%);font-size:14px;color:#8a857b}
+.arch .hd{font-size:17px;font-weight:700;text-align:center;padding:5px 0;border-bottom:2px solid #222}
+/* 퍼널 */
+.fun{display:flex;flex-direction:column;gap:10px;align-items:center}
+.fun .bar{height:66px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;color:#fff;font-size:17px;font-weight:700}
+.fun .bar span{font-weight:400;font-size:14px;opacity:.95}
+/* 빽빽한 슬라이드용 */
+.tight table{font-size:15px}.tight td{padding:6px 10px}.tight .note{font-size:15px;line-height:1.45}.tight h2{margin-bottom:12px}
+pre{margin:0;background:#222;color:#f4f1ec;padding:16px 20px;font-size:15px;line-height:1.55;font-family:ui-monospace,Menlo,monospace;white-space:pre-wrap}
+.chk li{list-style:none;position:relative;padding-left:24px}
+.chk li::before{content:"□";position:absolute;left:0;color:#b5573f}
+</style>
+</head>
+<body>
+
+<!-- 1. 표지 -->
+<section class="slide" style="background:#b5573f;color:#fff;justify-content:space-between;padding:70px 90px 66px">
+  <div style="font-size:17px;letter-spacing:.2em;opacity:.9">GA EVENT TAXONOMY REPORT</div>
+  <div>
+    <div style="font-family:Georgia,serif;font-style:italic;font-size:92px;line-height:1.05;margin-bottom:22px">Intent Notes</div>
+    <div style="font-family:'AppleMyungjo',serif;font-size:36px;line-height:1.4">"몇 명이 열었나"에서<br>"무엇을 읽고, 무엇에 반응했나"로</div>
+    <div style="font-size:21px;margin-top:18px;opacity:.95">GA4 이벤트 택소노미 설계 · AS-IS → TO-BE</div>
+  </div>
+  <div style="display:flex;gap:44px;font-size:18px;opacity:.95">
+    <div>버전 0.1</div><div>2026.11.17</div><div>작성 관점: 제품 기획자</div><div>상태: 설계 · 구현 전 (GA4는 연결·측정 중)</div>
+  </div>
+</section>
+
+<!-- 2. 요약 -->
+<section class="slide cream">
+  <div class="sec">01 · 요약</div>
+  <h2>지금 GA는 "어느 페이지를 열었나"만 안다</h2>
+  <div class="cols3" style="margin-top:4px">
+    <div class="card"><span class="tag g">AS-IS</span><h3>열었는지만 보인다</h3><ul>
+      <li>방문자 수, 페이지별 조회, 지역·기기·OS는 이미 나온다.</li>
+      <li>글을 <b>읽었는지</b>, 어디서 <b>골랐는지</b>, 공유·댓글·로그인은 보이지 않는다.</li>
+      <li>메뉴(PORTFOLIO, STUDY…)별 비교도 안 된다.</li></ul></div>
+    <div class="card acc"><span class="tag">TO-BE</span><h3>이벤트 8개를 더한다</h3><ul>
+      <li>탐색 3 · 읽기 2 · 공유 1 · 참여 1 · 계정 1</li>
+      <li>공통 파라미터 6개 + 사용자 속성 1개</li>
+      <li>핵심 이벤트 3개: <span class="ev">post_read</span> <span class="ev">share</span> <span class="ev">comment_submit</span></li></ul></div>
+    <div class="card dark"><h3>이 설계로 답하게 되는 것</h3><ul>
+      <li>어떤 글이 <b>읽히는가</b> (열기가 아니라 읽기)</li>
+      <li>사람들은 첫 화면 타일과 목록 중 어디서 글을 고르는가</li>
+      <li>어떤 글이 공유·댓글을 만드는가</li>
+      <li>로그인은 어느 글에서 일어나는가</li></ul></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>결정이 필요한 것</h3>
+    <p>① 글을 "읽었다"고 보는 기준(스크롤 50% 이상 + 30초 이상)을 이대로 갈지 · ② 방문 통계 안내(개인정보)와 동의 배너를 넣을지 · ③ 이벤트 구현을 P0(5개)부터 시작할지</p></div>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 3. 질문 -->
+<section class="slide">
+  <div class="sec">02 · 이 보고서가 답하는 질문</div>
+  <h2>알고 싶은 것 네 가지, 그리고 새로 생기는 질문</h2>
+  <table>
+    <tr><th style="width:34px">#</th><th style="width:250px">알고 싶은 것</th><th>왜 필요한가</th><th style="width:150px">AS-IS</th><th style="width:150px">TO-BE</th></tr>
+    <tr><td class="k">1</td><td class="k">홈 화면 방문자 숫자</td><td>블로그에 사람이 오는지, 늘고 있는지 본다.</td><td class="ok">가능</td><td class="ok">가능 (그대로)</td></tr>
+    <tr><td class="k">2</td><td class="k">페이지별 방문자 숫자</td><td>어느 화면이 열리는지 본다.</td><td class="ok">가능</td><td class="ok">가능 + 메뉴별 합계</td></tr>
+    <tr><td class="k">3</td><td class="k">지역·기기·OS 등 정보</td><td>누가 어떤 환경으로 오는지 본다. 화면 설계(모바일 우선 등)에 쓴다.</td><td class="ok">가능</td><td class="ok">가능 (그대로)</td></tr>
+    <tr><td class="k">4</td><td class="k">어떤 글을 가장 많이 읽는가</td><td>다음에 무슨 글을 쓸지 정한다.</td><td class="p0">부분 가능<br><small>"열었다"만</small></td><td class="ok">가능 <small>"읽었다" 기준</small></td></tr>
+    <tr><td class="k">5</td><td class="k">어디서 글을 고르는가</td><td>첫 화면 타일, 첫 화면 목록, 메뉴 목록 중 어디가 잘 쓰이는지 본다.</td><td class="no">불가</td><td class="ok">가능</td></tr>
+    <tr><td class="k">6</td><td class="k">공유·댓글이 많은 글</td><td>반응을 만드는 글의 공통점을 찾는다.</td><td class="no">불가</td><td class="ok">가능</td></tr>
+    <tr><td class="k">7</td><td class="k">무엇을 검색하는가</td><td>찾으려는 글이 없다는 신호를 본다.</td><td class="no">불가</td><td class="ok">가능</td></tr>
+  </table>
+  <p class="note" style="margin-top:12px">1~4는 사진(요구사항)에 적힌 항목이고, 5~7은 이벤트를 설계하면서 추가로 답할 수 있게 되는 질문이다.</p>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 4. AS-IS -->
+<section class="slide cream">
+  <div class="sec">03 · AS-IS 진단</div>
+  <h2>지금 쌓이는 것, 쌓이지 않는 것</h2>
+  <div class="cols2">
+    <div class="card"><span class="tag g">보이는 것</span><ul>
+      <li><span class="ev">page_view</span> 홈·목록·글·소개 페이지를 열 때마다 <small>(경로와 페이지 제목이 같이 남는다. 글 제목은 "제목 · Intent Notes" 형태)</small></li>
+      <li>사용자 수, 세션, 참여 시간</li>
+      <li>국가·도시, 기기 종류, OS, 브라우저, 유입 경로</li>
+      <li><span class="ev">scroll</span> 페이지 끝(90%) 도달 시 1회</li>
+      <li><span class="ev">click</span> 외부로 나가는 링크 (공유 링크 X·Facebook·LinkedIn 3개가 여기에 걸린다)</li></ul></div>
+    <div class="card"><span class="tag">보이지 않는 것</span><ul>
+      <li>글을 <b>읽었는지</b> (90% 도달 1회뿐, 중간 읽기와 체류는 구분 불가)</li>
+      <li>글을 <b>어디서 골랐는지</b> (타일, 목록, 이전·다음 글)</li>
+      <li><b>메뉴</b>별 합계 (글 주소가 글 번호라서 제목으로만 구분됨)</li>
+      <li>검색어 <small>(목록 검색은 주소가 바뀌지 않아 사이트 검색으로 잡히지 않는다)</small></li>
+      <li>링크 복사 공유, 댓글 등록, 구글 로그인</li></ul></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>구조적인 이유</h3>
+    <p>① GA는 "페이지 열림"을 기본으로 세는데, 이 블로그의 핵심 행동(읽기, 공유, 댓글)은 <b>페이지 안에서</b> 일어난다. ② 글 화면의 조회수(직접 센 숫자)와 GA 숫자는 <b>서로 다른 장부</b>라 일치하지 않는다. 분석은 GA 한 곳을 기준으로 한다.</p></div>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 5. AS-IS → TO-BE 도식 (사용자 여정) -->
+<section class="slide">
+  <div class="sec">04 · AS-IS → TO-BE 도식 ①</div>
+  <h2>방문자의 여정에서 무엇이 새로 보이는가</h2>
+  <div class="flow">
+    <div></div>
+    <div class="hd">① 방문</div><div class="hd">② 글 고르기</div><div class="hd">③ 읽기</div><div class="hd">④ 반응</div><div class="hd">⑤ 계정</div>
+
+    <div class="lb">AS-IS<br>(지금)</div>
+    <div class="st"><b>열림만 보임</b><span class="ev">page_view</span><br><small>홈·목록·글 구분 가능</small></div>
+    <div class="st x"><b>측정 안 됨</b>타일·목록·이전/다음 중 어디서 눌렀는지 모름</div>
+    <div class="st"><b>끝까지만 보임</b><span class="ev">scroll</span> 90%<br><small>읽었는지는 알 수 없음</small></div>
+    <div class="st"><b>일부만 보임</b><span class="ev">click</span> 외부 링크<br><small>링크 복사·댓글은 안 보임</small></div>
+    <div class="st x"><b>측정 안 됨</b>로그인 여부, 로그인한 글 모름</div>
+
+    <div class="lb t">TO-BE<br>(설계)</div>
+    <div class="st t"><b>그대로</b><span class="ev">page_view</span><br><small>+ 사용자 속성 member_status</small></div>
+    <div class="st t"><b>고른 위치가 보임</b><span class="ev">select_content</span><br><small>menu · post_id · location</small></div>
+    <div class="st t"><b>읽었는지 보임</b><span class="ev">read_progress</span><br>25·50·75·100% → <span class="ev">post_read</span> <span class="star">★</span></div>
+    <div class="st t"><b>반응이 보임</b><span class="ev">share</span> <span class="star">★</span> <span class="ev">comment_submit</span> <span class="star">★</span><br><small>method · is_reply</small></div>
+    <div class="st t"><b>로그인이 보임</b><span class="ev">login</span><br><small>method=google</small></div>
+  </div>
+  <div class="legend"><span><i></i>지금 측정됨</span><span><i class="x"></i>지금 측정 안 됨</span><span><i class="t"></i>설계(추가)</span><span><b class="star">★</b> 핵심 이벤트</span></div>
+  <div class="cols3" style="margin-top:14px">
+    <div class="card"><h3>② 어디서 골랐나</h3><p>타일·목록·이전/다음 중 어디가 쓰이는지 <span class="hl">(질문 5)</span></p></div>
+    <div class="card"><h3>③ 무엇을 읽었나</h3><p>열기가 아니라 읽기 기준의 글 순위 <span class="hl">(질문 4)</span></p></div>
+    <div class="card"><h3>④⑤ 무엇에 반응했나</h3><p>공유·댓글·로그인이 일어나는 글 <span class="hl">(질문 6)</span></p></div>
+  </div>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 6. AS-IS → TO-BE 도식 (측정 구조) -->
+<section class="slide cream">
+  <div class="sec">05 · AS-IS → TO-BE 도식 ②</div>
+  <h2>측정 구조가 어떻게 바뀌는가</h2>
+  <div class="arch">
+    <div></div><div class="hd">공개 페이지</div><div class="hd">측정 코드</div><div class="hd">GA4가 받는 것</div><div class="hd">GA 화면</div>
+
+    <div class="lb">AS-IS</div>
+    <div class="bx"><b>서버가 그린 페이지</b>홈 · 목록 · 글 · 소개<br><small>관리자·@ 알림·404는 제외</small></div>
+    <div class="bx"><b>analytics.js</b><span class="ev">config</span> 한 줄<br><small>관리자 브라우저는 측정 안 함</small></div>
+    <div class="bx"><b>자동 수집만</b><span class="ev">page_view</span> <span class="ev">scroll</span> <span class="ev">click</span><br><small>맞춤 정보 없음</small></div>
+    <div class="bx"><b>표준 보고서</b>페이지 및 화면, 기술 세부정보, 실시간</div>
+
+    <div class="lb t">TO-BE</div>
+    <div class="bx t"><b>같은 페이지 + 표시</b>글·카드에 <span class="ev">data-post-id</span> <span class="ev">data-menu</span> <span class="ev">data-loc</span><br><small>서버가 그릴 때 넣는다</small></div>
+    <div class="bx t"><b>analytics.js + track()</b>이벤트 훅 5곳<br><small>검색 · 공유 · 댓글 · 로그인 · 스크롤</small></div>
+    <div class="bx t"><b>자동 + 설계 이벤트 8개</b>파라미터 6개 · 사용자 속성 1개<br><small>개인정보는 보내지 않음</small></div>
+    <div class="bx t"><b>표준 + 탐색 보고서</b>이벤트별 글 순위, 퍼널, 위치별 선택률<br><small>맞춤 측정기준 7개 등록</small></div>
+  </div>
+  <div class="card" style="margin-top:18px"><h3>별개의 장부: 글 화면의 조회수</h3>
+    <p>글 목록·상세에 보이는 "조회 N"은 방문자에게 보여 주는 숫자이고 데이터베이스(<span class="ev">views</span>)에 직접 센다. <b>운영 판단과 분석은 GA 기준</b>으로 하고, 두 숫자가 다른 것은 정상이다(측정 방식·광고 차단 차이).</p></div>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 7. 설계 원칙 -->
+<section class="slide tight">
+  <div class="sec">06 · 설계 원칙</div>
+  <h2>이름을 짓는 규칙 여섯 가지</h2>
+  <div class="cols2">
+    <table>
+      <tr><th style="width:34px">#</th><th>규칙</th></tr>
+      <tr><td class="k">1</td><td><b>소문자 snake_case, 40자 이하.</b> 예 <span class="ev">comment_submit</span></td></tr>
+      <tr><td class="k">2</td><td><b>GA 권장 이벤트가 있으면 그 이름을 쓴다.</b> <span class="ev">login</span> <span class="ev">share</span> <span class="ev">search</span> <span class="ev">select_content</span></td></tr>
+      <tr><td class="k">3</td><td><b>직접 지을 때는 "대상_동작".</b> <span class="ev">post_read</span> <span class="ev">comment_submit</span></td></tr>
+      <tr><td class="k">4</td><td><b>같은 뜻이면 같은 파라미터 이름.</b> 글 번호는 항상 <span class="ev">post_id</span>, 메뉴는 항상 <span class="ev">menu</span></td></tr>
+      <tr><td class="k">5</td><td><b>값은 고정 목록.</b> <span class="ev">location</span>은 정해 둔 4가지만 보낸다. 자유 입력 금지</td></tr>
+      <tr><td class="k">6</td><td><b>개인정보를 보내지 않는다.</b> 이름, 이메일, 댓글 내용, 계정 번호(uid) 제외</td></tr>
+    </table>
+    <div>
+      <div class="card"><h3>이렇게 짓는다 / 이렇게 짓지 않는다</h3>
+        <table style="font-size:14px">
+          <tr><th>좋음</th><th>피함</th><th>이유</th></tr>
+          <tr><td><span class="ev">comment_submit</span></td><td><span class="ev">CommentClick</span></td><td>대소문자·클릭 구분 없음</td></tr>
+          <tr><td><span class="ev">menu: PORTFOLIO</span></td><td><span class="ev">category / cat / 메뉴</span></td><td>이름이 갈라지면 합계가 깨짐</td></tr>
+          <tr><td><span class="ev">location: home_tile</span></td><td><span class="ev">"첫 화면에서 큰 사진 눌렀음"</span></td><td>자유 문장은 집계가 안 됨</td></tr>
+          <tr><td><span class="ev">post_id</span> + 제목은 페이지 제목에서</td><td>제목을 파라미터로 중복 전송</td><td>제목은 바뀌어도 번호는 그대로</td></tr>
+        </table></div>
+      <p class="note" style="margin-top:10px">GA 제한: 이벤트 이름 40자, 이벤트당 파라미터 25개, 값 100자. 예약어 접두사(<span class="ev">ga_</span> <span class="ev">google_</span> <span class="ev">firebase_</span>)는 쓰지 않는다. 우리 설계는 이 한도의 훨씬 안쪽이다.</p>
+    </div>
+  </div>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 8. 택소노미 표 -->
+<section class="slide cream">
+  <div class="sec">07 · 이벤트 택소노미</div>
+  <h2>이벤트 8개: 언제 보내고 무엇을 붙이는가</h2>
+  <table>
+    <tr><th style="width:62px">영역</th><th style="width:176px">이벤트</th><th>언제 보내는가</th><th style="width:250px">파라미터</th><th style="width:56px">핵심</th><th style="width:56px">순위</th></tr>
+    <tr><td class="k">탐색</td><td><span class="ev">select_content</span></td><td>글 카드·타일·이전/다음 글 링크를 눌렀을 때</td><td><span class="ev">post_id</span> <span class="ev">menu</span> <span class="ev">location</span></td><td></td><td class="p0">P0</td></tr>
+    <tr><td class="k">탐색</td><td><span class="ev">search</span></td><td>목록 검색창 입력이 0.8초 멈췄을 때(글자 수 2 이상)</td><td><span class="ev">search_term</span> <span class="ev">result_count</span> <span class="ev">menu</span></td><td></td><td>P1</td></tr>
+    <tr><td class="k">탐색</td><td><span class="ev">sort_change</span></td><td>최신순/오래된순을 바꿨을 때</td><td><span class="ev">sort_order</span> <span class="ev">menu</span></td><td></td><td>P2</td></tr>
+    <tr><td class="k">읽기</td><td><span class="ev">read_progress</span></td><td>글에서 25·50·75·100%에 처음 도달했을 때(글당 각 1회)</td><td><span class="ev">post_id</span> <span class="ev">menu</span> <span class="ev">depth</span></td><td></td><td class="p0">P0</td></tr>
+    <tr><td class="k">읽기</td><td><span class="ev">post_read</span></td><td>50% 이상 도달 <b>그리고</b> 글 화면에 30초 이상 머물렀을 때(글당 1회)</td><td><span class="ev">post_id</span> <span class="ev">menu</span></td><td class="star">★</td><td class="p0">P0</td></tr>
+    <tr><td class="k">공유</td><td><span class="ev">share</span></td><td>링크 복사 또는 X·Facebook·LinkedIn 링크를 눌렀을 때</td><td><span class="ev">method</span> <span class="ev">post_id</span> <span class="ev">menu</span></td><td class="star">★</td><td class="p0">P0</td></tr>
+    <tr><td class="k">참여</td><td><span class="ev">comment_submit</span></td><td>댓글 또는 답글이 저장에 성공했을 때</td><td><span class="ev">post_id</span> <span class="ev">menu</span> <span class="ev">is_reply</span></td><td class="star">★</td><td class="p0">P0</td></tr>
+    <tr><td class="k">계정</td><td><span class="ev">login</span></td><td>방문자 구글 로그인이 성공했을 때</td><td><span class="ev">method</span> (=google)</td><td></td><td>P1</td></tr>
+  </table>
+  <p class="note" style="margin-top:10px">보내지 않는 것: 관리자 화면의 모든 행동, 나만 보기 글(회고)의 행동(이 글은 방문자에게 열려 있지 않고 측정 코드도 없다), 댓글 내용, 방문자 이름·이메일.</p>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 9. 파라미터 사전 -->
+<section class="slide">
+  <div class="sec">08 · 파라미터 사전</div>
+  <h2>이벤트에 붙이는 정보와 GA에 등록할 것</h2>
+  <table>
+    <tr><th style="width:150px">이름</th><th>뜻</th><th style="width:300px">값</th><th style="width:96px">범위</th><th style="width:90px">GA 등록</th></tr>
+    <tr><td><span class="ev">post_id</span></td><td>글 번호 (데이터베이스의 글 문서 번호)</td><td>영문·숫자 20자 안팎</td><td>이벤트</td><td class="ok">등록</td></tr>
+    <tr><td><span class="ev">menu</span></td><td>글이 속한 메뉴 이름 (사이드바와 같은 이름)</td><td>PORTFOLIO · STUDY · 새로 추가한 메뉴</td><td>이벤트</td><td class="ok">등록</td></tr>
+    <tr><td><span class="ev">location</span></td><td>글을 고른 위치</td><td>home_tile · home_list · list · prev_next</td><td>이벤트</td><td class="ok">등록</td></tr>
+    <tr><td><span class="ev">depth</span></td><td>글을 읽은 진행도</td><td>25 · 50 · 75 · 100</td><td>이벤트</td><td class="ok">등록</td></tr>
+    <tr><td><span class="ev">method</span></td><td>공유 방법 / 로그인 방법</td><td>copy_link · x · facebook · linkedin · google</td><td>이벤트</td><td class="ok">등록</td></tr>
+    <tr><td><span class="ev">is_reply</span></td><td>답글인지 (댓글이면 false)</td><td>true · false</td><td>이벤트</td><td class="ok">등록</td></tr>
+    <tr><td><span class="ev">member_status</span></td><td>이 방문자가 로그인했는지</td><td>guest · member</td><td>사용자</td><td class="ok">등록</td></tr>
+    <tr><td><span class="ev">search_term</span> <span class="ev">result_count</span> <span class="ev">sort_order</span></td><td>검색어, 검색 결과 수, 정렬 방향</td><td>검색어는 소문자 50자까지 / 숫자 / latest · oldest</td><td>이벤트</td><td class="no">등록 안 함<br><small>search는 기본 보고</small></td></tr>
+  </table>
+  <p class="note" style="margin-top:10px">맞춤 측정기준은 <b>등록한 시점부터</b> 쌓이고 소급되지 않는다. 그래서 구현 전에 등록부터 한다. 무료 속성 한도(이벤트 범위 50, 사용자 범위 25) 중 7개만 쓴다.</p>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 10. 지표 정의 -->
+<section class="slide cream">
+  <div class="sec">09 · 핵심 이벤트와 지표 정의</div>
+  <h2>"읽었다"를 어떻게 정의하고, 무엇을 숫자로 볼까</h2>
+  <div class="cols2">
+    <div>
+      <div class="card acc"><span class="tag">핵심 이벤트 3개</span>
+        <ul><li><span class="ev">post_read</span> — 읽은 글. 이 블로그의 핵심 성과</li>
+        <li><span class="ev">share</span> — 남에게 권한 글</li>
+        <li><span class="ev">comment_submit</span> — 말을 걸게 만든 글</li></ul>
+        <p class="note" style="margin-top:8px">GA의 "핵심 이벤트(전환)"로 표시하면 보고서 전반에서 따로 집계된다.</p></div>
+      <div class="card" style="margin-top:14px"><h3>"읽었다"의 기준 (제안)</h3>
+        <p>스크롤 <b>50% 이상</b> + 글 화면 체류 <b>30초 이상</b>. 둘 중 하나만으로는 읽은 것으로 보지 않는다(빨리 내려 본 사람, 열어만 두고 떠난 사람을 거른다). 측정 2주 뒤 분포를 보고 기준을 조정한다.</p></div>
+    </div>
+    <table style="font-size:14.5px">
+      <tr><th>지표</th><th>정의</th><th>쓰임</th></tr>
+      <tr><td class="k">홈 방문자</td><td>경로 <span class="ev">/</span>의 사용자 수</td><td>유입 규모</td></tr>
+      <tr><td class="k">글 열람</td><td>경로 <span class="ev">/posts/*</span>의 page_view</td><td>열렸는지</td></tr>
+      <tr><td class="k">읽은 글</td><td><span class="ev">post_read</span> 이벤트 수 (post_id별)</td><td>글 순위</td></tr>
+      <tr><td class="k">읽기율</td><td>post_read 사용자 ÷ 글 열람 사용자</td><td>글 품질 신호</td></tr>
+      <tr><td class="k">위치별 선택률</td><td>select_content ÷ 해당 화면 page_view (location별)</td><td>첫 화면 개선</td></tr>
+      <tr><td class="k">반응률</td><td>(share + comment_submit) 사용자 ÷ post_read 사용자</td><td>공감 신호</td></tr>
+      <tr><td class="k">로그인 전환</td><td>login 사용자 ÷ 글 열람 사용자</td><td>댓글 기능 효과</td></tr>
+    </table>
+  </div>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 11. GA 화면 -->
+<section class="slide">
+  <div class="sec">10 · GA 화면</div>
+  <h2>질문별로 GA의 어디를 보는가</h2>
+  <table>
+    <tr><th style="width:34px">#</th><th style="width:190px">질문</th><th>AS-IS: 지금 보는 곳</th><th>TO-BE: 설계 후 보는 곳</th></tr>
+    <tr><td class="k">1</td><td class="k">홈 방문자</td><td>보고서 › 참여도 › <b>페이지 및 화면</b> · 페이지 경로 <span class="ev">/</span> 의 사용자</td><td>그대로. 탐색 보고서의 퍼널 <b>첫 단계</b>로도 쓴다</td></tr>
+    <tr><td class="k">2</td><td class="k">페이지별 방문자</td><td>같은 화면에서 페이지 제목·경로별 조회수와 사용자</td><td>그대로. <span class="ev">menu</span>를 더하면 메뉴별 합계</td></tr>
+    <tr><td class="k">3</td><td class="k">지역·기기·OS</td><td>보고서 › 사용자 › <b>인구통계 세부정보</b>(국가·도시), <b>기술 세부정보</b>(기기·OS·브라우저)</td><td>그대로 (기본 수집)</td></tr>
+    <tr><td class="k">4</td><td class="k">많이 읽은 글</td><td class="p0">페이지 및 화면을 조회수순 정렬 — "열었다" 기준</td><td>보고서 › 참여도 › <b>이벤트</b> › <span class="ev">post_read</span> › <span class="ev">post_id</span> / 탐색 › 자유 형식(행 post_id, 값 이벤트 수·사용자)</td></tr>
+    <tr><td class="k">5</td><td class="k">어디서 글을 고르나</td><td class="no">보이지 않음</td><td>이벤트 › <span class="ev">select_content</span> › <span class="ev">location</span></td></tr>
+    <tr><td class="k">6</td><td class="k">공유·댓글 많은 글</td><td class="no">보이지 않음</td><td>이벤트 › <span class="ev">share</span> · <span class="ev">comment_submit</span> › <span class="ev">post_id</span></td></tr>
+    <tr><td class="k">7</td><td class="k">검색어</td><td class="no">보이지 않음</td><td>이벤트 › <span class="ev">search</span> › <span class="ev">search_term</span></td></tr>
+    <tr><td class="k">-</td><td class="k">확인·검증</td><td>보고서 › <b>실시간</b></td><td>관리 › <b>DebugView</b>로 이벤트 하나하나 확인 + 실시간</td></tr>
+  </table>
+  <p class="note" style="margin-top:10px">일반 보고서는 반영에 하루쯤 걸리고, 실시간과 DebugView만 바로 보인다.</p>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 12. GA 설정 체크리스트 -->
+<section class="slide cream">
+  <div class="sec">11 · GA 화면 설정</div>
+  <h2>구현 전에 GA에서 한 번만 해 두는 일</h2>
+  <div class="cols2">
+    <div class="card"><h3>관리 화면에서</h3>
+      <ul class="chk">
+        <li><b>맞춤 정의</b> › 맞춤 측정기준 7개 등록 <small>(post_id, menu, location, depth, method, is_reply · 사용자 범위 member_status)</small></li>
+        <li><b>이벤트</b> › 핵심 이벤트로 표시: <span class="ev">post_read</span> <span class="ev">share</span> <span class="ev">comment_submit</span> <small>(이벤트가 한 번 들어온 뒤에 표시 가능)</small></li>
+        <li><b>데이터 수집 및 수정 › 데이터 보관</b>: 이벤트 데이터 보관을 <b>14개월</b>로 <small>(기본 2개월이면 탐색 보고서가 짧게 잘린다)</small></li>
+        <li><b>데이터 스트림 › 향상된 측정</b>: 페이지 조회·스크롤·이탈 클릭은 유지. 사이트 검색(주소 변화 없음)·양식 상호작용은 끈다</li>
+        <li><b>데이터 수집 › Google 신호</b>: 끔 <small>(광고용)</small></li>
+        <li><b>데이터 필터</b>: 내부 트래픽(내 IP) 제외 <small>(로그아웃 상태의 내 방문 제외)</small></li></ul></div>
+    <div class="card"><h3>탐색 보고서로 저장해 둘 것 2개</h3>
+      <ul class="chk">
+        <li><b>글별 읽기 순위</b> — 행: post_id · 열: 메뉴 · 값: post_read 이벤트 수, 사용자, 읽기율</li>
+        <li><b>방문→읽기→반응 퍼널</b> — 4단계(다음 쪽 도식). 기기 종류와 location으로 쪼개서 본다</li></ul>
+      <h3 style="margin-top:14px">확인은 이 순서로</h3>
+      <ul>
+        <li>1) 관리 › <b>DebugView</b>에서 이벤트가 1번씩 들어오는지</li>
+        <li>2) 맞춤 측정기준을 등록한 <b>다음날</b> 이벤트 보고서에서 post_id가 보이는지</li>
+        <li>3) 1~2주 뒤 읽음 기준(50%·30초) 분포를 보고 조정</li></ul></div>
+  </div>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 13. 퍼널 도식 -->
+<section class="slide">
+  <div class="sec">12 · AS-IS → TO-BE 도식 ③</div>
+  <h2>"열었다"에서 "반응했다"까지, 퍼널로 본다</h2>
+  <div class="cols2" style="grid-template-columns:1.1fr 1fr;align-items:start">
+    <div class="fun">
+      <div class="bar" style="width:100%;background:#8d8a85">① 홈·목록 보기<span>page_view</span></div>
+      <div class="bar" style="width:84%;background:#a37a5e">② 글 선택<span>select_content</span></div>
+      <div class="bar" style="width:68%;background:#b5573f">③ 읽음 ★<span>post_read</span></div>
+      <div class="bar" style="width:52%;background:#8f3f2c">④ 반응 ★<span>share · comment_submit</span></div>
+      <p class="note" style="text-align:center">막대 길이는 설명용이다. 실제 비율은 측정 2주 뒤에 채운다.</p>
+    </div>
+    <div>
+      <div class="card"><span class="tag g">AS-IS</span><p>①과 "글 페이지 열림"만 알 수 있다. 열린 글 중 몇 %가 읽혔고, 어디서 나가는지 알 수 없다.</p></div>
+      <div class="card acc" style="margin-top:12px"><span class="tag">TO-BE</span><p>단계 사이의 <b>이탈 지점</b>이 보인다.</p>
+        <ul style="margin-top:6px">
+          <li>②가 낮다 → 첫 화면 타일·제목·썸네일을 고친다</li>
+          <li>②→③이 낮다 → 글의 첫 문단, 길이를 고친다</li>
+          <li>③→④가 낮다 → 공유·댓글 안내 위치를 고친다</li>
+          <li>모바일이 유독 낮다 → 모바일 화면을 먼저 고친다</li></ul></div>
+    </div>
+  </div>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 14. 개인정보·검증 -->
+<section class="slide cream">
+  <div class="sec">13 · 개인정보와 검증</div>
+  <h2>보내지 않을 것과, 제대로 보내는지 확인하는 법</h2>
+  <div class="cols2">
+    <div class="card"><h3>개인정보 원칙</h3>
+      <ul>
+        <li>이름, 이메일, 댓글 내용, 계정 번호(uid)는 GA로 보내지 않는다. 로그인 여부만 <span class="ev">member_status</span>로 보낸다.</li>
+        <li>관리자가 로그인해 둔 브라우저는 측정하지 않는다(구현됨).</li>
+        <li>검색어는 입력한 글자가 개인정보일 수 있어 <b>소문자 50자까지만</b> 보내고, 이메일처럼 보이는 값(@ 포함)은 보내지 않는다.</li>
+        <li>광고용 신호(Google 신호)는 켜지 않는다.</li>
+        <li><span class="hl">공개 전에 정할 것:</span> 방문 통계 안내 문구(개인정보 처리방침)와 동의 배너 여부</li></ul></div>
+    <div class="card"><h3>완료 기준 (구현 후 DebugView로 확인)</h3>
+      <ul class="chk">
+        <li>이벤트 8개가 각각 <b>한 번만</b> 들어온다(중복 없음)</li>
+        <li>글당 <span class="ev">post_read</span>는 1번, <span class="ev">read_progress</span>는 깊이별 1번</li>
+        <li>파라미터 값이 고정 목록 안에 있다(오타·자유 문장 없음)</li>
+        <li>관리자 로그인 상태에서는 이벤트가 하나도 안 들어온다</li>
+        <li>나만 보기 글·관리자 화면에서는 이벤트가 없다</li>
+        <li>댓글 저장이 <b>실패</b>하면 <span class="ev">comment_submit</span>이 안 나간다</li>
+        <li>측정 코드가 막혀도(광고 차단) 글 읽기·댓글은 정상 동작한다</li></ul></div>
+  </div>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 15. 구현 계획과 리스크 -->
+<section class="slide">
+  <div class="sec">14 · 구현 순서와 리스크</div>
+  <h2>P0 다섯 개부터, 그리고 조심할 것</h2>
+  <div class="cols2" style="grid-template-columns:1.05fr 1fr">
+    <div>
+      <table style="font-size:14.5px">
+        <tr><th style="width:44px">순위</th><th>이벤트</th><th>구현 위치</th></tr>
+        <tr><td class="p0">P0</td><td><span class="ev">select_content</span></td><td>카드·타일 링크에 <span class="ev">data-loc</span> (서버가 그림) + 클릭 위임</td></tr>
+        <tr><td class="p0">P0</td><td><span class="ev">read_progress</span> <span class="ev">post_read</span></td><td>글 페이지 스크롤·체류 감시 (analytics.js)</td></tr>
+        <tr><td class="p0">P0</td><td><span class="ev">share</span></td><td>share.js: 복사 버튼과 공유 링크</td></tr>
+        <tr><td class="p0">P0</td><td><span class="ev">comment_submit</span></td><td>site.js: 저장 성공 직후</td></tr>
+        <tr><td>P1</td><td><span class="ev">search</span> <span class="ev">login</span> + 사용자 속성</td><td>list.js · site.js</td></tr>
+        <tr><td>P2</td><td><span class="ev">sort_change</span></td><td>list.js</td></tr>
+      </table>
+      <p class="note" style="margin-top:10px">공통 도우미 <span class="ev">track(이름, 파라미터)</span> 하나만 만들고, 측정 코드가 없거나 막혀 있으면 아무 일도 하지 않게 한다. 서버가 그리는 화면이 바뀌므로 <b>서버 함수와 호스팅 배포</b>가 필요하다.</p>
+    </div>
+    <div class="card"><h3>리스크와 열린 결정</h3>
+      <ul>
+        <li><b>숫자 불일치:</b> 직접 센 조회수와 GA는 다르다 → 분석은 GA 기준으로 못박는다.</li>
+        <li><b>누락:</b> 광고 차단·동의 거부 방문자는 GA에 잡히지 않는다 → 절대 숫자보다 추세와 비율로 본다.</li>
+        <li><b>읽음 기준:</b> 50%·30초는 가설이다 → 2주 뒤 조정.</li>
+        <li><b>소급 불가:</b> 맞춤 측정기준은 등록 후부터 쌓인다 → 등록을 구현보다 먼저.</li>
+        <li><b>글 주소가 글 번호:</b> 제목을 바꿔도 번호가 같아 분석은 안정적이지만, 보고서에서 번호만 보면 알아보기 어렵다 → 페이지 제목과 함께 본다.</li>
+        <li><b>결정 요청:</b> 개인정보 안내와 동의 배너, P0 구현 착수</li></ul></div>
+  </div>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+<!-- 16. 부록 -->
+<section class="slide cream">
+  <div class="sec">부록 · 전송 예시와 변경 이력</div>
+  <h2>이벤트 하나는 이렇게 나간다</h2>
+  <div class="cols2">
+    <div>
+<pre>// 글 카드를 눌렀을 때 (첫 화면 큰 타일)
+gtag('event', 'select_content', {
+  post_id: 'nvVdCkqMDLS0qWodwc4b',
+  menu: 'PORTFOLIO',
+  location: 'home_tile'
+});
+
+// 글을 읽었다고 판단했을 때 (핵심 이벤트)
+gtag('event', 'post_read', {
+  post_id: 'nvVdCkqMDLS0qWodwc4b',
+  menu: 'PORTFOLIO'
+});
+
+// 댓글 저장 성공 후
+gtag('event', 'comment_submit', {
+  post_id: '…', menu: 'STUDY', is_reply: false
+});</pre>
+      <p class="note" style="margin-top:10px">이름, 이메일, 댓글 내용은 어느 이벤트에도 들어가지 않는다.</p>
+    </div>
+    <div>
+      <div class="card"><h3>용어</h3>
+        <ul>
+          <li><b>이벤트</b>: 방문자의 행동 한 번 (예: 공유)</li>
+          <li><b>파라미터</b>: 이벤트에 붙는 설명 (예: 어느 글, 어느 메뉴)</li>
+          <li><b>핵심 이벤트</b>: 성과로 따로 집계하는 이벤트 (예전 이름 "전환")</li>
+          <li><b>맞춤 측정기준</b>: 파라미터를 GA 보고서에서 쓰려면 등록해야 하는 이름표</li>
+          <li><b>택소노미</b>: 이벤트와 파라미터의 이름·분류 체계</li></ul></div>
+      <div class="card" style="margin-top:12px;background:#f4f1ec;border-color:#f4f1ec"><h3>변경 이력</h3>
+        <p><b>v0.1</b> · 2026.11.17 · 최초 작성. AS-IS 진단, 이벤트 8개 설계, GA 화면 매핑, 설정 체크리스트. 읽음 기준·개인정보 안내·구현 착수는 결정 대기.</p></div>
+    </div>
+  </div>
+  <footer><span>Intent Notes · GA 이벤트 택소노미 v0.1</span><span class="pg"></span></footer>
+</section>
+
+</body>
+</html>
