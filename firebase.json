@@ -65,6 +65,20 @@
     ],
     "rewrites": [
       {
+        "source": "/api/cat",
+        "function": {
+          "functionId": "cat",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/weather",
+        "function": {
+          "functionId": "weather",
+          "region": "asia-northeast3"
+        }
+      },
+      {
         "source": "**",
         "function": {
           "functionId": "site",

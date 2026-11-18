@@ -234,3 +234,14 @@ footer a{text-decoration:underline;text-underline-offset:2px}
 .flist li{display:flex;gap:10px;align-items:center;font-size:14px}
 .flist .fname{word-break:break-all}
 .thfile[aria-disabled="true"]{opacity:.4;pointer-events:none}
+
+/* 사이드바 하단 날씨 */
+.wx{width:100%;border-top:1px solid #ddd7cc;padding:12px 0 10px;margin-bottom:6px}
+.wx .wt{font-family:var(--serif-kr);font-size:15px;color:var(--ink);line-height:1.4}
+.wx .ws{font-size:12px;color:var(--sub);margin-top:2px}
+.wx .wc{font-size:10.5px;color:var(--mute);margin-top:4px}
+/* 사이드바 하단 오늘의 고양이 (날씨 위) */
+.cat{width:100%;margin-bottom:6px}
+.cat .cimg{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;background:#e7e1d6}
+.cat .ccap{display:flex;justify-content:space-between;gap:8px;font-size:10.5px;color:var(--mute);margin-top:5px}
+.cat .ccap b{font-weight:500;color:var(--sub)}
