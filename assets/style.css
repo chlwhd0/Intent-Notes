@@ -269,3 +269,12 @@ footer a{text-decoration:underline;text-underline-offset:2px}
   .sidex-m .wx .ws{font-size:12px;margin-top:1px}
   .sidex-m .wx .wc{font-size:10.5px;margin-top:2px}
 }
+/* 관리자 로그인 화면: 왼쪽 큰 면 아래에 오늘의 고양이·날씨를 작게 */
+.sidex-l{display:none}
+.sidex-l.on{display:flex;align-items:center;gap:14px;margin-top:24px}
+.sidex-l .cat{width:auto;margin:0;order:2}
+.sidex-l .cat .cimg{width:64px;height:64px;aspect-ratio:auto;border-radius:8px}
+.sidex-l .cat .ccap{display:none}
+.sidex-l .wx{width:auto;border:0;padding:0;margin:0;order:1;color:#fff}
+.sidex-l .wx .wt,.sidex-l .wx .ws,.sidex-l .wx .wc{color:#fff}
+.sidex-l .wx .ws,.sidex-l .wx .wc{opacity:.85}

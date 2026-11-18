@@ -287,10 +287,10 @@ function layout({ title, body, active, root, admin = false, scripts = [], bodyAt
   ];
   const nav = items.map((n) => `<a href="${n.href}"${n.key === active ? ' class="on" aria-current="page"' : ''}>${esc(n.label)}</a>`).join('');
   const side = admin
-    ? `<nav id="nav" aria-label="관리자 메뉴"></nav>\n<div class="bottom" id="bottom"></div>`
+    ? `<nav id="nav" aria-label="관리자 메뉴"></nav>\n<div class="sidex sidex-d"><div class="cat" hidden></div><div class="wx" hidden aria-live="polite"></div></div>\n<div class="bottom" id="bottom"></div>`
     : `<nav id="nav" aria-label="주 메뉴">${nav}</nav>\n<div class="sidex sidex-d"><div class="cat" hidden></div><div class="wx" hidden aria-live="polite"></div></div>
 <div class="bottom" id="bottom"><button type="button" class="linkbtn" id="vlogin">Google 로그인</button><a class="admin" href="${root}admin/login.html" rel="nofollow">관리자 로그인</a></div>`;
-  const tags = (admin ? scripts : [...scripts, 'cat.js', 'weather.js']).map((s) => (/^(admin-app|site)\.js$/.test(s) ? `<script type="module" src="${root}assets/${s}"></script>` : `<script src="${root}assets/${s}"></script>`)).join('\n');
+  const tags = [...scripts, 'cat.js', 'weather.js'].map((s) => (/^(admin-app|site)\.js$/.test(s) ? `<script type="module" src="${root}assets/${s}"></script>` : `<script src="${root}assets/${s}"></script>`)).join('\n');
   return `<!doctype html>
 <html lang="ko">
 <head>
@@ -304,7 +304,8 @@ ${side}
 </aside>
 <main>
 ${body}
-${admin ? '' : '<div class="sidex sidex-m"><div class="cat" hidden></div><div class="wx" hidden aria-live="polite"></div></div>\n'}<footer>© ${new Date().getFullYear()} ${esc(cfg.author)} · ${esc(cfg.name)} · <a href="${root}privacy.html">개인정보 처리방침</a></footer>
+<div class="sidex sidex-m"><div class="cat" hidden></div><div class="wx" hidden aria-live="polite"></div></div>
+<footer>© ${new Date().getFullYear()} ${esc(cfg.author)} · ${esc(cfg.name)} · <a href="${root}privacy.html">개인정보 처리방침</a></footer>
 </main>
 </div>
 <script type="application/json" id="cats">${catsJson()}</script>
@@ -602,7 +603,7 @@ ${headHtml({ title: `관리자 로그인 · ${cfg.name}`, root: '../', seo: { no
 </head>
 <body class="login" data-page="login" data-root="../">
 <div class="lwrap">
-<section class="visual"><a class="brand" href="../index.html">${esc(cfg.name)}</a><p>${esc(cfg.headline)}</p><small>글쓰기와 관리는 로그인한 관리자만 할 수 있어요.</small></section>
+<section class="visual"><a class="brand" href="../index.html">${esc(cfg.name)}</a><p>${esc(cfg.headline)}</p><small>글쓰기와 관리는 로그인한 관리자만 할 수 있어요.</small><div class="sidex sidex-l"><div class="cat" hidden></div><div class="wx" hidden aria-live="polite"></div></div></section>
 <section class="panel">
 <form id="f" novalidate>
 <h1>관리자 로그인</h1>
@@ -616,6 +617,8 @@ ${headHtml({ title: `관리자 로그인 · ${cfg.name}`, root: '../', seo: { no
 </div>
 <script type="application/json" id="cats">${catsJson()}</script>
 <script type="module" src="../assets/admin-app.js"></script>
+<script src="../assets/cat.js"></script>
+<script src="../assets/weather.js"></script>
 </body>
 </html>
 `

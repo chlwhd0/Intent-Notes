@@ -75,7 +75,7 @@ const kmaKey = defineSecret('KMA_SERVICE_KEY');
 const WX_FRESH_MS = 10 * 60 * 1000;
 const WX_STALE_MS = 3 * 60 * 60 * 1000;
 let wx = { at: 0, data: null, promise: null };
-exports.weather = onRequest({ region: 'asia-northeast3', memory: '128MiB', timeoutSeconds: 20, maxInstances: 3, secrets: [kmaKey] }, async (req, res) => {
+exports.weather = onRequest({ region: 'asia-northeast3', memory: '256MiB', timeoutSeconds: 20, maxInstances: 3, secrets: [kmaKey] }, async (req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.status(405).send('Method Not Allowed'); return; }
   const now = Date.now();
   if (!(wx.data && now - wx.at < WX_FRESH_MS)) {
@@ -100,7 +100,7 @@ const catKey = defineSecret('CAT_API_KEY');
 const CAT_FRESH_MS = 60 * 60 * 1000;
 const CAT_STALE_MS = 3 * 60 * 60 * 1000;
 let cat = { at: 0, data: null, promise: null };
-exports.cat = onRequest({ region: 'asia-northeast3', memory: '128MiB', timeoutSeconds: 20, maxInstances: 3, secrets: [catKey] }, async (req, res) => {
+exports.cat = onRequest({ region: 'asia-northeast3', memory: '256MiB', timeoutSeconds: 20, maxInstances: 3, secrets: [catKey] }, async (req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.status(405).send('Method Not Allowed'); return; }
   const now = Date.now();
   if (!(cat.data && now - cat.at < CAT_FRESH_MS)) {

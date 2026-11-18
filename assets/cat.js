@@ -4,8 +4,16 @@
 (function () {
   var els = document.querySelectorAll('.cat');
   if (!els.length) return;
-  fetch('/api/cat', { headers: { Accept: 'application/json' } })
-    .then(function (r) { if (!r.ok) throw new Error('x'); return r.json(); })
+  // 서버가 막 켜지는 중이면 한 번 실패할 수 있어서, 2.5초 뒤 한 번만 다시 시도해요.
+  function getJson(u, n) {
+    return fetch(u, { headers: { Accept: 'application/json' } })
+      .then(function (r) { if (!r.ok) throw new Error('x'); return r.json(); })
+      .catch(function (e) {
+        if (n > 0) return new Promise(function (ok) { setTimeout(ok, 2500); }).then(function () { return getJson(u, n - 1); });
+        throw e;
+      });
+  }
+  getJson('/api/cat', 1)
     .then(function (d) {
       if (!d || typeof d.url !== 'string' || d.url.indexOf('https://cdn2.thecatapi.com/') !== 0) return;
       Array.prototype.forEach.call(els, function (el) {
