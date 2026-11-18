@@ -259,7 +259,9 @@ footer a{text-decoration:underline;text-underline-offset:2px}
   .sidex-m.on{display:flex;align-items:center;gap:14px;width:100%;margin:0;padding:14px 0 0;border-top:1px solid var(--line)}
   .bottom{grid-area:bottom;margin-top:0;justify-self:end;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:2px 12px;font-size:11px}
   .bottom button,.bottom a,.admin{font-size:11px}
-  .sidex-m .cat{width:auto;margin:0}
+  .sidex-m{justify-content:space-between}
+  .sidex-m .wx{order:1}
+  .sidex-m .cat{order:2;width:auto;margin:0 0 0 auto}
   .sidex-m .cat .cimg{width:64px;height:64px;aspect-ratio:auto;border-radius:8px}
   .sidex-m .cat .ccap{display:none}
   .sidex-m .wx{width:auto;border:0;padding:0;margin:0;line-height:1.35}
