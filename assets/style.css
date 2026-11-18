@@ -235,11 +235,13 @@ footer a{text-decoration:underline;text-underline-offset:2px}
 .flist .fname{word-break:break-all}
 .thfile[aria-disabled="true"]{opacity:.4;pointer-events:none}
 
-/* 사이드바 하단 날씨 */
-.wx{width:100%;border-top:1px solid #ddd7cc;padding:12px 0 10px;margin-bottom:6px}
-.wx .wt{font-family:var(--serif-kr);font-size:15px;color:var(--ink);line-height:1.4}
-.wx .ws{font-size:12px;color:var(--sub);margin-top:2px}
-.wx .wc{font-size:10.5px;color:var(--mute);margin-top:4px}
+/* 우측 상단 날씨 */
+.wrap{position:relative}
+.wx{position:absolute;top:20px;right:28px;z-index:2;text-align:right;line-height:1.4}
+.wx .wt{font-family:var(--serif-kr);font-size:15px;color:var(--ink)}
+.wx .ws{font-size:12px;color:var(--sub);margin-top:1px}
+.wx .wc{font-size:10.5px;color:var(--mute);margin-top:2px}
+@media(max-width:800px){.wx{position:static;order:-1;width:100%;padding:10px 16px 0;text-align:left}.sidex{margin-top:0}.cat{max-width:240px}}
 /* 사이드바 하단 오늘의 고양이 (날씨 위) */
 .cat{width:100%;margin-bottom:6px}
 .cat .cimg{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;background:#e7e1d6}

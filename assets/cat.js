@@ -8,9 +8,8 @@
     .then(function (d) {
       if (!d || typeof d.url !== 'string' || d.url.indexOf('https://cdn2.thecatapi.com/') !== 0) return;
       var img = document.createElement('img');
-      img.className = 'cimg'; img.alt = '무작위 고양이 사진'; img.loading = 'lazy'; img.decoding = 'async';
+      img.className = 'cimg'; img.alt = '무작위 고양이 사진'; img.decoding = 'async';
       img.referrerPolicy = 'no-referrer';
-      img.onload = function () { el.hidden = false; };
       img.onerror = function () { el.hidden = true; };
       img.src = d.url;
       var cap = document.createElement('div'); cap.className = 'ccap';
@@ -19,6 +18,7 @@
       cap.appendChild(a); cap.appendChild(b);
       el.textContent = '';
       el.appendChild(img); el.appendChild(cap);
+      el.hidden = false; // 먼저 보이게 해야 사진을 불러와요 (숨긴 칸 안의 사진은 브라우저가 불러오지 않아요)
     })
     .catch(function () { /* 사진은 덤이라 조용히 넘어가요 */ });
 })();
