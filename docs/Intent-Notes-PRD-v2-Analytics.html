@@ -150,6 +150,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <tr><td>PRB-11</td><td>로그인·로그아웃 때 page_view가 한 번 더 잡힌다</td><td>로그인·로그아웃 직후 같은 페이지를 새로고침하기 때문이다</td><td>새로고침 없이 화면만 갱신</td></tr>
 <tr><td>PRB-12</td><td>GA 콘솔 설정이 비어 있다</td><td>맞춤 측정기준 미등록, 핵심 이벤트 미지정, 데이터 보관 기본값(짧음), 내부 트래픽 필터 없음, 향상된 측정 확인 안 함</td><td>GA 콘솔 설정 체크리스트 수행</td></tr>
 <tr><td>PRB-13</td><td>분석을 보는 화면이 없다</td><td>GA 화면을 매번 직접 조합해야 하고, 자체 데이터(댓글 수 등)는 관리자 화면에서 볼 수 없다</td><td>월간 인기 글 대시보드(Looker Studio) + 관리자 글 목록에 반응 열 추가</td></tr>
+<tr><td>PRB-15</td><td>글 길이가 달라 읽기율·체류 시간을 공정하게 비교할 수 없다</td><td>짧은 글은 금방 읽히고 긴 글은 오래 걸린다. 글 길이를 모르면 "체류 시간이 짧은 글 = 인기 없는 글"로 잘못 판단한다. 글 글자 수가 GA에 전달되지 않는다</td><td>글 글자 수를 이벤트에 함께 보내고, 글 길이 구간별 읽기율과 "길이 대비 참여 시간"을 지표로 정의</td></tr>
 <tr><td>PRB-14</td><td>측정하는 정보가 처리방침에 반영되어야 한다</td><td>좋아요·스크랩은 계정 식별 번호와 글 번호를 저장하므로 개인정보 처리방침 갱신이 필요하다</td><td>처리방침 문구 갱신</td></tr>
 </table>
 
@@ -187,6 +188,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <tr><td>PRB-12</td><td>GA 콘솔 설정 (맞춤 정의 등)</td><td class="c">10</td><td class="c">2</td><td class="c">90%</td><td class="c">0.5</td><td class="c">36.0</td><td class="c">Must</td></tr>
 <tr><td>PRB-10</td><td>내 방문 제외 강화</td><td class="c">10</td><td class="c">1</td><td class="c">90%</td><td class="c">0.5</td><td class="c">18.0</td><td class="c">Must</td></tr>
 <tr><td>PRB-05</td><td>글 번호·메뉴를 모든 이벤트에 첨부</td><td class="c">8</td><td class="c">2</td><td class="c">90%</td><td class="c">1</td><td class="c">14.4</td><td class="c">Must</td></tr>
+<tr><td>PRB-15</td><td>글 길이 대비 읽기율 (글자 수 전송 + 지표 정의)</td><td class="c">8</td><td class="c">1</td><td class="c">70%</td><td class="c">0.5</td><td class="c">11.2</td><td class="c">Should</td></tr>
 <tr><td>PRB-01</td><td>완독 측정 (본문 기준)</td><td class="c">8</td><td class="c">3</td><td class="c">80%</td><td class="c">2</td><td class="c">9.6</td><td class="c">Must</td></tr>
 <tr><td>PRB-02·03</td><td>댓글·공유 이벤트</td><td class="c">7</td><td class="c">2</td><td class="c">90%</td><td class="c">1.5</td><td class="c">8.4</td><td class="c">Must</td></tr>
 <tr><td>PRB-13</td><td>월간 대시보드, 관리자 글 목록 반응 열</td><td class="c">5</td><td class="c">2</td><td class="c">70%</td><td class="c">1</td><td class="c">7.0</td><td class="c">Should</td></tr>
@@ -215,7 +217,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <p><b>목표 문장:</b> "블로그 운영자가 GA4와 관리자 화면만으로, 어떤 글이 <u>많이 열리고, 끝까지 읽히고, 반응(좋아요·댓글·공유·스크랩)을 이끌어 내는지</u> 글별·메뉴별로 판단할 수 있게 한다."</p>
 <table>
 <tr><th style="width:62px">ID</th><th style="width:22%">솔루션</th><th>내용</th><th style="width:20%">해결하는 문제</th></tr>
-<tr><td>SOL-1</td><td>이벤트 택소노미 v2</td><td>완독·댓글·공유·선택 위치·검색·로그인·첨부 다운로드 이벤트와 공통 파라미터 설계</td><td>PRB-01, 02, 03, 05, 06, 07, 08, 09</td></tr>
+<tr><td>SOL-1</td><td>이벤트 택소노미 v2</td><td>완독·댓글·공유·선택 위치·검색·로그인·첨부 다운로드 이벤트와 공통 파라미터 설계</td><td>PRB-01, 02, 03, 05, 06, 07, 08, 09, 15</td></tr>
 <tr><td>SOL-2</td><td>반응 기능 신설</td><td>좋아요(로그인한 방문자, 글당 1회)와 스크랩(내 스크랩 목록)</td><td>PRB-04, 14</td></tr>
 <tr><td>SOL-3</td><td>측정 품질 개선</td><td>내 방문 제외 강화, 로그인·로그아웃 새로고침 제거, GA 콘솔 설정</td><td>PRB-10, 11, 12</td></tr>
 <tr><td>SOL-4</td><td>분석 화면</td><td>월간 인기 글 대시보드(Looker Studio), 관리자 글 목록에 댓글·좋아요·스크랩 수 열</td><td>PRB-13</td></tr>
@@ -295,9 +297,10 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <tr><td>H4</td><td>좋아요는 가볍게, 스크랩은 신중하게 쓰인다 (스크랩 한 글이 재방문과 연결된다)</td><td>글별 좋아요 수, 스크랩 수, 스크랩한 방문자의 재방문율</td><td>GA 이벤트 + 관리자 화면</td></tr>
 <tr><td>H5</td><td>검색은 찾으려는 글이 없을 때 쓰인다</td><td>결과 0건 검색 비율, 상위 검색어</td><td>GA <code>search</code> 이벤트</td></tr>
 <tr><td>H6</td><td>로그인 안내가 있으면 댓글 전에 로그인하는 방문자가 는다</td><td>로그인 전환 = <code>login</code> 사용자 ÷ 글 열람 사용자, 로그인 후 댓글 전환</td><td>GA 이벤트 + 사용자 속성</td></tr>
+<tr><td>H8</td><td>글 길이를 고려하면 "체류 시간이 짧아 보이던 글"의 평가가 달라진다 (짧은 글은 짧게 읽혀도 완독일 수 있다)</td><td>글 길이 구간(짧음 1,000자 미만 / 보통 1,000~3,000자 / 김 3,000자 이상)별 읽기율, <b>길이 대비 참여 시간</b> = 평균 참여 시간 ÷ 예상 읽기 시간(글자 수 ÷ 분당 500자)</td><td>GA <code>post_read</code> + 글 글자 수(맞춤 측정항목) + 평균 참여 시간, 대시보드 필터</td></tr>
 <tr><td>H7</td><td>자료 첨부가 있는 글은 내려받기가 많다</td><td>글별 첨부 내려받기 수, 내려받은 사용자 비율</td><td>GA <code>attachment_download</code></td></tr>
 </table>
-<p><b>인기 글 판단 방식 (v1 가설):</b> 점수 하나로 합치지 않고 <b>세 축을 따로 순위</b>로 봅니다. 몰입은 "읽은 글 수"와 "읽기율", 반응은 "반응률", 확산은 "유입 소스·신규 사용자 비율"입니다. 점수화는 데이터가 쌓인 뒤 결정합니다.</p>
+<p><b>인기 글 판단 방식 (v1 가설):</b> 점수 하나로 합치지 않고 <b>세 축을 따로 순위</b>로 봅니다. 몰입은 "읽은 글 수"와 "읽기율"(글 길이 구간별 비교 포함), 반응은 "반응률", 확산은 "유입 소스·신규 사용자 비율"입니다. 점수화는 데이터가 쌓인 뒤 결정합니다.</p>
 
 <h3>5.2 고객 정의 (Persona)</h3>
 <table>
@@ -341,7 +344,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <tr><td>FR-12</td><td>관리자 글 목록 반응 열</td><td>관리자 글 관리 표에 댓글 수, 좋아요, 스크랩 열 추가 (회고는 "-")</td><td>GA 없이도 글별 반응 수를 본다</td><td class="c">P1</td></tr>
 <tr><td>FR-13</td><td>처리방침 갱신</td><td>좋아요·스크랩이 저장하는 정보(계정 식별 번호, 글 번호, 시각), 보관·삭제 방법, 측정 이벤트 안내를 처리방침에 추가</td><td>처리방침 페이지에 반영되고 푸터 링크에서 접근 가능</td><td class="c">P0</td></tr>
 <tr><td>FR-14</td><td>GA 콘솔 설정</td><td>6.4 체크리스트 수행 (운영자)</td><td>맞춤 정의 8개 등록, 핵심 이벤트 3개 지정 등</td><td class="c">P0</td></tr>
-<tr><td>FR-15</td><td>월간 대시보드</td><td>Looker Studio에 GA4를 연결해 인기 글(몰입·반응·확산) 보고서 1개 작성</td><td>5.1의 지표가 한 화면에서 메뉴·기간·기기별로 필터된다</td><td class="c">P1</td></tr>
+<tr><td>FR-15</td><td>월간 대시보드</td><td>Looker Studio에 GA4를 연결해 인기 글(몰입·반응·확산) 보고서 1개 작성</td><td>5.1의 지표가 한 화면에서 메뉴·기간·기기·<b>글 길이 구간</b>별로 필터된다. 읽기율과 길이 대비 참여 시간을 글 길이 구간별로 비교할 수 있다</td><td class="c">P1</td></tr>
 </table>
 
 <h3>6.2 이벤트 명세</h3>
