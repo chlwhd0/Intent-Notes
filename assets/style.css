@@ -245,3 +245,6 @@ footer a{text-decoration:underline;text-underline-offset:2px}
 .cat .cimg{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;background:#e7e1d6}
 .cat .ccap{display:flex;justify-content:space-between;gap:8px;font-size:10.5px;color:var(--mute);margin-top:5px}
 .cat .ccap b{font-weight:500;color:var(--sub)}
+/* 고양이·날씨는 로그인 영역(#bottom)과 따로 둬요. 로그인 상태를 그릴 때 #bottom 안쪽이 통째로 바뀌기 때문이에요. */
+.sidex{margin-top:auto;width:100%}
+.sidex + .bottom{margin-top:0}
