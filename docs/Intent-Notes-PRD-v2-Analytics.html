@@ -5,25 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Intent Notes 2차 개선 PRD (데이터 분석 개선)</title>
 <style>
-body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#222;line-height:1.65;max-width:1000px;margin:0 auto;padding:32px 20px 80px;font-size:15px}
-h1{font-size:26px;margin:0 0 6px}
-h2{font-size:21px;margin:44px 0 10px;padding-top:12px;border-top:2px solid #222}
-h3{font-size:17px;margin:28px 0 8px}
-h4{font-size:15px;margin:20px 0 6px}
-p{margin:8px 0}
-ul,ol{margin:6px 0 10px;padding-left:22px}
-li{margin:2px 0}
-table{border-collapse:collapse;width:100%;margin:10px 0 18px;font-size:14px}
-th,td{border:1px solid #bbb;padding:7px 9px;vertical-align:top;text-align:left}
-th{background:#f0f0f0;font-weight:700}
+:root{--ink:#1f1f1f;--sub:#5a5a5a;--line:#d8d3ca;--head:#ece8e0;--zebra:#faf8f5;--accent:#b5573f;--band:#f4f1ec}
+*{box-sizing:border-box}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;color:var(--ink);line-height:1.8;max-width:1080px;margin:0 auto;padding:40px 24px 100px;font-size:16px;background:#fff;word-break:keep-all}
+h1{font-size:28px;line-height:1.35;margin:0 0 8px;letter-spacing:-.01em}
+.sub{color:var(--sub);margin:0 0 24px;font-size:15px}
+h2{font-size:22px;line-height:1.4;margin:64px 0 16px;padding:10px 16px;background:var(--band);border-left:6px solid var(--accent)}
+h3{font-size:18px;line-height:1.5;margin:38px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+h4{font-size:16px;margin:26px 0 8px;color:#333}
+h4::before{content:"▪ ";color:var(--accent)}
+p{margin:10px 0}
+ul,ol{margin:8px 0 12px;padding-left:22px}
+li{margin:5px 0}
+table{border-collapse:collapse;width:100%;margin:12px 0 22px;font-size:15px;line-height:1.65;background:#fff}
+th,td{border:1px solid var(--line);padding:10px 12px;vertical-align:top;text-align:left;overflow-wrap:break-word}
+th.c{white-space:nowrap}
+table.idcol td:first-child{white-space:nowrap}
+th{background:var(--head);font-weight:700;color:#222}
+tr:nth-child(even) td{background:var(--zebra)}
+table.kv td:first-child{font-weight:700;background:var(--zebra)}
 td.c,th.c{text-align:center}
-code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:#f3f3f3;padding:0 4px;word-break:break-all}
-th,td{overflow-wrap:anywhere}
-@media(max-width:640px){body{padding:20px 12px 60px;font-size:14px}table{font-size:13px}th,td{padding:5px 6px}nav ol{columns:1}}
-.sub{color:#555;margin:0 0 18px}
-.note{color:#444;font-size:14px;margin:6px 0 14px}
-nav ol{columns:2;column-gap:32px;padding-left:20px}
-@media print{body{max-width:none;padding:0}h2{page-break-after:avoid}table{page-break-inside:auto}tr{page-break-inside:avoid}}
+td table{margin:4px 0}
+b{font-weight:700}
+code{font-family:ui-monospace,Menlo,monospace;font-size:13.5px;background:#f1ede6;padding:1px 5px;border-radius:3px;word-break:normal;overflow-wrap:break-word}
+.note{color:#444;font-size:14.5px;margin:10px 0 18px;padding:8px 14px;border-left:4px solid var(--line);background:#fafafa}
+nav{border:1px solid var(--line);background:var(--zebra);padding:14px 20px;margin:0 0 8px}
+nav ol{columns:2;column-gap:40px;padding-left:22px;margin:0}
+nav li{margin:4px 0}
+a{color:#7a2f1d}
+@media(max-width:700px){body{padding:20px 14px 70px;font-size:15px}h1{font-size:23px}h2{font-size:19px;padding:8px 12px;margin-top:44px}table{font-size:13.5px;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}th,td{padding:6px 7px}code{word-break:break-all}nav ol{columns:1}}
+@media print{body{max-width:none;padding:0;font-size:12px}h2{page-break-after:avoid;background:none;border-left:4px solid #999}table{page-break-inside:auto}tr{page-break-inside:avoid}nav{display:none}}
 </style>
 </head>
 <body>
@@ -50,7 +61,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 
 <!-- 1 -->
 <h2 id="s1">1. 기본 정보</h2>
-<table>
+<table class="kv">
 <tr><th style="width:140px">항목</th><th>내용</th></tr>
 <tr><td>문서 버전</td><td>v2.0 (2차 개선 PRD, 초안)</td></tr>
 <tr><td>작성일</td><td>2026-11-18</td></tr>
@@ -116,7 +127,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 </table>
 
 <h4>3.1.2 3C 분석</h4>
-<table>
+<table class="kv">
 <tr><th style="width:110px">구분</th><th>내용</th><th style="width:30%">시사점</th></tr>
 <tr><td>고객 (Customer)</td><td>
 <ul>
@@ -135,7 +146,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 
 <h3>3.2 문제 발굴</h3>
 <h4>3.2.1 문제 목록</h4>
-<table>
+<table class="idcol">
 <tr><th style="width:62px">ID</th><th style="width:21%">문제</th><th>근거</th><th style="width:21%">해결 방향</th></tr>
 <tr><td>PRB-01</td><td>완독을 정확히 알 수 없다</td><td>GA 기본 scroll은 페이지 전체 높이의 90%에서만 1회 발생한다. 한 화면에 들어오는 짧은 글은 아예 발생하지 않고, 본문 아래 첨부·이전/다음·댓글 때문에 90% 지점이 본문 끝과 다르며, 빨리 내려도 발생한다</td><td>본문 기준 진행도(<code>read_progress</code>)와 완독(<code>post_read</code>) 이벤트</td></tr>
 <tr><td>PRB-02</td><td>댓글이 GA에 없다</td><td>댓글은 데이터베이스에만 저장되고 GA로 보내지 않는다</td><td><code>comment_submit</code> 이벤트</td></tr>
@@ -158,7 +169,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <p>1인 운영 블로그라 설문 대신 <b>"운영자가 알고 싶은 지표"를 GA4에서 실제로 볼 수 있는지 점검</b>하는 방식으로 검증했습니다 (코드 확인, GA 이벤트 체계 점검, 실시간 수신 확인).</p>
 
 <h4>3.3.1 설문 조사 계획</h4>
-<table>
+<table class="kv">
 <tr><th style="width:140px">항목</th><th>내용</th></tr>
 <tr><td>실시 여부</td><td>실시하지 않음. 현재 사용자가 운영자 본인뿐이고 방문자가 적어 설문 표본을 확보하기 어렵다</td></tr>
 <tr><td>대체 검증</td><td>(1) 운영자가 요청한 지표 목록 대 GA4 현황 점검 (2) 방문자 데이터가 쌓인 뒤 4주 시점에 재검증</td></tr>
@@ -166,7 +177,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 </table>
 
 <h4>3.3.2 점검 결과 및 인사이트</h4>
-<table>
+<table class="idcol">
 <tr><th style="width:42px">#</th><th style="width:22%">운영자가 알고 싶은 지표</th><th style="width:100px">GA4 현재</th><th>근거</th></tr>
 <tr><td class="c">1</td><td>홈 화면 방문자 수</td><td>가능</td><td>page_view와 사용자 수가 자동으로 쌓인다 (홈 두 주소 문제는 고침, 이전 데이터만 두 줄)</td></tr>
 <tr><td class="c">2</td><td>페이지별 방문자 수</td><td>가능</td><td>페이지 및 화면 보고서</td></tr>
@@ -183,7 +194,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <h3>3.4 문제 최종 정의</h3>
 <h4>3.4.1 우선순위 결정 (RICE + MoSCoW)</h4>
 <p class="note">RICE = Reach(영향 범위, 10점 만점) × Impact(영향도, 0.25~3) × Confidence(확신도) ÷ Effort(공수, 인일). 모든 수치는 기획자 추정치이며 방문 데이터가 쌓이면 보정합니다.</p>
-<table>
+<table class="idcol">
 <tr><th style="width:62px">ID</th><th>과제</th><th class="c" style="width:48px">R</th><th class="c" style="width:48px">I</th><th class="c" style="width:56px">C</th><th class="c" style="width:56px">E</th><th class="c" style="width:64px">RICE</th><th class="c" style="width:76px">MoSCoW</th></tr>
 <tr><td>PRB-12</td><td>GA 콘솔 설정 (맞춤 정의 등)</td><td class="c">10</td><td class="c">2</td><td class="c">90%</td><td class="c">0.5</td><td class="c">36.0</td><td class="c">Must</td></tr>
 <tr><td>PRB-10</td><td>내 방문 제외 강화</td><td class="c">10</td><td class="c">1</td><td class="c">90%</td><td class="c">0.5</td><td class="c">18.0</td><td class="c">Must</td></tr>
@@ -203,7 +214,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <p class="note">* PRB-04는 RICE 점수는 낮지만 <b>운영자가 직접 요청한 지표(좋아요, 스크랩)</b>라서 Must로 올렸습니다. PRB-14는 점수 대신 개인정보 준수 의무로 Must입니다. Won't 항목은 이번 범위에서 제외하며 사유는 9장에 적었습니다.</p>
 
 <h4>3.4.2 문제 최종 정의</h4>
-<table>
+<table class="kv">
 <tr><th style="width:140px">구분</th><th>내용</th></tr>
 <tr><td>핵심 문제</td><td><b>인기 글을 판단하는 데 필요한 "몰입(읽혔나)"과 "반응(좋아요·댓글·공유·스크랩)"이 GA4에서 측정되지 않아, 지금은 "열린 횟수"로밖에 인기를 말할 수 없다.</b></td></tr>
 <tr><td>선정 이유</td><td>필수 지표 9개 중 5개가 비어 있고, 그중 대부분이 한 번의 이벤트 설계로 해결된다. 소급이 안 되므로 늦을수록 데이터를 잃는다</td></tr>
@@ -215,7 +226,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 
 <h3>4.1 솔루션 정의</h3>
 <p><b>목표 문장:</b> "블로그 운영자가 GA4와 관리자 화면만으로, 어떤 글이 <u>많이 열리고, 끝까지 읽히고, 반응(좋아요·댓글·공유·스크랩)을 이끌어 내는지</u> 글별·메뉴별로 판단할 수 있게 한다."</p>
-<table>
+<table class="idcol">
 <tr><th style="width:62px">ID</th><th style="width:22%">솔루션</th><th>내용</th><th style="width:20%">해결하는 문제</th></tr>
 <tr><td>SOL-1</td><td>이벤트 택소노미 v2</td><td>완독·댓글·공유·선택 위치·검색·로그인·첨부 다운로드 이벤트와 공통 파라미터 설계</td><td>PRB-01, 02, 03, 05, 06, 07, 08, 09, 15</td></tr>
 <tr><td>SOL-2</td><td>반응 기능 신설</td><td>좋아요(로그인한 방문자, 글당 1회)와 스크랩(내 스크랩 목록)</td><td>PRB-04, 14</td></tr>
@@ -226,21 +237,21 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <h3>4.2 AS-IS / TO-BE</h3>
 
 <h4>컨셉</h4>
-<table>
+<table class="kv">
 <tr><th style="width:140px">구분</th><th>AS-IS</th><th>TO-BE</th></tr>
 <tr><td>측정 철학</td><td>GA4 자동 수집에 의존. "열린 횟수" 중심</td><td>설계한 이벤트로 "읽혔나, 반응했나"까지. 질문에 답하지 못하는 이벤트는 만들지 않는다</td></tr>
 <tr><td>인기 글 판단</td><td>조회수 + 평균 참여 시간 + scroll 건수를 눈으로 겹쳐 본다</td><td>몰입(읽은 글 수, 읽기율) · 반응(댓글, 공유, 좋아요, 스크랩) · 확산(유입 소스) 세 축을 한 대시보드에서 본다</td></tr>
 </table>
 
 <h4>타겟</h4>
-<table>
+<table class="kv">
 <tr><th style="width:140px">구분</th><th>AS-IS</th><th>TO-BE</th></tr>
 <tr><td>1순위 사용자</td><td>운영자 (GA 화면을 직접 조합)</td><td>운영자 (정리된 대시보드와 관리자 화면에서 확인)</td></tr>
 <tr><td>2순위 사용자</td><td>방문자 (읽기, 댓글, 공유)</td><td>방문자 (좋아요, 스크랩으로 반응하고 저장)</td></tr>
 </table>
 
 <h4>비즈니스 모델 및 가격 정책</h4>
-<table>
+<table class="kv">
 <tr><th style="width:140px">구분</th><th>AS-IS</th><th>TO-BE</th></tr>
 <tr><td>수익 모델</td><td>없음 (포트폴리오·기록용, 무료)</td><td>변경 없음 (무료). 광고·유료 기능은 도입하지 않는다</td></tr>
 <tr><td>운영 비용</td><td>Firebase Blaze 요금제, 개인 규모는 무료 사용량 안</td><td>좋아요·스크랩의 읽기·쓰기가 늘어남. 서버 집계 함수 추가. 예상은 무료 사용량 안이며 월 1회 사용량 점검 (7장)</td></tr>
@@ -265,7 +276,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 </table>
 
 <h4>디자인</h4>
-<table>
+<table class="kv">
 <tr><th style="width:140px">구분</th><th>AS-IS</th><th>TO-BE</th></tr>
 <tr><td>글 상세</td><td>제목, 요약, 날짜·조회수, 공유하기 버튼</td><td>같은 줄에 좋아요·스크랩 버튼 추가 (공유하기와 같은 작은 버튼 스타일)</td></tr>
 <tr><td>목록</td><td>날짜와 조회수를 오른쪽 정렬</td><td>조회수 옆에 좋아요 수 (조회·좋아요 둘 다 있을 때만 표시)</td></tr>
@@ -276,7 +287,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <h3>4.3 예상 성과</h3>
 <p>이 개선으로 "인기 글"이 열린 횟수가 아니라 <b>읽힌 정도와 반응</b>으로 정의되고, 운영자가 글쓰기 방향(주제, 길이, 제목, 메뉴)을 데이터로 정할 수 있게 됩니다. 방문자 수가 아직 적으므로 성과는 <b>분석 가능 범위(측정 커버리지)</b>와 <b>데이터 품질</b>로 정하고, 방문 기반 수치는 측정 4주 뒤에 확정합니다.</p>
 <p><b>OKR</b></p>
-<table>
+<table class="kv">
 <tr><th style="width:56px">구분</th><th>내용</th><th style="width:150px">현재</th><th style="width:170px">목표</th></tr>
 <tr><td>O</td><td><b>인기 글 판단에 필요한 데이터를 GA4와 관리자 화면에서 모두 볼 수 있다</b></td><td>-</td><td>-</td></tr>
 <tr><td>KR1</td><td>필수 지표 9개(3.3.2) 중 GA4에서 확인 가능한 지표 수</td><td>4개 (+ 부분 2개)</td><td><b>9개</b></td></tr>
@@ -289,7 +300,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <h2 id="s5">5. 가설 및 지표</h2>
 
 <h3>5.1 핵심 지표 (Key Metrics)</h3>
-<table>
+<table class="idcol">
 <tr><th style="width:44px">ID</th><th style="width:25%">가설</th><th>지표</th><th style="width:22%">측정 방법</th></tr>
 <tr><td>H1</td><td>본문 끝까지 읽히는 글이 따로 있고, 그것은 조회수 순위와 다르다</td><td>읽은 글 수(<code>post_read</code> 사용자), 읽기율 = 읽은 사용자 ÷ 글 열람 사용자</td><td>GA 이벤트 보고서, 탐색 보고서</td></tr>
 <tr><td>H2</td><td>오래 머무는 글이 반응(댓글, 공유)도 많이 이끈다</td><td>평균 참여 시간, 반응률 = (댓글 + 공유 + 좋아요 + 스크랩) 사용자 ÷ 읽은 사용자</td><td>GA 보고서 + 대시보드</td></tr>
@@ -303,7 +314,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <p><b>인기 글 판단 방식 (v1 가설):</b> 점수 하나로 합치지 않고 <b>세 축을 따로 순위</b>로 봅니다. 몰입은 "읽은 글 수"와 "읽기율"(글 길이 구간별 비교 포함), 반응은 "반응률", 확산은 "유입 소스·신규 사용자 비율"입니다. 점수화는 데이터가 쌓인 뒤 결정합니다.</p>
 
 <h3>5.2 고객 정의 (Persona)</h3>
-<table>
+<table class="kv">
 <tr><th style="width:130px">구분</th><th>1순위: 운영자</th><th>2순위: 방문자</th></tr>
 <tr><td>누구인가</td><td>블로그를 직접 만들고 글을 쓰는 AI PM 준비자</td><td>채용 담당자, 동료 PM, 검색으로 들어온 독자</td></tr>
 <tr><td>하려는 일</td><td>어떤 글이 읽히는지 알고 다음 글의 주제와 방향을 정한다</td><td>글을 읽고, 마음에 들면 반응하거나 저장한다</td></tr>
@@ -328,7 +339,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <h2 id="s6">6. 기능적 요구사항 (Functional Requirements)</h2>
 
 <h3>6.1 주요 기능 리스트</h3>
-<table>
+<table class="idcol">
 <tr><th style="width:56px">ID</th><th style="width:18%">기능</th><th>설명</th><th style="width:32%">완료 기준 (수용 기준)</th><th class="c" style="width:48px">우선</th></tr>
 <tr><td>FR-01</td><td>공통 측정 정보 첨부</td><td>글 페이지 측정에 <code>post_id</code>와 콘텐츠 그룹(메뉴 이름)을 붙이고, 글 글자 수와 예상 읽기 시간을 서버가 화면에 심어 둔다</td><td>글 페이지의 모든 이벤트에 <code>post_id</code>가 붙고 GA에서 메뉴(콘텐츠 그룹)별로 나눠 볼 수 있다</td><td class="c">P0</td></tr>
 <tr><td>FR-02</td><td>본문 진행도·완독</td><td>본문 영역 기준 25·50·75·100% 도달 시 <code>read_progress</code>, 본문 끝 도달 + 기준 체류 시간 충족 시 <code>post_read</code> (글당 1회)</td><td>짧은 글(한 화면)도 체류 시간이 차면 완독 발생. 빨리 내려만 간 경우는 발생하지 않음. 중복 없음</td><td class="c">P0</td></tr>
@@ -381,7 +392,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <p class="note">맞춤 측정기준 8개(이벤트 7 + 사용자 1)와 맞춤 측정항목 1개를 사용하며, GA4 무료 한도(이벤트 범위 50, 사용자 범위 25) 안입니다. 검색어(<code>search_term</code>)는 GA 권장 파라미터라 별도 등록 없이 기본 보고서를 사용합니다.</p>
 
 <h3>6.4 GA 콘솔 설정 체크리스트 (운영자 작업)</h3>
-<table>
+<table class="idcol">
 <tr><th style="width:42px">#</th><th>작업</th><th style="width:30%">위치</th><th style="width:25%">시점</th></tr>
 <tr><td class="c">1</td><td>맞춤 측정기준 8개, 맞춤 측정항목 1개 등록</td><td>관리 › 맞춤 정의</td><td><b>구현 전에 먼저</b> (등록 시점부터 쌓임)</td></tr>
 <tr><td class="c">2</td><td>핵심 이벤트로 표시: <code>post_read</code>, <code>comment_submit</code>, <code>share</code> (선택: <code>post_like</code>, <code>post_bookmark</code>)</td><td>관리 › 이벤트</td><td>이벤트가 한 번 들어온 뒤</td></tr>
@@ -428,7 +439,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 
 <!-- 7 -->
 <h2 id="s7">7. 비기능적 요구사항 (Non-Functional Requirements)</h2>
-<table>
+<table class="kv">
 <tr><th style="width:130px">구분</th><th>요구사항</th><th style="width:28%">검증 방법</th></tr>
 <tr><td>성능</td><td>측정 코드 추가로 글 페이지 초기 로딩이 눈에 띄게 느려지지 않는다 (추가 스크립트 5KB 이하, 렌더링을 막지 않음). 이벤트 전송은 화면 동작을 지연시키지 않는다</td><td>배포 전후 로딩 시간 비교</td></tr>
 <tr><td>안정성</td><td>측정 코드가 막히거나(광고 차단) 오류가 나도 글 읽기, 댓글, 좋아요, 스크랩은 정상 동작한다. 측정 함수는 오류를 삼키고 화면에 영향을 주지 않는다</td><td>측정 코드를 차단한 상태에서 기능 시험</td></tr>
@@ -443,7 +454,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 
 <!-- 8 -->
 <h2 id="s8">8. 디자인 요구사항</h2>
-<table>
+<table class="kv">
 <tr><th style="width:150px">구분</th><th>내용</th></tr>
 <tr><td>UX/UI 방향성</td><td>
 <ul>
@@ -470,7 +481,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <h2 id="s9">9. 출시 및 운영 전략</h2>
 
 <h3>9.1 개발 범위 선정</h3>
-<table>
+<table class="idcol">
 <tr><th style="width:90px">단계</th><th style="width:22%">범위</th><th>포함 기능</th><th style="width:22%">선정 이유</th></tr>
 <tr><td>Phase A</td><td>측정 기반 (먼저)</td><td>FR-14(GA 콘솔 설정), FR-01, FR-02, FR-03, FR-04, FR-10, FR-13(방문 통계 부분)</td><td>소급이 안 되므로 데이터를 가장 빨리 쌓기 시작해야 하고, 새 기능 없이 이벤트만 추가해 위험이 작다</td></tr>
 <tr><td>Phase B</td><td>반응 기능</td><td>FR-05, FR-06, FR-13(좋아요·스크랩 부분), FR-09</td><td>새 데이터와 보안 규칙이 필요해 시험에 시간이 든다. 운영자 요청 지표</td></tr>
@@ -486,7 +497,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 </ul>
 
 <h3>9.3 테스트 방식 및 일정</h3>
-<table>
+<table class="kv">
 <tr><th style="width:150px">구분</th><th>방법</th><th style="width:25%">시점</th></tr>
 <tr><td>가짜 환경 시험</td><td>가짜 파이어베이스로 이벤트 발생 조건(중복, 짧은 글, 실패 시 미발생), 좋아요·스크랩 동작 확인</td><td>Phase 개발 중</td></tr>
 <tr><td>규칙 시험</td><td>로그인 없이, 다른 계정으로 좋아요·스크랩 쓰기/읽기가 거부되는지 확인</td><td>규칙 배포 직후</td></tr>
@@ -513,7 +524,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <!-- 10 -->
 <h2 id="s10">10. 일정 및 리소스</h2>
 <p class="note">1인 운영(운영자)과 AI 개발 보조(Claude Code)가 진행하는 기준의 제안 일정입니다. 날짜는 승인 후 확정합니다.</p>
-<table>
+<table class="idcol">
 <tr><th class="c" style="width:90px">단계</th><th class="c" style="width:200px">일정</th><th class="c" style="width:160px">담당자</th><th>비고</th></tr>
 <tr><td class="c">기획</td><td class="c">2026-11-18 ~ 2026-11-19</td><td class="c">운영자(기획)</td><td>이 문서 승인, GA 콘솔 설정(맞춤 정의 등록) 먼저</td></tr>
 <tr><td class="c">디자인</td><td class="c">2026-11-19 ~ 2026-11-20</td><td class="c">운영자 + 개발 보조</td><td>좋아요·스크랩 버튼, 내 스크랩 화면</td></tr>
@@ -568,7 +579,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 </table>
 
 <h2>부록. 용어와 변경 이력</h2>
-<table>
+<table class="kv">
 <tr><th style="width:150px">용어</th><th>설명</th></tr>
 <tr><td>이벤트</td><td>방문자의 행동이 GA에 남는 단위 (예: 페이지 열기, 공유)</td></tr>
 <tr><td>파라미터</td><td>이벤트에 붙는 설명 (어느 글, 어느 위치 등)</td></tr>
@@ -577,7 +588,7 @@ nav ol{columns:2;column-gap:32px;padding-left:20px}
 <tr><td>택소노미</td><td>이벤트와 파라미터의 이름·분류 체계</td></tr>
 <tr><td>RICE / MoSCoW</td><td>우선순위 결정 방법. RICE는 점수식, MoSCoW는 Must·Should·Could·Won't 분류</td></tr>
 </table>
-<table>
+<table class="kv">
 <tr><th style="width:100px">버전</th><th style="width:130px">날짜</th><th>변경 내용</th></tr>
 <tr><td>v2.0</td><td>2026-11-18</td><td>2차 개선 PRD 최초 작성 (데이터 분석 개선). 승인 대기</td></tr>
 </table>
