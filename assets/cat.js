@@ -9,7 +9,7 @@
       if (!d || typeof d.url !== 'string' || d.url.indexOf('https://cdn2.thecatapi.com/') !== 0) return;
       var img = document.createElement('img');
       img.className = 'cimg'; img.alt = '무작위 고양이 사진'; img.decoding = 'async';
-      img.referrerPolicy = 'no-referrer';
+      img.referrerPolicy = 'no-referrer'; img.title = '오늘의 고양이 · 출처: TheCatAPI';
       img.onerror = function () { el.hidden = true; };
       img.src = d.url;
       var cap = document.createElement('div'); cap.className = 'ccap';
