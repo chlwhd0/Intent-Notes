@@ -256,7 +256,7 @@ footer a{text-decoration:underline;text-underline-offset:2px}
   aside .brand{grid-area:brand;font-size:22px}
   aside nav{grid-area:nav}
   .sidex-d{display:none}
-  .sidex-m.on{display:flex;align-items:center;gap:14px;width:100%;margin:0;padding:14px 0 0;border-top:1px solid var(--line)}
+  .sidex-m.on{display:flex;align-items:center;gap:14px;width:100%;margin:0;padding:14px 0 0}
   .bottom{grid-area:bottom;margin-top:0;justify-self:end;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:2px 12px;font-size:11px}
   .bottom button,.bottom a,.admin{font-size:11px}
   .sidex-m{justify-content:space-between}
