@@ -248,19 +248,22 @@ footer a{text-decoration:underline;text-underline-offset:2px}
 /* 고양이·날씨는 로그인 영역(#bottom)과 따로 둬요. 로그인 상태를 그릴 때 #bottom 안쪽이 통째로 바뀌기 때문이에요. */
 .sidex{margin-top:auto;width:100%}
 .sidex + .bottom{margin-top:0}
-/* 모바일: 윗줄 오른쪽에 작은 로그인 링크, 그 아래 줄에 이름 + 오늘의 고양이·날씨(한 줄), 그 아래 메뉴 */
+/* 푸터 위 칸(sidex-m)은 모바일에서만 보여요. 컴퓨터에서는 사이드바 칸(sidex-d)을 써요. */
+.sidex-m{display:none}
+/* 모바일: 윗줄 오른쪽에 작은 로그인 링크, 그 아래 이름, 메뉴. 오늘의 고양이·날씨는 맨 아래 푸터 바로 위에 한 줄로 둬요. */
 @media(max-width:800px){
-  aside{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"bottom bottom" "brand sidex" "nav nav";align-items:center;gap:6px 12px;padding:10px 16px 14px}
+  aside{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"bottom bottom" "brand brand" "nav nav";align-items:center;align-content:start;gap:6px 12px;padding:10px 16px 14px}
   aside .brand{grid-area:brand;font-size:22px}
   aside nav{grid-area:nav}
-  .sidex{grid-area:sidex;margin-top:0;width:auto;justify-self:end;display:flex;align-items:center;gap:10px}
-  .sidex + .bottom,.bottom{grid-area:bottom;margin-top:0;justify-self:end;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:2px 12px;font-size:11px}
+  .sidex-d{display:none}
+  .sidex-m.on{display:flex;align-items:center;gap:14px;width:100%;margin:0;padding:14px 0 0;border-top:1px solid var(--line)}
+  .bottom{grid-area:bottom;margin-top:0;justify-self:end;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:2px 12px;font-size:11px}
   .bottom button,.bottom a,.admin{font-size:11px}
-  .cat{width:auto;margin:0}
-  .cat .cimg{width:44px;height:44px;aspect-ratio:auto;border-radius:6px}
-  .cat .ccap{display:none}
-  .wx{width:auto;border:0;padding:0;margin:0;line-height:1.3}
-  .wx .wt{font-size:13px;line-height:1.3}
-  .wx .ws{font-size:10.5px;margin-top:0}
-  .wx .wc{font-size:9px;margin-top:1px}
+  .sidex-m .cat{width:auto;margin:0}
+  .sidex-m .cat .cimg{width:64px;height:64px;aspect-ratio:auto;border-radius:8px}
+  .sidex-m .cat .ccap{display:none}
+  .sidex-m .wx{width:auto;border:0;padding:0;margin:0;line-height:1.35}
+  .sidex-m .wx .wt{font-size:15px}
+  .sidex-m .wx .ws{font-size:12px;margin-top:1px}
+  .sidex-m .wx .wc{font-size:10.5px;margin-top:2px}
 }

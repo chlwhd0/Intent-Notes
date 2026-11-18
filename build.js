@@ -288,7 +288,7 @@ function layout({ title, body, active, root, admin = false, scripts = [], bodyAt
   const nav = items.map((n) => `<a href="${n.href}"${n.key === active ? ' class="on" aria-current="page"' : ''}>${esc(n.label)}</a>`).join('');
   const side = admin
     ? `<nav id="nav" aria-label="관리자 메뉴"></nav>\n<div class="bottom" id="bottom"></div>`
-    : `<nav id="nav" aria-label="주 메뉴">${nav}</nav>\n<div class="sidex"><div class="cat" id="cat" hidden></div><div class="wx" id="wx" hidden aria-live="polite"></div></div>
+    : `<nav id="nav" aria-label="주 메뉴">${nav}</nav>\n<div class="sidex sidex-d"><div class="cat" hidden></div><div class="wx" hidden aria-live="polite"></div></div>
 <div class="bottom" id="bottom"><button type="button" class="linkbtn" id="vlogin">Google 로그인</button><a class="admin" href="${root}admin/login.html" rel="nofollow">관리자 로그인</a></div>`;
   const tags = (admin ? scripts : [...scripts, 'cat.js', 'weather.js']).map((s) => (/^(admin-app|site)\.js$/.test(s) ? `<script type="module" src="${root}assets/${s}"></script>` : `<script src="${root}assets/${s}"></script>`)).join('\n');
   return `<!doctype html>
@@ -304,7 +304,7 @@ ${side}
 </aside>
 <main>
 ${body}
-<footer>© ${new Date().getFullYear()} ${esc(cfg.author)} · ${esc(cfg.name)} · <a href="${root}privacy.html">개인정보 처리방침</a></footer>
+${admin ? '' : '<div class="sidex sidex-m"><div class="cat" hidden></div><div class="wx" hidden aria-live="polite"></div></div>\n'}<footer>© ${new Date().getFullYear()} ${esc(cfg.author)} · ${esc(cfg.name)} · <a href="${root}privacy.html">개인정보 처리방침</a></footer>
 </main>
 </div>
 <script type="application/json" id="cats">${catsJson()}</script>
