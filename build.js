@@ -245,7 +245,7 @@ async function loadRemotePosts(provider) {
     const post = {
       slug: d.slug || d.id,
       id: d.id,
-      thumb: th >= 0 && th < 6 ? th : 0,
+      thumb: th >= -1 && th < 6 ? th : 0, // -1은 "없음"
       img: T.okImg(d.img) ? d.img : '',
       files: cleanFiles(d.files),
       title: d.title || d.id,
@@ -413,7 +413,7 @@ async function generate(provider) {
   const tile = (c, cls, root) => {
     const p = latest(c.slug);
     if (!p) return `<div class="tile ${cls}"><small>${esc(c.label)}</small><span>아직 글이 없어요</span></div>`;
-    return `<a class="tile has ${cls}" href="${root}posts/${p.slug}.html"><div class="tbgi">${T.inner(p)}</div><small>${esc(c.label)}</small><span>${esc(p.title)}</span></a>`;
+    return `<a class="tile has ${cls}${T.none(p) ? ' nothumb' : ''}" href="${root}posts/${p.slug}.html"><div class="tbgi">${T.inner(p)}</div><small>${esc(c.label)}</small><span>${esc(p.title)}</span></a>`;
   };
   const vc = visCats.slice(0, 3);
   const collage = vc.length
@@ -530,7 +530,7 @@ ${collage}
 <div class="meta3">${timeTag(p.date)}${viewsSpan(p, 'hint')}</div>
 ${share}
 ${isPriv ? '' : tldrBlock(p)}
-<div class="cover">${T.inner(p)}</div>
+${T.none(p) ? '' : `<div class="cover">${T.inner(p)}</div>`}
 <div class="body">${p.html}</div>
 ${filesBlock(p.files)}
 ${isPriv ? '' : relatedBlock(p)}

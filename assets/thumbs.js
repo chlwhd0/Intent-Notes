@@ -18,6 +18,8 @@
   // 올린 이미지는 우리 파일 저장소(Firebase Storage) 주소만 받아요.
   const okImg = (u) => /^https:\/\/firebasestorage\.googleapis\.com\/[^\s"'<>]+$/.test(u || '') && String(u).length <= 800;
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const inner = (p) => (p && p.img && okImg(p.img) ? `<img src="${esc(p.img)}" alt="" loading="lazy">` : THUMBS[(Number(p && p.thumb) || 0) % THUMBS.length]);
-  return { THUMBS, okImg, inner };
+  // thumb가 -1이면 "없음"이에요. 올린 이미지가 없을 때 썸네일을 그리지 않아요.
+  const none = (p) => !(p && p.img && okImg(p.img)) && p && Number(p.thumb) === -1;
+  const inner = (p) => (p && p.img && okImg(p.img) ? `<img src="${esc(p.img)}" alt="" loading="lazy">` : none(p) ? '' : THUMBS[(Number(p && p.thumb) || 0) % THUMBS.length]);
+  return { THUMBS, okImg, inner, none };
 });

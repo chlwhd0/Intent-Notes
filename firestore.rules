@@ -34,7 +34,7 @@ service cloud.firestore {
         && d.description is string && d.description.size() <= 300
         && d.body is string && d.body.size() > 0 && d.body.size() <= 100000
         && (!('format' in d) || d.format in ['md', 'html'])
-        && (!('thumb' in d) || (d.thumb is int && d.thumb >= 0 && d.thumb < 6))
+        && (!('thumb' in d) || (d.thumb is int && d.thumb >= -1 && d.thumb < 6))
         && (!('img' in d) || (d.img is string && d.img.size() <= 800 && (d.img == '' || d.img.matches('^https://firebasestorage\\.googleapis\\.com/.*'))))
         && (!('files' in d) || (d.files is list && d.files.size() <= 5))
         && (!('aiSummary' in d) || (d.aiSummary is list && d.aiSummary.size() <= 3))
