@@ -351,7 +351,7 @@
 
 | 저장소와 문서 | 시안과 체험판 |
 |---|---|
-| GitHub (공개): github.com/chlwhd0/myblog-test2<br>`CLAUDE.md` 요구사항·유저스토리·지침<br>`docs/decisions.md` 결정 기록<br>`docs/failures/` 막힌 일과 해결<br>`site.config.json` 이름·문구·메뉴 | 디자인 시안 5종 중 **시안 2** 채택<br>체험판(비공개 링크): 로그인, 글쓰기, 서식 도구, 댓글, 관리자 페이지, 조회수, 공유하기, 썸네일을 눌러 볼 수 있다<br>체험판의 로그인은 샘플 계정이며 실제 인증이 아니다 |
+| GitHub (공개): [github.com/chlwhd0/Intent-Notes](https://github.com/chlwhd0/Intent-Notes)<br>`CLAUDE.md` 요구사항·유저스토리·지침<br>`docs/decisions.md` 결정 기록<br>`docs/failures/` 막힌 일과 해결<br>`site.config.json` 이름·문구·메뉴 | 디자인 시안 5종 중 **시안 2** 채택<br>체험판(비공개 링크): 로그인, 글쓰기, 서식 도구, 댓글, 관리자 페이지, 조회수, 공유하기, 썸네일을 눌러 볼 수 있다<br>체험판의 로그인은 샘플 계정이며 실제 인증이 아니다 |
 
 **변경 이력**
 
@@ -375,6 +375,7 @@
 | 개인정보 | 처리 방침 언급 없음 | 개인정보 처리방침 페이지 추가 |
 | 방문 통계 | 지표 수집 방법 미정 | GA4 연결. 측정 보완은 [1차 개선 기획 PRD](PRD-Improve1.md) |
 | 날씨·고양이 | 문서에 없음 | 사이드바(모바일은 맨 아래)에 서울 날씨와 오늘의 고양이 추가 |
+| GitHub 저장소 주소 | `github.com/chlwhd0/myblog-test2` (18장, 원본 PDF 21쪽) | 저장소 이름을 바꿔 **`github.com/chlwhd0/Intent-Notes`**가 됨. 옛 주소는 새 주소로 자동 연결돼요 |
 
 ---
 
