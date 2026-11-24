@@ -17,14 +17,14 @@ const ACTIONS = {
   suggest: {
     need: (i) => clip(i.body).length >= 30,
     prompt: (i) =>
-      `다음 블로그 글을 읽고 JSON으로만 답하세요.\n{"summary":"글 목록에 보일 한 줄 요약(80자 이내)","description":"검색 결과에 보일 설명(120자 이내, 요약과 다른 표현)","titles":["제목 후보 3개(40자 이내, 서로 다른 관점)"]}\n\n[글]\n${clip(i.body)}`,
-    parse: (j) => ({ summary: s(j.summary, 300), description: s(j.description, 300), titles: arr(j.titles).map((t) => s(t, 120)).filter(Boolean).slice(0, 3) }),
+      `다음 블로그 글을 읽고 JSON으로만 답하세요.\n{"summary":"글 목록·글 위쪽·검색 결과에 함께 보일 한 줄 요약(100자 안팎, 120자 이내, 이 글을 읽으면 무엇을 알 수 있는지 드러나게 한 문장)","titles":["제목 후보 3개(40자 이내, 서로 다른 관점)"]}\n\n[글]\n${clip(i.body)}`,
+    parse: (j) => ({ summary: s(j.summary, 300), titles: arr(j.titles).map((t) => s(t, 120)).filter(Boolean).slice(0, 3) }),
   },
   check: {
     need: (i) => clip(i.body).length >= 30,
     max: 3000, // 찾은 항목이 많으면 응답이 길어져요
     prompt: (i) =>
-      `다음은 공개하려는 블로그 글이에요. 아래 네 가지를 찾아 JSON으로 답하세요. 확실하지 않으면 넣지 마세요.\n- privacy: 개인정보·고객정보로 보이는 표현(실제 사람 이름, 회사·소속·학교, 주소, 고객사 이름, 계약·거래 정보 등)\n- internal: 회사 내부 자료로 보이는 표현(내부 지표, 비공개 문서 이름, 미공개 계획, \"대외비\" 표시 등). 개인 블로그 활동(방문 데이터 확인, 글쓰기 계획 등)은 내부 자료가 아니에요\n- typo: 오탈자, 띄어쓰기·맞춤법 오류, 어색한 문장(본문에서만, 가장 눈에 띄는 것 최대 5개). suggest에 고친 표현을 적으세요\n- match: 제목·한 줄 요약·검색용 설명이 본문 내용과 맞지 않는 부분(본문에 없는 내용을 말하거나 과장한 경우). text에는 맞지 않는 제목/요약/설명의 문구를 그대로 적으세요\ntext는 글에 있는 그대로 짧게(60자 이내) 인용하고, why에 이유를 한 문장으로 적으세요. 없으면 빈 배열이에요.\n{"items":[{"kind":"privacy|internal|typo|match","text":"...","why":"...","suggest":"(typo만) 고친 표현"}]}\n\n[제목] ${s(i.title, 200)}\n[한 줄 요약] ${s(i.summary, 400)}\n[검색용 설명] ${s(i.description, 400)}\n[본문]\n${clip(i.body)}`,
+      `다음은 공개하려는 블로그 글이에요. 아래 네 가지를 찾아 JSON으로 답하세요. 확실하지 않으면 넣지 마세요.\n- privacy: 개인정보·고객정보로 보이는 표현(실제 사람 이름, 회사·소속·학교, 주소, 고객사 이름, 계약·거래 정보 등)\n- internal: 회사 내부 자료로 보이는 표현(내부 지표, 비공개 문서 이름, 미공개 계획, \"대외비\" 표시 등). 개인 블로그 활동(방문 데이터 확인, 글쓰기 계획 등)은 내부 자료가 아니에요\n- typo: 오탈자, 띄어쓰기·맞춤법 오류, 어색한 문장(본문에서만, 가장 눈에 띄는 것 최대 5개). suggest에 고친 표현을 적으세요\n- match: 제목·한 줄 요약이 본문 내용과 맞지 않는 부분(본문에 없는 내용을 말하거나 과장한 경우). text에는 맞지 않는 제목/요약의 문구를 그대로 적으세요\ntext는 글에 있는 그대로 짧게(60자 이내) 인용하고, why에 이유를 한 문장으로 적으세요. 없으면 빈 배열이에요.\n{"items":[{"kind":"privacy|internal|typo|match","text":"...","why":"...","suggest":"(typo만) 고친 표현"}]}\n\n[제목] ${s(i.title, 200)}\n[한 줄 요약] ${s(i.summary, 400)}\n[본문]\n${clip(i.body)}`,
     parse: (j) => {
       const KINDS = ['privacy', 'internal', 'typo', 'match'];
       const items = arr(j.items).filter((x) => x && KINDS.includes(x.kind)).map((x) => ({ kind: x.kind, text: s(x.text, 80), why: s(x.why, 200), suggest: s(x.suggest, 120) })).filter((x) => x.text);
@@ -49,7 +49,7 @@ const ACTIONS = {
   },
   retro: {
     need: (i) => arr(i.themes).length > 0,
-    prompt: (i) => `다음 주제들로, 한 사람이 자신의 회고를 되돌아보는 공개 글 초안을 쓰세요. 주제마다 소제목(##) 하나와 2~3문장을 쓰고, 마지막에 "다음에 해 볼 것" 한 줄을 붙이세요. 본문(markdown)은 1200자 이내로 쓰세요. 글에 없는 사실은 지어내지 마세요.${i.noQuote === false ? '' : ' 참고 회고의 문장을 그대로 옮기지 말고 새 표현으로 쓰세요.'}\n다음 JSON으로만 답하세요. 줄바꿈은 \\n으로 쓰세요.\n{"title":"글 제목(40자 이내)","summary":"목록에 보일 한 줄 요약(80자 이내)","description":"검색 결과에 보일 설명(120자 이내)","markdown":"본문 마크다운"}\n\n[주제]\n${JSON.stringify(arr(i.themes)).slice(0, 6000)}\n\n[참고 회고]\n${arr(i.texts).map((t) => s(t && t.body, 3000)).join('\n---\n').slice(0, 20000)}`,
+    prompt: (i) => `다음 주제들로, 한 사람이 자신의 회고를 되돌아보는 공개 글 초안을 쓰세요. 주제마다 소제목(##) 하나와 2~3문장을 쓰고, 마지막에 "다음에 해 볼 것" 한 줄을 붙이세요. 본문(markdown)은 1200자 이내로 쓰세요. 글에 없는 사실은 지어내지 마세요.${i.noQuote === false ? '' : ' 참고 회고의 문장을 그대로 옮기지 말고 새 표현으로 쓰세요.'}\n다음 JSON으로만 답하세요. 줄바꿈은 \\n으로 쓰세요.\n{"title":"글 제목(40자 이내)","summary":"목록에 보일 한 줄 요약(80자 이내)","markdown":"본문 마크다운"}\n\n[주제]\n${JSON.stringify(arr(i.themes)).slice(0, 6000)}\n\n[참고 회고]\n${arr(i.texts).map((t) => s(t && t.body, 3000)).join('\n---\n').slice(0, 20000)}`,
     raw: true, // 본문이 길어 JSON이 중간에 끊기거나 깨질 수 있어서 직접 읽어요
     max: 4000,
     parse: (t) => {
@@ -60,7 +60,7 @@ const ACTIONS = {
       const pick = (k) => { if (o && typeof o[k] === 'string') return o[k]; const m = new RegExp('"' + k + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)').exec(x); return m ? un(m[1]) : ''; };
       let md = pick('markdown') || pick('draft') || pick('draft_markdown');
       if (!md && !x.startsWith('{')) md = x; // JSON이 아니라 글이 그대로 온 경우
-      return { title: s(pick('title'), 120), summary: s(pick('summary'), 300), description: s(pick('description'), 300), draft: s(md, 8000) };
+      return { title: s(pick('title'), 120), summary: s(pick('summary'), 300), draft: s(md, 8000) };
     },
   },
 };

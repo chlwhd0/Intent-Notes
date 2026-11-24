@@ -53,7 +53,7 @@ export async function extractText(file, ext) {
 const CHECKS = [
   { name: '채우지 않은 칸', desc: '[이름], [샘플]처럼 아직 채우지 않은 빈칸 표시가 남아 있는지', ids: ['ph'], ai: false },
   { name: '오탈자·어색한 문장', desc: '맞춤법·띄어쓰기 오류나 어색한 문장이 있는지', ids: ['ai-typo'], ai: true },
-  { name: '제목·요약과 본문의 일치', desc: '제목·한 줄 요약·검색용 설명이 본문 내용과 맞는지', ids: ['ai-match'], ai: true },
+  { name: '제목·요약과 본문의 일치', desc: '제목·한 줄 요약이 본문 내용과 맞는지', ids: ['ai-match'], ai: true },
   { name: '개인정보·고객정보', desc: '전화번호, 실명, 회사·소속·주소, 고객사·계약 정보가 있는지', ids: ['tel', 'ai-privacy'], ai: true },
   { name: '회사 내부 자료', desc: '대외비·내부 자료로 보이는 표현이 있는지', ids: ['ai-internal'], ai: true },
 ];
@@ -94,7 +94,7 @@ export function panelHtml(d, s, hitsHtml) {
     const row = (text, key, n) => (text ? `<div class="arow"><span class="atxt">${n ? `<i class="an">${n}</i>` : ''}${esc(text)}</span><button type="button" class="btn sm pri" data-a="aiapply" data-v="${key}">적용</button></div>` : '');
     const sec = (title, note, rows) => (rows ? `<div class="asec"><h3 class="ash">${title}${note ? ` <small>${note}</small>` : ''}</h3>${rows}</div>` : '');
     const titles = (s.sug.titles || []).map((t, i) => row(t, 't' + i, i + 1)).join('');
-    body = `<div class="abox" id="asug"><div class="ahead"><span class="hint">AI 제안이에요. 마음에 드는 것만 적용하세요.</span>${ref('sug')}</div>${sec('제목 후보', '하나를 골라 적용', titles)}${sec('한 줄 요약', '', row(s.sug.summary, 'summary'))}${sec('검색용 설명', '', row(s.sug.description, 'description'))}<button type="button" class="btn sm" data-a="aiignore">모두 무시</button></div>`;
+    body = `<div class="abox" id="asug"><div class="ahead"><span class="hint">AI 제안이에요. 마음에 드는 것만 적용하세요.</span>${ref('sug')}</div>${sec('제목 후보', '하나를 골라 적용', titles)}${sec('한 줄 요약', '목록·글 위쪽·검색 결과에 함께 보여요', row(s.sug.summary, 'summary'))}<button type="button" class="btn sm" data-a="aiignore">모두 무시</button></div>`;
   } else if (tab === 'chk') {
     body = `<div class="abox" id="achk"><div class="ahead"><span class="hint">점검 5가지의 통과 여부예요. 해결 필요가 있으면 공개 글로 저장할 수 없고, 확인 필요는 “확인했어요”를 눌러야 해요. 수정 권장은 알려 주기만 해요.</span>${ref('chk')}</div>${hitsHtml}</div>`;
   } else if (tab === 'tl' && d.ai.lines.length) {

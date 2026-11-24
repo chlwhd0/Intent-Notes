@@ -271,7 +271,7 @@ function retroInit() {
     const raw = sessionStorage.getItem('intentRetro') || ''; sessionStorage.removeItem('intentRetro');
     if (!raw) return none;
     const r = JSON.parse(raw);
-    return { html: r.body ? sanitizeHtml(MD.markdown(r.body)) : '', title: String(r.title || '').slice(0, 120), sum: String(r.summary || '').slice(0, 300), desc: String(r.description || '').slice(0, 300) };
+    return { html: r.body ? sanitizeHtml(MD.markdown(r.body)) : '', title: String(r.title || '').slice(0, 120), sum: String(r.summary || '').slice(0, 300), desc: '' };
   } catch (e) { return none; }
 }
 // 저장된 3줄 요약 상태. 승인했어도 본문이 그 뒤에 바뀌었다면(지문이 다르면) 승인을 풀어서 보여 줘요.
@@ -326,9 +326,9 @@ function toolbarHtml() {
     '<div class="linkrow" id="linkrow" hidden><label class="sr" for="linkurl">링크 주소</label><input id="linkurl" type="url" placeholder="https://"><button type="button" class="btn sm pri" data-a="linkok">적용</button><button type="button" class="btn sm" data-a="linkcancel">취소</button></div>';
 }
 // 지금 글에서 찾은 점검 항목: 규칙(항상) + AI가 찾아 준 것 중 지금 글에 아직 있는 문장
-// 점검은 본문과 함께 제목·한 줄 요약·검색용 설명도 봐요.
+// 점검은 본문과 함께 제목·한 줄 요약도 봐요.
 function liveHits(d) {
-  const text = [IC.plain(sanitizeHtml(d.html)), d.title, d.sum, d.desc].filter(Boolean).join('\n');
+  const text = [IC.plain(sanitizeHtml(d.html)), d.title, d.sum].filter(Boolean).join('\n');
   return IC.run(text).concat(IC.fromAi(ai.aiHits, text));
 }
 const bodyText = () => { syncDraft(); return IC.plain(sanitizeHtml(draft.html)); };
@@ -347,7 +347,7 @@ async function aiRun(t) {
   if (t === 'sug') return runAi('aisug', 'suggest', { body }, (r) => { ai.sug = r; ai.msg = '제안을 가져왔어요.'; });
   if (t === 'tl') return runAi('aitl', 'tldr', { body }, (r) => { syncDraft(); draft.ai.lines = r.lines || []; draft.ai.on = false; draft.ai.for = ''; ai.msg = r.lines && r.lines.length ? '3줄 요약을 만들었어요. 고쳐 쓰고 체크하면 공개 글에 보여요.' : '요약을 만들지 못했어요. 다시 눌러 주세요.'; });
   ai.showChk = true; ai.busy = 'aichk'; ai.msg = ''; aiRender();
-  try { const r = await aiCall('check', { body, title: draft.title, summary: draft.sum, description: draft.desc }); ai.aiHits = r.items || []; ai.aiNote = 'AI가 개인정보·내부 자료, 오탈자, 제목·요약 일치도 살펴봤어요. AI는 놓칠 수 있으니 마지막 확인은 내가 해요.'; ai.chkFail = false; logAi('suggest', 'aichk'); }
+  try { const r = await aiCall('check', { body, title: draft.title, summary: draft.sum }); ai.aiHits = r.items || []; ai.aiNote = 'AI가 개인정보·내부 자료, 오탈자, 제목·요약 일치도 살펴봤어요. AI는 놓칠 수 있으니 마지막 확인은 내가 해요.'; ai.chkFail = false; logAi('suggest', 'aichk'); }
   catch (e) { ai.aiHits = []; ai.chkFail = true; ai.aiNote = e.message + ' (규칙 점검 결과만 보여 드려요.)'; }
   ai.chkRan = true; ai.busy = ''; aiRender();
 }
@@ -367,7 +367,7 @@ function writePage() {
   const aiPanel = panelHtml(d, { ...ai, pub: d.vis === 'public' && !isPrivCat(d.cat) }, checkHtml(liveHits(d), ai.acks, ai.aiNote, !ai.chkRan ? 'none' : ai.chkFail ? 'fail' : 'ok'));
   show(`<div class="wlayout"><div class="wmain"><div class="head"><h1 class="ptitle">${editing ? '글 수정' : '새 글 쓰기'}</h1><div class="btns"><button class="btn" type="button" data-a="cancel">취소</button><button class="btn pri" type="button" data-a="save" id="save">${editing ? '저장하기' : '발행하기'}</button></div></div>${notice()}` +
     `<label><span class="sr">제목</span><input class="title" id="wtitle" type="text" maxlength="120" placeholder="제목을 입력하세요" value="${esc(d.title)}"></label>` +
-    `<div class="meta"><label class="field" for="wcat">카테고리<select id="wcat">${opts}</select></label>${visHtml}<label class="field" for="wdate">날짜<input id="wdate" type="date" value="${esc(d.date)}"></label><label class="field" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록과 글 위쪽에 보일 한두 문장" value="${esc(d.sum)}"></label><label class="field" for="wdesc">검색용 설명<input id="wdesc" type="text" maxlength="300" placeholder="검색 결과와 공유 미리보기에 보일 설명(비우면 요약을 써요)" value="${esc(d.desc)}"></label></div>` +
+    `<div class="meta"><label class="field" for="wcat">카테고리<select id="wcat">${opts}</select></label>${visHtml}<label class="field" for="wdate">날짜<input id="wdate" type="date" value="${esc(d.date)}"></label><label class="field wsumf" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록, 글 위쪽, 검색 결과에 함께 보일 한 문장" value="${esc(d.sum)}"><span class="hint">목록, 글 위쪽, 검색 결과·공유 미리보기에 함께 보여요. 100자 안팎이 좋아요.</span></label></div>` +
     thumbPicker(d) + filePicker(d) +
     `<div class="tabs" role="tablist" aria-label="편집 방식"><button role="tab" type="button" data-a="tab" data-v="write" aria-selected="${wtab === 'write'}">작성</button><button role="tab" type="button" data-a="tab" data-v="preview" aria-selected="${wtab === 'preview'}">미리보기</button></div>` + edit + `</div>${aiPanel}</div>`);
 }
@@ -515,7 +515,7 @@ async function savePost() {
 // ---------- 회고 정리 (RETRO SUMMARY) ----------
 // 나만 보기 메뉴(예: 회고)의 글을 골라 반복되는 배움을 찾고, 공개 글 초안으로 만들어 글쓰기로 보내요.
 // 기본은 회고 본문을 AI로 보내요. "요약만 보내기"를 켜면 원문 대신 내가 쓴 한두 줄 요약만 보내요.
-const rt = { sel: new Set(), only: false, sums: {}, noQuote: true, themes: null, total: 0, pick: new Set(), draft: '', title: '', summary: '', description: '', busy: '', msg: '' };
+const rt = { sel: new Set(), only: false, sums: {}, noQuote: true, themes: null, total: 0, pick: new Set(), draft: '', title: '', summary: '', busy: '', msg: '' };
 const retroPosts = () => posts.filter((p) => isPrivCat(p.category));
 function retroPage() {
   const list = retroPosts();
@@ -526,7 +526,7 @@ function retroPage() {
     ? `<div class="abox"><p class="hint">AI가 찾은 반복되는 배움이에요. 초안에 쓸 것만 고르세요. 각 배움 아래에 그 배움이 나온 회고 글 제목이 보여요.</p><ul class="ahits">${rt.themes.map((t, i) => `<li class="warn"><label class="ackl"><input type="checkbox" data-rtp="${i}"${rt.pick.has(i) ? ' checked' : ''}> <b>${esc(t.name)}</b> <span class="aib">AI</span></label><div class="rev"><b>이 배움이 나온 회고</b> ${t.titles.map((x) => { const q = retroPosts().find((p) => p.title === x); return q ? `<a href="view.html?id=${encodeURIComponent(q.id)}">${esc(x)}</a>` : esc(x); }).join(' · ')}</div></li>`).join('')}</ul><button type="button" class="btn sm pri" data-a="rtdraft"${busy ? ' disabled' : ''}>${busy === 'rtdraft' ? '쓰는 중…' : '고른 배움으로 공개 글 초안 만들기'}</button></div>`
     : '';
   const dr = rt.draft
-    ? `<div class="abox"><p class="hint"><span class="aib">AI 초안</span> 고쳐 쓴 뒤 글쓰기로 보내세요. 글쓰기에서는 STUDY 메뉴·공개로 시작하고, 발행할 때 발행 전 점검이 먼저 돌아요.</p><label class="field" for="rtt">제목<input id="rtt" type="text" maxlength="120" value="${esc(rt.title)}"></label><label class="field" for="rts">한 줄 요약<input id="rts" type="text" maxlength="300" value="${esc(rt.summary)}"></label><label class="field" for="rtdesc">검색용 설명<input id="rtdesc" type="text" maxlength="300" value="${esc(rt.description)}"></label><label class="field" for="rtd">본문</label><textarea id="rtd" style="min-height:320px">${esc(rt.draft)}</textarea><button type="button" class="btn sm pri" data-a="rtsend">글쓰기로 보내기</button></div>`
+    ? `<div class="abox"><p class="hint"><span class="aib">AI 초안</span> 고쳐 쓴 뒤 글쓰기로 보내세요. 글쓰기에서는 STUDY 메뉴·공개로 시작하고, 발행할 때 발행 전 점검이 먼저 돌아요.</p><label class="field" for="rtt">제목<input id="rtt" type="text" maxlength="120" value="${esc(rt.title)}"></label><label class="field" for="rts">한 줄 요약<input id="rts" type="text" maxlength="300" value="${esc(rt.summary)}"></label><label class="field" for="rtd">본문</label><textarea id="rtd" style="min-height:320px">${esc(rt.draft)}</textarea><button type="button" class="btn sm pri" data-a="rtsend">글쓰기로 보내기</button></div>`
     : '';
   show(`<h1 class="ptitle">회고 정리 <span class="aib">AI</span></h1>${notice()}<p class="hint">나만 보기 회고를 읽고 반복되는 배움을 찾아 공개 글 초안으로 만들어 줘요. AI는 제안만 하고, 글은 내가 확인하고 고쳐서 발행해요.</p>` +
     `<div class="wlayout rlayout"><div class="wmain"><div class="abox"><h2 class="rsec">1. 정리할 회고 고르기 <small>(나만 보기 글 ${list.length}개)</small></h2><ul class="flist rlist">${rows}</ul><h2 class="rsec">2. AI에 보내는 방식</h2><label class="ackl"><input type="checkbox" id="rtquote"${rt.noQuote ? ' checked' : ''}> 회고 원문 문장을 그대로 쓰지 않기</label><label class="ackl"><input type="checkbox" id="rtonly"${rt.only ? ' checked' : ''}> 원문 대신 내가 쓴 요약만 AI로 보내기</label><p class="hint">${rt.only ? '고른 글마다 보낼 요약을 적어요. 원문은 서버로도 가지 않아요.' : '켜지 않으면 고른 회고의 본문 글자가 AI 서비스로 보내져요. 방문자 정보는 보내지 않아요.'}</p><button type="button" class="btn pri" data-a="rtthemes"${busy ? ' disabled' : ''}>${busy === 'rtthemes' ? '찾는 중…' : '반복되는 배움 찾기'}</button><p class="hint" role="status">${esc(rt.msg)}</p></div>${th}</div><div class="rdraft">${dr || '<div class="abox"><p class="hint"><span class="aib">AI 초안</span> 왼쪽에서 배움을 찾고 초안을 만들면 여기에 나타나요.</p></div>'}</div></div>`);
@@ -546,10 +546,10 @@ main && main.addEventListener('click', (e) => {
   } else if (b.dataset.a === 'rtdraft') {
     const themes = rt.themes.filter((_, i) => rt.pick.has(i));
     if (!themes.length) { rt.msg = '초안에 쓸 배움을 하나 이상 골라 주세요.'; return retroPage(); }
-    retroRun('rtdraft', { themes, texts: retroTexts(), noQuote: rt.noQuote }, (r) => { rt.draft = r.draft || ''; rt.title = r.title || ''; rt.summary = r.summary || ''; rt.description = r.description || ''; rt.msg = rt.draft ? '' : '초안을 만들지 못했어요. 다시 눌러 주세요.'; });
+    retroRun('rtdraft', { themes, texts: retroTexts(), noQuote: rt.noQuote }, (r) => { rt.draft = r.draft || ''; rt.title = r.title || ''; rt.summary = r.summary || ''; rt.msg = rt.draft ? '' : '초안을 만들지 못했어요. 다시 눌러 주세요.'; });
   } else if (b.dataset.a === 'rtsend') {
     const t = $('rtd') ? $('rtd').value : rt.draft;
-    try { sessionStorage.setItem('intentRetro', JSON.stringify({ title: rt.title, summary: rt.summary, description: rt.description, body: t })); } catch (x) { /* 저장소를 못 쓰면 가져가지 못해요 */ }
+    try { sessionStorage.setItem('intentRetro', JSON.stringify({ title: rt.title, summary: rt.summary, body: t })); } catch (x) { /* 저장소를 못 쓰면 가져가지 못해요 */ }
     logAi('apply', 'retro');
     const pub = cats.find((c) => c.slug === 'study' && !c.priv) || cats.find((c) => !c.priv); // 기본은 STUDY 메뉴예요(없으면 첫 공개 메뉴)
     location.href = 'write.html?retro=1' + (pub ? '&cat=' + encodeURIComponent(pub.slug) : '');
@@ -564,7 +564,7 @@ main && main.addEventListener('change', (e) => {
 });
 main && main.addEventListener('input', (e) => {
   const t = e.target; if (page !== 'retro') return;
-  if (t.dataset.rtsum) rt.sums[t.dataset.rtsum] = t.value; else if (t.id === 'rtd') rt.draft = t.value; else if (t.id === 'rtt') rt.title = t.value; else if (t.id === 'rts') rt.summary = t.value; else if (t.id === 'rtdesc') rt.description = t.value;
+  if (t.dataset.rtsum) rt.sums[t.dataset.rtsum] = t.value; else if (t.id === 'rtd') rt.draft = t.value; else if (t.id === 'rtt') rt.title = t.value; else if (t.id === 'rts') rt.summary = t.value; 
 });
 
 // ---------- AI 이용 현황 (AI USAGE) ----------
@@ -633,7 +633,7 @@ main && main.addEventListener('click', async (e) => {
   else if (a === 'airef') { ai.tab = v; aiRun(v); }
   else if (a === 'aiapply') {
     syncDraft();
-    if (v === 'summary') draft.sum = ai.sug.summary; else if (v === 'description') draft.desc = ai.sug.description; else if (/^t\d$/.test(v)) draft.title = ai.sug.titles[Number(v[1])] || draft.title;
+    if (v === 'summary') draft.sum = ai.sug.summary; else if (/^t\d$/.test(v)) draft.title = ai.sug.titles[Number(v[1])] || draft.title;
     if (!ai.sug.logged) { ai.sug.logged = true; logAi('apply', 'aisug'); } /* 제안 1번당 적용 1회로 세요 */ ai.msg = '적용했어요. 저장하기 전에는 내용을 더 고칠 수 있어요.'; writePage();
   } else if (a === 'aiignore') { ai.sug = null; ai.msg = ''; logAi('ignore', 'aisug'); aiRender(); }
   else if (a === 'aifile') {
