@@ -1,4 +1,4 @@
-# PRD: [Intent Notes] 2차 개선, AI로 글쓰기와 공개 전 확인 덜기 (2쪽 요약판)
+# PRD: [Intent Notes] 2차 개선, AI로 글쓰기와 공개 전 확인을 쉽게 (2쪽 요약판)
 
 [원본 v2.2](PRD-Improve2.md)을 2쪽으로 줄인 것입니다. 근거와 세부 기준은 원본을 보세요. 이동: [블로그 PRD](PRD-Blog.md) · [1차 개선](PRD-Improve1.md)
 
