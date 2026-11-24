@@ -333,3 +333,7 @@ body[data-page="write"] main{max-width:1500px}
 .wlayout .aip{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto}
 @media(max-width:1180px){.wlayout{grid-template-columns:minmax(0,1fr)}.wlayout .aip{position:static;max-height:none}}
 .wlayout .arow{grid-template-columns:1fr auto}.wlayout .arow b{grid-column:1/-1}
+/* 회고 정리: AI 초안을 오른쪽 여백에 두고 스크롤을 따라오게 해요 */
+body[data-page="retro"] main{max-width:1500px}
+.wlayout .rdraft{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto}
+@media(max-width:1180px){.wlayout .rdraft{position:static;max-height:none}}
