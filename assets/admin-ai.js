@@ -91,8 +91,10 @@ export function panelHtml(d, s, hitsHtml) {
   const ref = (t) => `<button type="button" class="airef${busy ? ' spin' : ''}" data-a="airef" data-v="${t}"${busy ? ' disabled' : ''} aria-label="새로고침" title="새로고침"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4.5h-4.5"/></svg></button>`;
   let body = '';
   if (tab === 'sug' && s.sug) {
-    const row = (label, text, key) => (text ? `<div class="arow"><b>${label}</b><span>${esc(text)}</span><button type="button" class="btn sm pri" data-a="aiapply" data-v="${key}">적용</button></div>` : '');
-    body = `<div class="abox" id="asug"><div class="ahead"><span class="hint">AI 제안이에요. 마음에 드는 것만 적용하세요.</span>${ref('sug')}</div>${(s.sug.titles || []).map((t, i) => row('제목 후보 ' + (i + 1), t, 't' + i)).join('')}${row('한 줄 요약', s.sug.summary, 'summary')}${row('검색용 설명', s.sug.description, 'description')}<button type="button" class="btn sm" data-a="aiignore">모두 무시</button></div>`;
+    const row = (text, key, n) => (text ? `<div class="arow"><span class="atxt">${n ? `<i class="an">${n}</i>` : ''}${esc(text)}</span><button type="button" class="btn sm pri" data-a="aiapply" data-v="${key}">적용</button></div>` : '');
+    const sec = (title, note, rows) => (rows ? `<div class="asec"><h3 class="ash">${title}${note ? ` <small>${note}</small>` : ''}</h3>${rows}</div>` : '');
+    const titles = (s.sug.titles || []).map((t, i) => row(t, 't' + i, i + 1)).join('');
+    body = `<div class="abox" id="asug"><div class="ahead"><span class="hint">AI 제안이에요. 마음에 드는 것만 적용하세요.</span>${ref('sug')}</div>${sec('제목 후보', '하나를 골라 적용', titles)}${sec('한 줄 요약', '', row(s.sug.summary, 'summary'))}${sec('검색용 설명', '', row(s.sug.description, 'description'))}<button type="button" class="btn sm" data-a="aiignore">모두 무시</button></div>`;
   } else if (tab === 'chk') {
     body = `<div class="abox" id="achk"><div class="ahead"><span class="hint">점검 5가지의 통과 여부예요. 해결 필요가 있으면 공개 글로 저장할 수 없고, 확인 필요는 “확인했어요”를 눌러야 해요. 수정 권장은 알려 주기만 해요.</span>${ref('chk')}</div>${hitsHtml}</div>`;
   } else if (tab === 'tl' && d.ai.lines.length) {

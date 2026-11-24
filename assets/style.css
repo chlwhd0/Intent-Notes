@@ -373,3 +373,10 @@ body[data-page="retro"] main{max-width:1500px}
 .ahit q{font-weight:600;word-break:break-all}.ahit span{font-size:12px;color:var(--sub)}
 .rev{font-size:12px;color:var(--sub);margin-top:2px}.rev b{color:var(--ink);margin-right:4px}
 .ck.note .cks{background:#e8eef6;color:#2f4a6d}.ck.note .ahit{border-left-color:#7d98bd}
+/* 글쓰기 보조: 제목 후보 / 한 줄 요약 / 검색용 설명을 구역으로 나눠요 */
+.asec{display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid var(--line)}
+.asec:first-of-type{border-top:0;padding-top:4px}
+.ash{margin:0;font-size:13px;font-weight:700}.ash small{font-weight:400;color:var(--mute);font-size:11.5px}
+.wlayout .asec .arow{grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 10px;background:var(--tint,#faf8f5);border:1px solid var(--line)}
+.atxt{font-size:13.5px;line-height:1.55;word-break:keep-all;overflow-wrap:anywhere}
+.an{display:inline-block;font-style:normal;font-size:11px;font-weight:700;color:var(--accent);margin-right:6px}
