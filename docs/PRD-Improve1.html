@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Intent Notes 2차 개선 PRD (데이터 분석 개선)</title>
+<title>Intent Notes 1차 개선 PRD (데이터 분석 개선)</title>
 <style>
 :root{--ink:#1f1f1f;--sub:#5a5a5a;--line:#d8d3ca;--head:#ece8e0;--zebra:#faf8f5;--accent:#b5573f;--band:#f4f1ec}
 *{box-sizing:border-box}
@@ -39,7 +39,7 @@ a{color:#7a2f1d}
 </head>
 <body>
 
-<h1>PRD (요구사항 정의서/기획서) — Intent Notes 2차 개선</h1>
+<h1>PRD (요구사항 정의서/기획서) — Intent Notes 1차 개선</h1>
 <p class="sub">Product Requirement Document · 주제: 블로그 데이터 분석 체계 개선 (GA4에서 누락·확인 불가였던 사항 보완)</p>
 
 <nav>
@@ -63,7 +63,7 @@ a{color:#7a2f1d}
 <h2 id="s1">1. 기본 정보</h2>
 <table class="kv">
 <tr><th style="width:140px">항목</th><th>내용</th></tr>
-<tr><td>문서 버전</td><td>v2.0 (2차 개선 PRD, 초안)</td></tr>
+<tr><td>문서 버전</td><td>v2.0 (1차 개선 PRD, 초안)</td></tr>
 <tr><td>작성일</td><td>2026-11-18</td></tr>
 <tr><td>작성자</td><td>블로그 운영자 / 기획 (작성 시 실제 이름으로 교체)</td></tr>
 <tr><td>대상 서비스</td><td>Intent Notes (https://my-blog-test-b439a.web.app) · GA4 측정 ID <code>G-L0533VG5G0</code></td></tr>
@@ -71,7 +71,7 @@ a{color:#7a2f1d}
 <tr><td>관련 문서</td>
 <td>
 <ul>
-<li>1차 PRD v0.3: <code>docs/PRD-Blog.pdf</code></li>
+<li>블로그 기획 PRD v0.3: <code>docs/PRD-Blog.pdf</code></li>
 <li>GA 이벤트 택소노미 보고서 v1.0 (현재 적용 상태): <code>docs/Intent-Notes-GA-Event-Taxonomy.pdf</code></li>
 <li>의사결정 문서: <code>docs/decisions.md</code> · 개발 지침: <code>CLAUDE.md</code></li>
 </ul>
@@ -80,7 +80,7 @@ a{color:#7a2f1d}
 
 <!-- 2 -->
 <h2 id="s2">2. 개요</h2>
-<p><b>배경:</b> 1차 개선으로 블로그는 관리자 글쓰기, 방문자 구글 로그인과 댓글, 조회수, 공유하기, 이미지·파일 첨부, GA4 연결까지 갖췄습니다. 그런데 "어떤 글이 인기 있는가"를 판단하려고 GA4를 열어 보면, 글이 <b>열렸는지</b>는 보이지만 <b>읽혔는지(완독), 반응을 이끌었는지(댓글·공유·좋아요·스크랩)</b>는 보이지 않습니다.</p>
+<p><b>배경:</b> 블로그 기획 단계의 개발로 블로그는 관리자 글쓰기, 방문자 구글 로그인과 댓글, 조회수, 공유하기, 이미지·파일 첨부, GA4 연결까지 갖췄습니다. 그런데 "어떤 글이 인기 있는가"를 판단하려고 GA4를 열어 보면, 글이 <b>열렸는지</b>는 보이지만 <b>읽혔는지(완독), 반응을 이끌었는지(댓글·공유·좋아요·스크랩)</b>는 보이지 않습니다.</p>
 <p><b>문제:</b> 사이트의 핵심 행동(읽기, 댓글, 공유, 검색)이 페이지 안에서 일어나 주소가 바뀌지 않기 때문에 GA4의 자동 측정에 잡히지 않습니다. 글 주소가 글 번호라서 메뉴별 비교도 어렵고, 좋아요·스크랩은 기능 자체가 없으며, 운영자의 방문이 통계에 섞이는 경로도 남아 있습니다.</p>
 <p><b>솔루션:</b> (1) GA4로 보내는 이벤트와 파라미터를 설계해 완독·댓글·공유·글 선택 위치·검색·로그인·첨부 다운로드를 측정하고, (2) 좋아요와 스크랩 기능을 만들어 "반응" 지표를 확보하며, (3) GA 콘솔 설정과 월간 분석 대시보드를 갖춰 <b>인기 글을 몰입·반응·확산 세 축으로 판단할 수 있게</b> 합니다.</p>
 
@@ -590,7 +590,7 @@ a{color:#7a2f1d}
 </table>
 <table class="kv">
 <tr><th style="width:100px">버전</th><th style="width:130px">날짜</th><th>변경 내용</th></tr>
-<tr><td>v2.0</td><td>2026-11-18</td><td>2차 개선 PRD 최초 작성 (데이터 분석 개선). 승인 대기</td></tr>
+<tr><td>v2.0</td><td>2026-11-18</td><td>1차 개선 PRD 최초 작성 (데이터 분석 개선). 승인 대기</td></tr>
 </table>
 
 </body>
