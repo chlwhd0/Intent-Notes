@@ -1,9 +1,9 @@
-# PRD: [Intent Notes] 2차 개선, AI 기반 글쓰기 지원 및 공개 전 점검 (요약판)
+# PRD: [Intent Notes] 2차 개선, AI 기반 글쓰기 지원 및 공개 전 점검
 
-[원본 v2.2](PRD-Improve2.md)을 줄인 요약판입니다. 근거와 세부 기준은 원본을 보세요. 이동: [블로그 PRD](PRD-Blog.md) · [1차 개선](PRD-Improve1.md)
+[원본 v2.2](PRD-Improve2.md)을 줄인 문서입니다. 근거와 세부 기준은 원본을 보세요. 이동: [블로그 PRD](PRD-Blog.md) · [1차 개선](PRD-Improve1.md)
 
 ## 1. 기본 정보
-**버전** v2.2 요약판 · **작성일** 2026-11-24 · **작성자** 블로그 운영자 · **관련** [원본](PRD-Improve2.md), 시안 `prototypes/ai-features-mockups.html`
+**버전** v2.2 · **작성일** 2026-11-24 · **작성자** 블로그 운영자 · **관련** [원본](PRD-Improve2.md), 시안 `prototypes/ai-features-mockups.html`
 
 ## 2. 개요
 "AI는 제안만 하고 결정은 사람이 하는" 방식으로 글쓰기와 공개 전 확인의 반복 작업·실수를 줄입니다. 지금은 공개 글 4개 중 **2개의 요약이 비어 있고(50%)**, 푸터에 `[이름]`이 그대로 보입니다. 범위 밖: 챗봇, 번역, 댓글 AI, AI 자동 발행.
