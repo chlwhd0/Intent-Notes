@@ -47,33 +47,39 @@ export async function extractText(file, ext) {
   return '';
 }
 
-// 점검 목록. 점검하는 5가지 항목을 모두 보여 주고, 항목마다 통과 여부를 표시해요.
+// 점검 목록. 점검하는 5가지를 항상 보여 주고, 항목마다 통과 여부를 표시해요.
 // hits는 IC.run + IC.fromAi를 합친 것, acks는 "확인했어요" 표시, aiState는 AI 점검 상태('none' 아직 안 함 | 'ok' | 'fail')예요.
+// ids: 이 항목에 속하는 점검 id. ai: AI가 하는 부분이 있는지. 개인정보·고객정보는 전화번호(규칙)와 AI 점검을 한 항목으로 합쳤어요.
 const CHECKS = [
-  { id: 'ph', name: '자리표시자', desc: '[이름], [샘플] 같은 빈칸 표시가 남아 있는지', ai: false },
-  { id: 'tel', name: '전화번호', desc: '휴대전화 번호가 들어 있는지', ai: false },
-  { id: 'ai-name', name: '실명으로 보이는 표현', desc: '실제 사람 이름이 그대로 적혀 있는지', ai: true },
-  { id: 'ai-internal', name: '회사 내부 자료', desc: '대외비·내부 자료로 보이는 표현이 있는지', ai: true },
+  { name: '채우지 않은 칸', desc: '[이름], [샘플]처럼 아직 채우지 않은 빈칸 표시가 남아 있는지', ids: ['ph'], ai: false },
+  { name: '오탈자·어색한 문장', desc: '맞춤법·띄어쓰기 오류나 어색한 문장이 있는지', ids: ['ai-typo'], ai: true },
+  { name: '제목·요약과 본문의 일치', desc: '제목·한 줄 요약·검색용 설명이 본문 내용과 맞는지', ids: ['ai-match'], ai: true },
+  { name: '개인정보·고객정보', desc: '전화번호, 실명, 회사·소속·주소, 고객사·계약 정보가 있는지', ids: ['tel', 'ai-privacy'], ai: true },
+  { name: '회사 내부 자료', desc: '대외비·내부 자료로 보이는 표현이 있는지', ids: ['ai-internal'], ai: true },
 ];
+function statusOf(c, hits, acks, aiState) {
+  const mine = hits.filter((h) => c.ids.includes(h.id));
+  if (mine.some((h) => h.level === 'bad')) return { mine, st: '해결 필요', cls: 'bad', pass: false };
+  if (c.ai && aiState !== 'ok') return { mine, st: aiState === 'fail' ? 'AI 점검 실패' : 'AI 점검 전', cls: 'skip', pass: false, skip: true };
+  if (mine.some((h) => h.level === 'warn' && !acks[h.key])) return { mine, st: '확인 필요', cls: 'warn', pass: false };
+  if (mine.some((h) => h.level === 'note')) return { mine, st: '수정 권장', cls: 'note', pass: false };
+  if (mine.length) return { mine, st: '확인 완료', cls: 'done', pass: true };
+  return { mine, st: '통과', cls: 'pass', pass: true };
+}
 export function checkHtml(hits, acks, aiNote, aiState) {
+  let passed = 0;
   const rows = CHECKS.map((c) => {
-    const mine = hits.filter((h) => h.id === c.id);
-    let st, cls, body = '';
-    if (c.ai && aiState !== 'ok') { st = aiState === 'fail' ? 'AI 점검 실패' : 'AI 점검 전'; cls = 'skip'; body = `<small>${aiState === 'fail' ? 'AI가 답하지 못했어요. [새로고침]으로 다시 시도해요.' : '위쪽 [새로고침]을 누르면 AI가 점검해요.'}</small>`; }
-    else if (!mine.length) { st = '통과'; cls = 'pass'; }
-    else {
-      const bad = mine.some((h) => h.level === 'bad');
-      const pend = mine.filter((h) => h.level === 'warn' && !acks[h.key]).length;
-      st = bad ? '해결 필요' : pend ? '확인 필요' : '확인 완료';
-      cls = bad ? 'bad' : pend ? 'warn' : 'done';
-      body = mine.map((h) => `<div class="ahit"><q>${esc(h.text)}</q>${h.why ? `<span>${esc(h.why)}</span>` : ''}${h.level === 'bad' ? '' : `<label class="ackl"><input type="checkbox" data-ack="${esc(h.key)}"${acks[h.key] ? ' checked' : ''}> 확인했어요</label>`}</div>`).join('') + `<small>${esc(mine[0].fix)}</small>`;
+    const r = statusOf(c, hits, acks, aiState);
+    if (r.pass) passed++;
+    let body = '';
+    if (r.skip && !r.mine.length) body = `<small>${aiState === 'fail' ? 'AI가 답하지 못했어요. [새로고침]으로 다시 시도해요.' : '위쪽 [새로고침]을 누르면 AI가 점검해요.'}${c.ids.includes('tel') ? ' 전화번호는 이미 점검했어요.' : ''}</small>`;
+    else if (r.mine.length) {
+      body = r.mine.map((h) => `<div class="ahit"><q>${esc(h.text)}</q>${h.why ? `<span>${esc(h.why)}</span>` : ''}${h.suggest ? `<span>→ ${esc(h.suggest)}</span>` : ''}${h.level === 'warn' ? `<label class="ackl"><input type="checkbox" data-ack="${esc(h.key)}"${acks[h.key] ? ' checked' : ''}> 확인했어요</label>` : ''}</div>`).join('') + `<small>${esc(r.mine[0].fix)}</small>`;
     }
-    return `<li class="ck ${cls}"><div class="ckh"><span class="ckn">${esc(c.name)}${c.ai ? ' <span class="aib">AI</span>' : ''}</span><span class="cks">${st}</span></div><div class="ckd">${esc(c.desc)}</div>${body}</li>`;
+    return `<li class="ck ${r.cls}"><div class="ckh"><span class="ckn">${esc(c.name)}${c.ai ? ' <span class="aib">AI</span>' : ''}</span><span class="cks">${r.st}</span></div><div class="ckd">${esc(c.desc)}</div>${body}</li>`;
   }).join('');
-  const total = CHECKS.length;
-  const passed = CHECKS.filter((c) => { const m = hits.filter((h) => h.id === c.id); return (!c.ai || aiState === 'ok') && (!m.length || m.every((h) => h.level === 'warn' && acks[h.key])); }).length;
-  const bad = hits.filter((h) => h.level === 'bad').length, pend = hits.filter((h) => h.level === 'warn' && !acks[h.key]).length;
-  const sum = `<p class="cksum"><b>${passed}/${total} 통과</b>${bad ? ` · 해결 필요 ${bad}건` : ''}${pend ? ` · 확인 필요 ${pend}건` : ''}${!bad && !pend && passed === total ? ' · 발행할 수 있어요' : ''}</p>`;
+  const bad = hits.filter((h) => h.level === 'bad').length, pend = hits.filter((h) => h.level === 'warn' && !acks[h.key]).length, note = hits.filter((h) => h.level === 'note').length;
+  const sum = `<p class="cksum"><b>${passed}/${CHECKS.length} 통과</b>${bad ? ` · 해결 필요 ${bad}건` : ''}${pend ? ` · 확인 필요 ${pend}건` : ''}${note ? ` · 수정 권장 ${note}건` : ''}${!bad && !pend && !note && passed === CHECKS.length ? ' · 발행할 수 있어요' : ''}</p>`;
   return `${sum}<ul class="cklist">${rows}</ul>${aiNote ? `<p class="hint">${esc(aiNote)}</p>` : ''}`;
 }
 
@@ -88,7 +94,7 @@ export function panelHtml(d, s, hitsHtml) {
     const row = (label, text, key) => (text ? `<div class="arow"><b>${label}</b><span>${esc(text)}</span><button type="button" class="btn sm pri" data-a="aiapply" data-v="${key}">적용</button></div>` : '');
     body = `<div class="abox" id="asug"><div class="ahead"><span class="hint">AI 제안이에요. 마음에 드는 것만 적용하세요.</span>${ref('sug')}</div>${(s.sug.titles || []).map((t, i) => row('제목 후보 ' + (i + 1), t, 't' + i)).join('')}${row('한 줄 요약', s.sug.summary, 'summary')}${row('검색용 설명', s.sug.description, 'description')}<button type="button" class="btn sm" data-a="aiignore">모두 무시</button></div>`;
   } else if (tab === 'chk') {
-    body = `<div class="abox" id="achk"><div class="ahead"><span class="hint">점검 5가지의 통과 여부예요. 해결 필요가 있으면 공개 글로 저장할 수 없고, 확인 필요는 “확인했어요”를 눌러야 해요.</span>${ref('chk')}</div>${hitsHtml}</div>`;
+    body = `<div class="abox" id="achk"><div class="ahead"><span class="hint">점검 5가지의 통과 여부예요. 해결 필요가 있으면 공개 글로 저장할 수 없고, 확인 필요는 “확인했어요”를 눌러야 해요. 수정 권장은 알려 주기만 해요.</span>${ref('chk')}</div>${hitsHtml}</div>`;
   } else if (tab === 'tl' && d.ai.lines.length) {
     const lines = d.ai.lines;
     body = `<div class="abox" id="atl"><div class="ahead"><span class="hint">AI가 만든 3줄 요약이에요. 고쳐 쓸 수 있고, 아래를 체크해야 공개 글에 보여요.</span>${ref('tl')}</div>${lines.map((t, i) => `<label class="sr" for="ail${i}">요약 ${i + 1}줄</label><input id="ail${i}" class="ail" type="text" maxlength="120" value="${esc(t)}">`).join('')}<label class="ackl"><input type="checkbox" id="aion"${d.ai.on ? ' checked' : ''}> 내가 확인했어요. 공개 글에 “AI가 정리한 3줄 요약”으로 보여 주세요.</label><span class="hint">본문을 고치면 승인이 풀려서 요약이 숨겨져요. 새로고침하면 고친 내용과 승인이 사라져요.</span></div>`;

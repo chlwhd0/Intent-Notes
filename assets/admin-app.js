@@ -326,8 +326,9 @@ function toolbarHtml() {
     '<div class="linkrow" id="linkrow" hidden><label class="sr" for="linkurl">링크 주소</label><input id="linkurl" type="url" placeholder="https://"><button type="button" class="btn sm pri" data-a="linkok">적용</button><button type="button" class="btn sm" data-a="linkcancel">취소</button></div>';
 }
 // 지금 글에서 찾은 점검 항목: 규칙(항상) + AI가 찾아 준 것 중 지금 글에 아직 있는 문장
+// 점검은 본문과 함께 제목·한 줄 요약·검색용 설명도 봐요.
 function liveHits(d) {
-  const text = IC.plain(sanitizeHtml(d.html));
+  const text = [IC.plain(sanitizeHtml(d.html)), d.title, d.sum, d.desc].filter(Boolean).join('\n');
   return IC.run(text).concat(IC.fromAi(ai.aiHits, text));
 }
 const bodyText = () => { syncDraft(); return IC.plain(sanitizeHtml(draft.html)); };
@@ -346,7 +347,7 @@ async function aiRun(t) {
   if (t === 'sug') return runAi('aisug', 'suggest', { body }, (r) => { ai.sug = r; ai.msg = '제안을 가져왔어요.'; });
   if (t === 'tl') return runAi('aitl', 'tldr', { body }, (r) => { syncDraft(); draft.ai.lines = r.lines || []; draft.ai.on = false; draft.ai.for = ''; ai.msg = r.lines && r.lines.length ? '3줄 요약을 만들었어요. 고쳐 쓰고 체크하면 공개 글에 보여요.' : '요약을 만들지 못했어요. 다시 눌러 주세요.'; });
   ai.showChk = true; ai.busy = 'aichk'; ai.msg = ''; aiRender();
-  try { const r = await aiCall('check', { body }); ai.aiHits = r.items || []; ai.aiNote = 'AI가 실명·내부 자료로 보이는 표현도 살펴봤어요. AI는 놓칠 수 있으니 마지막 확인은 내가 해요.'; ai.chkFail = false; logAi('suggest', 'aichk'); }
+  try { const r = await aiCall('check', { body, title: draft.title, summary: draft.sum, description: draft.desc }); ai.aiHits = r.items || []; ai.aiNote = 'AI가 개인정보·내부 자료, 오탈자, 제목·요약 일치도 살펴봤어요. AI는 놓칠 수 있으니 마지막 확인은 내가 해요.'; ai.chkFail = false; logAi('suggest', 'aichk'); }
   catch (e) { ai.aiHits = []; ai.chkFail = true; ai.aiNote = e.message + ' (규칙 점검 결과만 보여 드려요.)'; }
   ai.chkRan = true; ai.busy = ''; aiRender();
 }
@@ -514,7 +515,7 @@ async function savePost() {
 // ---------- 회고 정리 (RETRO SUMMARY) ----------
 // 나만 보기 메뉴(예: 회고)의 글을 골라 반복되는 배움을 찾고, 공개 글 초안으로 만들어 글쓰기로 보내요.
 // 기본은 회고 본문을 AI로 보내요. "요약만 보내기"를 켜면 원문 대신 내가 쓴 한두 줄 요약만 보내요.
-const rt = { sel: new Set(), only: false, sums: {}, noQuote: true, themes: null, pick: new Set(), draft: '', title: '', summary: '', description: '', busy: '', msg: '' };
+const rt = { sel: new Set(), only: false, sums: {}, noQuote: true, themes: null, total: 0, pick: new Set(), draft: '', title: '', summary: '', description: '', busy: '', msg: '' };
 const retroPosts = () => posts.filter((p) => isPrivCat(p.category));
 function retroPage() {
   const list = retroPosts();
@@ -522,7 +523,7 @@ function retroPage() {
   const busy = rt.busy;
   const rows = list.map((p) => `<li class="rpost"><label class="ackl"><input type="checkbox" data-rt="${esc(p.id)}"${rt.sel.has(p.id) ? ' checked' : ''}> <a href="view.html?id=${encodeURIComponent(p.id)}">${esc(p.title)}</a> <small>${fd(p.date)}</small></label>${rt.only && rt.sel.has(p.id) ? `<div class="fsum"><label for="rs${esc(p.id)}">AI에 보낼 요약 (원문은 보내지 않아요)</label><input id="rs${esc(p.id)}" data-rtsum="${esc(p.id)}" type="text" maxlength="300" value="${esc(rt.sums[p.id] !== undefined ? rt.sums[p.id] : p.summary || '')}"></div>` : ''}</li>`).join('');
   const th = rt.themes
-    ? `<div class="abox"><p class="hint">AI가 찾은 반복되는 배움이에요. 초안에 쓸 것만 고르세요. “몇 편에서” 나왔는지와 근거 글을 함께 보여 드려요.</p><ul class="ahits">${rt.themes.map((t, i) => `<li class="warn"><label class="ackl"><input type="checkbox" data-rtp="${i}"${rt.pick.has(i) ? ' checked' : ''}> <b>${esc(t.name)}</b> <span class="aib">AI</span> <small>${t.titles.length}편에서</small></label><div>${t.titles.map((x) => { const q = retroPosts().find((p) => p.title === x); return q ? `<a href="view.html?id=${encodeURIComponent(q.id)}">${esc(x)}</a>` : esc(x); }).join(' · ')}</div></li>`).join('')}</ul><button type="button" class="btn sm pri" data-a="rtdraft"${busy ? ' disabled' : ''}>${busy === 'rtdraft' ? '쓰는 중…' : '고른 배움으로 공개 글 초안 만들기'}</button></div>`
+    ? `<div class="abox"><p class="hint">AI가 찾은 반복되는 배움이에요. 초안에 쓸 것만 고르세요. 각 배움이 선택한 회고 중 몇 편에서 나왔는지와 근거 글(어느 회고인지)을 함께 보여 드려요.</p><ul class="ahits">${rt.themes.map((t, i) => `<li class="warn"><label class="ackl"><input type="checkbox" data-rtp="${i}"${rt.pick.has(i) ? ' checked' : ''}> <b>${esc(t.name)}</b> <span class="aib">AI</span> <small>선택한 회고 ${rt.total}편 중 ${t.titles.length}편에서 나왔어요</small></label><div class="rev"><b>근거 글</b> ${t.titles.map((x) => { const q = retroPosts().find((p) => p.title === x); return q ? `<a href="view.html?id=${encodeURIComponent(q.id)}">${esc(x)}</a>` : esc(x); }).join(' · ')}</div></li>`).join('')}</ul><button type="button" class="btn sm pri" data-a="rtdraft"${busy ? ' disabled' : ''}>${busy === 'rtdraft' ? '쓰는 중…' : '고른 배움으로 공개 글 초안 만들기'}</button></div>`
     : '';
   const dr = rt.draft
     ? `<div class="abox"><p class="hint"><span class="aib">AI 초안</span> 고쳐 쓴 뒤 글쓰기로 보내세요. 글쓰기에서는 STUDY 메뉴·공개로 시작하고, 발행할 때 발행 전 점검이 먼저 돌아요.</p><label class="field" for="rtt">제목<input id="rtt" type="text" maxlength="120" value="${esc(rt.title)}"></label><label class="field" for="rts">한 줄 요약<input id="rts" type="text" maxlength="300" value="${esc(rt.summary)}"></label><label class="field" for="rtdesc">검색용 설명<input id="rtdesc" type="text" maxlength="300" value="${esc(rt.description)}"></label><label class="field" for="rtd">본문</label><textarea id="rtd" style="min-height:320px">${esc(rt.draft)}</textarea><button type="button" class="btn sm pri" data-a="rtsend">글쓰기로 보내기</button></div>`
@@ -541,7 +542,7 @@ main && main.addEventListener('click', (e) => {
   if (b.dataset.a === 'rtthemes') {
     const texts = retroTexts();
     if (!texts.length) { rt.msg = '회고를 하나 이상 골라 주세요.'; return retroPage(); }
-    retroRun('rtthemes', { texts }, (r) => { rt.themes = r.themes || []; rt.pick = new Set(rt.themes.map((_, i) => i)); rt.draft = ''; rt.msg = rt.themes.length ? '' : '반복되는 주제를 찾지 못했어요. 글을 더 고르거나 요약을 보강해 보세요.'; });
+    retroRun('rtthemes', { texts }, (r) => { rt.total = texts.length; rt.themes = r.themes || []; rt.pick = new Set(rt.themes.map((_, i) => i)); rt.draft = ''; rt.msg = rt.themes.length ? '' : '반복되는 주제를 찾지 못했어요. 글을 더 고르거나 요약을 보강해 보세요.'; });
   } else if (b.dataset.a === 'rtdraft') {
     const themes = rt.themes.filter((_, i) => rt.pick.has(i));
     if (!themes.length) { rt.msg = '초안에 쓸 배움을 하나 이상 골라 주세요.'; return retroPage(); }

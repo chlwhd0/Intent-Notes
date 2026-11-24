@@ -371,3 +371,5 @@ body[data-page="retro"] main{max-width:1500px}
 .ahit{display:flex;flex-direction:column;gap:2px;padding:4px 8px;margin-top:3px;background:var(--tint,#faf8f5);border-left:3px solid var(--line)}
 .ck.bad .ahit{border-left-color:#c0452f}.ck.warn .ahit{border-left-color:#d9a441}
 .ahit q{font-weight:600;word-break:break-all}.ahit span{font-size:12px;color:var(--sub)}
+.rev{font-size:12px;color:var(--sub);margin-top:2px}.rev b{color:var(--ink);margin-right:4px}
+.ck.note .cks{background:#e8eef6;color:#2f4a6d}.ck.note .ahit{border-left-color:#7d98bd}
