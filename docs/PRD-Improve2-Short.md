@@ -1,6 +1,6 @@
-# PRD: [Intent Notes] 2차 개선, AI 기반 글쓰기 지원 및 공개 전 점검 (2쪽 요약판)
+# PRD: [Intent Notes] 2차 개선, AI 기반 글쓰기 지원 및 공개 전 점검 (요약판)
 
-[원본 v2.2](PRD-Improve2.md)을 2쪽으로 줄인 것입니다. 근거와 세부 기준은 원본을 보세요. 이동: [블로그 PRD](PRD-Blog.md) · [1차 개선](PRD-Improve1.md)
+[원본 v2.2](PRD-Improve2.md)을 줄인 요약판입니다. 근거와 세부 기준은 원본을 보세요. 이동: [블로그 PRD](PRD-Blog.md) · [1차 개선](PRD-Improve1.md)
 
 ## 1. 기본 정보
 **버전** v2.2 요약판 · **작성일** 2026-11-24 · **작성자** 블로그 운영자 · **관련** [원본](PRD-Improve2.md), 시안 `prototypes/ai-features-mockups.html`
