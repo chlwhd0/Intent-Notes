@@ -58,7 +58,7 @@
 - `PRD-Blog.md` → 블로그 기획서(기획 단계의 요구사항 정의서, v0.3)
 - `PRD-Improve1.md` → 1차 개선 기획서. 데이터 분석(GA4 측정) 개선
 - `PRD-Improve2.md` → 2차 개선 기획서. AI 기능(글쓰기 보조, 발행 전 점검 등)
-- `PRD-Improve2-Short.md` → 2차 개선 기획서의 2쪽 요약판. 원본(`PRD-Improve2.md`)은 그대로 두고 따로 저장한 것
+- `PRD-AI.md` → 2차 개선(AI 기능) 기획서를 줄여 쓴 문서. 원본(`PRD-Improve2.md`)은 그대로 두고 따로 저장한 것
 - `GA-Taxonomy.pdf`, `GA-Taxonomy.html` → GA 이벤트 택소노미 보고서 v1.0(지금 적용된 이벤트 체계). PDF와 HTML은 같은 내용
 - `Test-Admin.pdf` → 관리자 글쓰기 기능 테스트 결과 보고서
 - `Test-Blog.pdf` → 블로그 화면 전체 테스트 결과 보고서
