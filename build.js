@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const { markdown, esc } = require('./assets/markdown.js');
 const { sanitizeHtml, textOf } = require('./assets/sanitize.js');
+const IC = require('./assets/check.js');
 const T = require('./assets/thumbs.js');
 
 // 명령줄(node build.js)로 실행했을 때만 옵션(--site-url 등)을 읽어요. 서버에서는 옵션이 없어요.
@@ -117,7 +118,8 @@ const restProvider = {
         id: r.document.name.split('/').pop(), title: rf(f, 'title'), slug: rf(f, 'slug'), category: rf(f, 'category'), summary: rf(f, 'summary'),
         description: rf(f, 'description'), body: rf(f, 'body'), format: rf(f, 'format'), img: rf(f, 'img'), date: rf(f, 'date'),
         thumb: f.thumb && f.thumb.integerValue !== undefined ? Number(f.thumb.integerValue) : undefined,
-        files: (((f.files || {}).arrayValue || {}).values || []).map((v) => { const m = (v.mapValue || {}).fields || {}; return { name: rf(m, 'name'), url: rf(m, 'url'), size: Number((m.size || {}).integerValue || 0) }; }),
+        files: (((f.files || {}).arrayValue || {}).values || []).map((v) => { const m = (v.mapValue || {}).fields || {}; return { name: rf(m, 'name'), url: rf(m, 'url'), size: Number((m.size || {}).integerValue || 0), summary: rf(m, 'summary'), ai: !!(m.ai && m.ai.booleanValue) }; }),
+        aiSummary: (((f.aiSummary || {}).arrayValue || {}).values || []).map((v) => v.stringValue || '').filter(Boolean), aiSummaryOn: !!(f.aiSummaryOn && f.aiSummaryOn.booleanValue), aiSummaryFor: rf(f, 'aiSummaryFor'),
       };
     });
   },
@@ -184,11 +186,48 @@ const cleanFiles = (arr) =>
   (Array.isArray(arr) ? arr : [])
     .filter((f) => f && typeof f.name === 'string' && f.name && T.okImg(f.url))
     .slice(0, 5)
-    .map((f) => ({ name: f.name.slice(0, 100), url: f.url, size: Number(f.size) || 0 }));
+    .map((f) => ({ name: f.name.slice(0, 100), url: f.url, size: Number(f.size) || 0, summary: typeof f.summary === 'string' ? f.summary.trim().slice(0, 300) : '', ai: f.ai === true }));
 const fmtSize = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB');
 const filesBlock = (files) =>
   files && files.length
-    ? `<section class="files" aria-labelledby="fh"><h2 class="sec" id="fh">첨부 파일</h2><ul>${files.map((f) => `<li><a href="${esc(f.url)}" rel="noopener noreferrer">${esc(f.name)}</a> <small>${fmtSize(f.size)} · ${esc((f.name.split('.').pop() || '').toUpperCase().slice(0, 6))}</small></li>`).join('')}</ul></section>`
+    ? `<section class="files" aria-labelledby="fh"><h2 class="sec" id="fh">첨부 파일</h2><ul>${files.map((f) => `<li><a href="${esc(f.url)}" rel="noopener noreferrer">${esc(f.name)}</a> <small>${fmtSize(f.size)} · ${esc((f.name.split('.').pop() || '').toUpperCase().slice(0, 6))}</small>${f.summary ? `<p class="fsumv">${f.ai ? '<span class="aib">AI 요약</span> ' : ''}${esc(f.summary)}</p>` : ''}</li>`).join('')}</ul></section>`
+    : '';
+
+// 관련 글 추천: 글 저장 없이 빌드(방문 때 만드는 페이지)마다 새로 계산해요. AI를 부르지 않아서 비용이 없고 항상 최신이에요.
+// 방법: 제목·요약·본문 앞부분의 한글·영문 단어에서 두 글자 조각(예: "분석" "석가")을 뽑아 겹치는 정도(코사인 유사도)를 재요.
+const grams = (p) => {
+  const t = `${p.title} ${p.title} ${p.summary} ${textOf(p.html).slice(0, 2000)}`.toLowerCase().match(/[가-힣a-z0-9]+/g) || [];
+  const set = new Set();
+  t.forEach((w) => { if (w.length === 1) return; for (let i = 0; i < w.length - 1; i++) set.add(w.slice(i, i + 2)); });
+  return set;
+};
+function addRelated(list) {
+  const pubs = list.filter((p) => !(catBySlug[p.category] || {}).private);
+  if (pubs.length < 4) return; // 공개 글이 3개 미만이면(자기 자신 포함 4개 미만) 추천을 숨겨요
+  const g = new Map(pubs.map((p) => [p, grams(p)]));
+  pubs.forEach((p) => {
+    const a = g.get(p);
+    p.related = pubs
+      .filter((q) => q !== p)
+      .map((q) => {
+        const b = g.get(q);
+        let n = 0;
+        a.forEach((x) => { if (b.has(x)) n++; });
+        return { q, score: a.size && b.size ? n / Math.sqrt(a.size * b.size) + (q.category === p.category ? 0.01 : 0) : 0 };
+      })
+      .filter((r) => r.score >= 0.04)
+      .sort((x, y) => y.score - x.score)
+      .slice(0, 3)
+      .map((r) => r.q);
+  });
+}
+const relatedBlock = (p) =>
+  p.related && p.related.length
+    ? `<section class="rel" id="related" aria-labelledby="relh"><h2 class="sec" id="relh">이어서 읽을 글</h2><p class="hint">글 내용이 비슷한 순서로 골랐어요.</p><div class="relg">${p.related.map((q) => `<a class="relc" href="${q.slug}.html" data-post="${esc(q.id)}"><b>${esc(q.title)}</b><span>${esc(q.summary || q.description)}</span></a>`).join('')}</div></section>`
+    : '';
+const tldrBlock = (p) =>
+  p.tldr
+    ? `<details class="tldr" id="tldr" data-post="${esc(p.id)}" open><summary>3줄 요약 <span class="aib">AI</span></summary><ol>${p.tldr.map((t) => `<li>${esc(t)}</li>`).join('')}</ol><p class="hint">AI가 정리하고 운영자가 확인한 요약이에요. 틀릴 수 있으니 중요한 내용은 본문으로 확인해 주세요.</p></details>`
     : '';
 
 // 파이어베이스의 공개 글을 사이트에서 쓰는 모양으로 바꿔요.
@@ -217,6 +256,12 @@ async function loadRemotePosts(provider) {
       image: '',
       html,
     };
+    // 3줄 요약은 운영자가 승인했고, 승인한 뒤 본문이 바뀌지 않았을 때만 보여 줘요. (바뀌었으면 숨기고 빌드 안내에 남겨요)
+    const lines = Array.isArray(d.aiSummary) ? d.aiSummary.filter((t) => typeof t === 'string' && t.trim()).map((t) => t.trim().slice(0, 120)).slice(0, 3) : [];
+    if (d.aiSummaryOn && lines.length) {
+      if (d.aiSummaryFor === IC.hash(IC.plain(html))) post.tldr = lines;
+      else warnings.push(`파이어베이스 글 "${post.title}": 본문이 바뀌어 3줄 요약 승인이 풀렸어요. 요약은 숨겼어요. 글을 열어 다시 확인해 주세요.`);
+    }
     checkPost(post, `파이어베이스 글 "${post.title}"`);
     out.push(post);
   }
@@ -361,6 +406,7 @@ async function generate(provider) {
     used.add(p.slug);
   });
   const posts = [...local, ...remote].sort((a, b) => (a.date < b.date ? 1 : -1));
+  addRelated(posts);
 
   // 홈: 메뉴별 최신 글 최대 3개를 콜라주 타일로(글 썸네일이 타일 배경이에요)
   const latest = (slug) => posts.find((p) => p.category === slug);
@@ -474,7 +520,7 @@ ${collage}
         title: `${p.title} · ${cfg.name}`,
         active: p.category,
         root: '../',
-        scripts: ['boot.js', ...(isPriv ? [] : ['share.js']), 'site.js'],
+        scripts: ['boot.js', ...(isPriv ? [] : ['share.js']), ...(p.tldr || (p.related && p.related.length) ? ['post-ai.js'] : []), 'site.js'],
         bodyAttr: ` data-page="public"${remoteId}`,
         seo: { description: p.description, rel, type: 'article', image: p.image, imageUrl: p.img, published: p.date, jsonld },
         body: `<article class="post">
@@ -483,9 +529,11 @@ ${collage}
 <p class="summary">${esc(p.summary)}</p>
 <div class="meta3">${timeTag(p.date)}${viewsSpan(p, 'hint')}</div>
 ${share}
+${isPriv ? '' : tldrBlock(p)}
 <div class="cover">${T.inner(p)}</div>
 <div class="body">${p.html}</div>
 ${filesBlock(p.files)}
+${isPriv ? '' : relatedBlock(p)}
 <div class="pn">${prev ? `<a href="${prev.slug}.html" rel="prev">← ${esc(prev.title)}</a>` : '<span></span>'}${next ? `<a href="${next.slug}.html" rel="next">${esc(next.title)} →</a>` : '<span></span>'}</div>
 ${isPriv ? '' : `<section class="cms" id="comments" data-post="${esc(p.id)}" aria-labelledby="cmh"><h2 class="sec" id="cmh">댓글</h2><p class="empty">댓글을 불러오는 중…</p></section>`}
 </article>`,
@@ -629,6 +677,8 @@ ${headHtml({ title: `관리자 로그인 · ${cfg.name}`, root: '../', seo: { no
     ['posts', 'MANAGE POSTS'],
     ['menus', 'MANAGE MENUS'],
     ['write', 'NEW POST'],
+    ['retro', 'AI RETRO'],
+    ['ai', 'AI USAGE'],
     ['list', '글 목록'],
     ['view', '글 보기'],
   ].forEach(([key, label]) => {
@@ -685,7 +735,7 @@ function syncFunctions() {
   fs.rmSync(dest, { recursive: true, force: true });
   fs.mkdirSync(path.join(dest, 'assets'), { recursive: true });
   ['build.js', 'site.config.json', 'about.md', 'privacy.md'].forEach((f) => fs.copyFileSync(path.join(ROOT, f), path.join(dest, f)));
-  ['markdown.js', 'sanitize.js', 'thumbs.js', 'firebase-config.json', 'og-default.png'].forEach((f) => fs.copyFileSync(path.join(ROOT, 'assets', f), path.join(dest, 'assets', f)));
+  ['markdown.js', 'sanitize.js', 'check.js', 'thumbs.js', 'firebase-config.json', 'og-default.png'].forEach((f) => fs.copyFileSync(path.join(ROOT, 'assets', f), path.join(dest, 'assets', f)));
   fs.mkdirSync(path.join(dest, 'posts'), { recursive: true }); // 서버에서는 파일 글을 쓰지 않아요(비어 있음)
 }
 

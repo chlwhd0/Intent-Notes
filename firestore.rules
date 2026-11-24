@@ -15,8 +15,15 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/settings/private).data.slugs;
     }
 
+    // 공개 글에는 자리표시자("[이름]" 등)와 휴대전화 번호를 넣을 수 없어요. (assets/check.js의 "해결 필요" 규칙과 같아요)
+    // 화면의 점검을 건너뛰고 저장하려 해도 여기서 한 번 더 막아요.
+    function publishable(b) {
+      return !b.matches('[\\s\\S]*\\[(이름|샘플|이메일 주소)[^\\]]*\\][\\s\\S]*')
+        && !b.matches('[\\s\\S]*(^|[^0-9])01[016789][-. ]?[0-9]{3,4}[-. ]?[0-9]{4}([^0-9]|$)[\\s\\S]*');
+    }
+
     function validPost(d) {
-      return d.keys().hasOnly(['title', 'slug', 'category', 'visibility', 'summary', 'description', 'body', 'format', 'thumb', 'img', 'files', 'date', 'createdAt', 'updatedAt'])
+      return d.keys().hasOnly(['title', 'slug', 'category', 'visibility', 'summary', 'description', 'body', 'format', 'thumb', 'img', 'files', 'date', 'aiSummary', 'aiSummaryOn', 'aiSummaryFor', 'createdAt', 'updatedAt'])
         && d.title is string && d.title.size() > 0 && d.title.size() <= 120
         && d.slug is string && d.slug.size() <= 80 && (d.slug == '' || d.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$'))
         && d.category is string && d.category.matches('^[a-z0-9]+(-[a-z0-9]+)*$') && d.category.size() <= 40
@@ -30,7 +37,11 @@ service cloud.firestore {
         && (!('thumb' in d) || (d.thumb is int && d.thumb >= 0 && d.thumb < 6))
         && (!('img' in d) || (d.img is string && d.img.size() <= 800 && (d.img == '' || d.img.matches('^https://firebasestorage\\.googleapis\\.com/.*'))))
         && (!('files' in d) || (d.files is list && d.files.size() <= 5))
+        && (!('aiSummary' in d) || (d.aiSummary is list && d.aiSummary.size() <= 3))
+        && (!('aiSummaryOn' in d) || d.aiSummaryOn is bool)
+        && (!('aiSummaryFor' in d) || (d.aiSummaryFor is string && d.aiSummaryFor.size() <= 20))
         && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && (d.visibility == 'private' || publishable(d.body))
         && d.createdAt is timestamp && d.updatedAt is timestamp;
     }
 
@@ -90,6 +101,23 @@ service cloud.firestore {
           && validMentions(request.resource.data.mentions))
       );
       allow delete: if request.auth != null && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    // AI 기능 기록: 관리자만 읽고 남길 수 있어요. 글 내용은 저장하지 않고 종류·글 번호·횟수만 남겨요.
+    match /aiLogs/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.keys().hasOnly(['kind', 'feature', 'post', 'at'])
+        && request.resource.data.kind in ['suggest', 'apply', 'ignore', 'gate']
+        && request.resource.data.feature is string && request.resource.data.feature.size() <= 20
+        && request.resource.data.post is string && request.resource.data.post.size() <= 60
+        && request.resource.data.at == request.time;
+      allow update, delete: if false;
+    }
+
+    // 이번 달 AI 호출 횟수: 서버 함수만 쓰고(관리자 권한), 관리자는 읽기만 해요.
+    match /aiUsage/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // 공개 메뉴 이름은 누구나 읽을 수 있고(사이트를 만들 때 써요), 고치는 건 관리자만 해요.

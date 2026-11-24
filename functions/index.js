@@ -5,10 +5,12 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { generate } = require('./site/build.js');
 const { fetchWeather } = require('./weather.js');
 const { fetchCat } = require('./cat.js');
+const ai = require('./ai.js');
 
 initializeApp();
 const db = getFirestore();
@@ -28,7 +30,8 @@ const provider = {
       return {
         id: d.id, title: str(x.title), slug: str(x.slug), category: str(x.category), summary: str(x.summary), description: str(x.description),
         body: str(x.body), format: str(x.format), img: str(x.img), date: str(x.date), thumb: Number.isInteger(x.thumb) ? x.thumb : undefined,
-        files: Array.isArray(x.files) ? x.files.map((f) => ({ name: str(f && f.name), url: str(f && f.url), size: Number(f && f.size) || 0 })) : [],
+        files: Array.isArray(x.files) ? x.files.map((f) => ({ name: str(f && f.name), url: str(f && f.url), size: Number(f && f.size) || 0, summary: str(f && f.summary), ai: !!(f && f.ai === true) })) : [],
+        aiSummary: Array.isArray(x.aiSummary) ? x.aiSummary.map(str).filter(Boolean).slice(0, 3) : [], aiSummaryOn: x.aiSummaryOn === true, aiSummaryFor: str(x.aiSummaryFor),
       };
     });
   },
@@ -118,4 +121,53 @@ exports.cat = onRequest({ region: 'asia-northeast3', memory: '256MiB', timeoutSe
   }
   res.set('Cache-Control', 'public, max-age=3600, s-maxage=3600');
   res.json(cat.data);
+});
+
+// AI 도우미. 관리자 화면(글쓰기 보조, 발행 전 점검, 첨부 요약, 3줄 요약, 회고 정리)이 /api/ai 로 불러가요.
+// 관리자 로그인(ID 토큰의 admin 표시)이 있어야 하고, 한 달에 부를 수 있는 횟수를 넘으면 멈춰요.
+// 키가 없거나 AI 서비스가 안 될 때는 오류 코드만 돌려줘요. (글쓰기·저장은 AI 없이도 그대로 돼요)
+const aiKey = defineSecret('AI_API_KEY');
+const AI_MODEL = process.env.AI_MODEL || 'claude-haiku-5-5';
+const AI_LIMIT = Number(process.env.AI_MONTHLY_LIMIT) || 300;
+const ymKey = () => { const d = new Date(Date.now() + 9 * 3600 * 1000); return d.getUTCFullYear() + String(d.getUTCMonth() + 1).padStart(2, '0'); };
+
+async function adminOf(req) {
+  const m = /^Bearer (.+)$/.exec(req.get('authorization') || '');
+  if (!m) return null;
+  try { const t = await getAuth().verifyIdToken(m[1]); return t.admin === true ? t : null; } catch (e) { return null; }
+}
+// 호출 횟수를 하나 올려요. 한도를 넘었으면 false.
+async function takeAiCall(ref) {
+  return db.runTransaction(async (tx) => {
+    const d = await tx.get(ref);
+    const n = d.exists ? Number(d.data().count) || 0 : 0;
+    if (n >= AI_LIMIT) return false;
+    tx.set(ref, { count: n + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    return true;
+  });
+}
+
+exports.ai = onRequest({ region: 'asia-northeast3', memory: '256MiB', timeoutSeconds: 60, maxInstances: 3, secrets: [aiKey] }, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (req.method !== 'POST') { res.status(405).json({ error: 'METHOD' }); return; }
+  if (!(await adminOf(req))) { res.status(403).json({ error: 'FORBIDDEN' }); return; }
+  const { action, input } = req.body || {};
+  const ref = db.doc('aiUsage/' + ymKey());
+  if (action === 'usage') {
+    const d = await ref.get();
+    res.json({ result: { count: d.exists ? Number(d.data().count) || 0 : 0, limit: AI_LIMIT, month: ymKey(), model: AI_MODEL } });
+    return;
+  }
+  if (!ai.ACTIONS[action]) { res.status(400).json({ error: 'BAD_ACTION' }); return; }
+  if (!ai.ACTIONS[action].need(input || {})) { res.status(400).json({ error: 'TOO_SHORT' }); return; }
+  let key = '';
+  try { key = aiKey.value(); } catch (e) { key = ''; }
+  if (!key) { res.status(503).json({ error: 'NO_KEY' }); return; }
+  if (!(await takeAiCall(ref))) { res.status(429).json({ error: 'LIMIT', limit: AI_LIMIT }); return; }
+  try {
+    res.json({ result: await ai.run(action, input, { key, model: AI_MODEL }) });
+  } catch (e) {
+    console.error('AI 호출 실패', action, e && e.message);
+    res.status(502).json({ error: 'UPSTREAM', detail: String((e && e.message) || '').slice(0, 40) }); // detail은 오류 코드(예: UPSTREAM_404)만이라 키·글 내용이 들어가지 않아요
+  }
 });

@@ -4,12 +4,13 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
-  getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, orderBy, where,
+  getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, orderBy, where, limit,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import { getStorage, ref as sref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
 import './sanitize.js';
 import './markdown.js';
 import './thumbs.js';
+import { IC, aiErr, extractText, checkHtml, panelHtml } from './admin-ai.js';
 
 const { sanitizeHtml, textOf, FAM } = self.IntentSan;
 const MD = self.IntentMd;
@@ -120,7 +121,7 @@ function renderSidebar(active) {
   $('nav').innerHTML =
     a('list.html', 'ALL POSTS', 'all') + cats.map((c) => a('list.html?cat=' + encodeURIComponent(c.slug), esc(c.name), 'cat:' + c.slug)).join('') +
     '<span class="sep" role="presentation"></span>' + a('write.html', 'NEW POST', 'write') +
-    '<span class="grp">ADMIN</span>' + a('menus.html', 'MANAGE MENUS', 'menus', 'subl') + a('posts.html', 'MANAGE POSTS', 'posts', 'subl');
+    '<span class="grp">ADMIN</span>' + a('menus.html', 'MANAGE MENUS', 'menus', 'subl') + a('posts.html', 'MANAGE POSTS', 'posts', 'subl') + a('retro.html', 'AI RETRO', 'retro', 'subl') + a('ai.html', 'AI USAGE', 'ai', 'subl');
   $('bottom').innerHTML = `<span class="who">로그인: 관리자</span><a href="${root}index.html">블로그 보기</a><button type="button" class="linkbtn" id="logout">로그아웃</button>`;
   $('logout').addEventListener('click', async () => { await signOut(auth); setHint(false); location.href = root + 'index.html'; });
 }
@@ -143,7 +144,7 @@ const FILE_TYPES = {
 };
 const fmtSize = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB');
 const extOf = (name) => (String(name).split('.').pop() || '').toLowerCase();
-const cleanFiles = (arr) => (Array.isArray(arr) ? arr : []).filter((f) => f && typeof f.name === 'string' && typeof f.url === 'string').map((f) => ({ name: f.name, url: f.url, size: Number(f.size) || 0 }));
+const cleanFiles = (arr) => (Array.isArray(arr) ? arr : []).filter((f) => f && typeof f.name === 'string' && typeof f.url === 'string').map((f) => ({ name: f.name, url: f.url, size: Number(f.size) || 0, ...(typeof f.summary === 'string' && f.summary.trim() ? { summary: f.summary.trim().slice(0, 300), ai: f.ai === true } : {}) }));
 const filesHtml = (files) => (files && files.length ? `<section class="files" aria-labelledby="fh"><h2 class="sec" id="fh">첨부 파일</h2><ul>${files.map((f) => `<li><a href="${esc(f.url)}" rel="noopener noreferrer">${esc(f.name)}</a> <small>${fmtSize(f.size)} · ${esc(extOf(f.name).toUpperCase())}</small></li>`).join('')}</ul></section>` : '');
 const dropFiles = (files) => Promise.all((files || []).map((f) => deleteObject(sref(storage, f.url)).catch(() => {}))); // 저장소 파일 지우기(이미 없으면 넘어가요)
 const NOTE_DEPLOY = ''; // 글·메뉴 변경은 서버가 방문할 때 최신으로 그려서 따로 배포하지 않아도 바로 반영돼요.
@@ -262,11 +263,38 @@ function viewPage() {
 }
 
 // ---------- 글쓰기·수정 (NEW POST) ----------
+// 회고 정리에서 보낸 초안(마크다운)을 글 본문으로 바꿔요. 한 번 쓰면 지워요.
+function retroHtml() {
+  if (!params.get('retro')) return '';
+  try { const t = sessionStorage.getItem('intentRetro') || ''; sessionStorage.removeItem('intentRetro'); return t ? sanitizeHtml(MD.markdown(t)) : ''; } catch (e) { return ''; }
+}
+// 저장된 3줄 요약 상태. 승인했어도 본문이 그 뒤에 바뀌었다면(지문이 다르면) 승인을 풀어서 보여 줘요.
+function aiOf(p) {
+  const lines = Array.isArray(p.aiSummary) ? p.aiSummary.filter((t) => typeof t === 'string').slice(0, 3) : [];
+  const fresh = p.aiSummaryOn === true && p.aiSummaryFor === IC.hash(IC.plain(sanitizeHtml(bodyHtml(p))));
+  return { lines, on: fresh, for: fresh ? p.aiSummaryFor : '' };
+}
 let draft = null, wtab = 'write', existing = null, savedRange = null, uploading = false, attaching = false;
+// AI 도우미 상태: 요청 중인 기능(busy), 안내 글(msg), 글쓰기 보조 제안(sug), AI가 찾은 점검 항목(aiHits), 점검 목록 보이기(showChk), "확인했어요" 표시(acks)
+const ai = { busy: '', msg: '', sug: null, aiHits: [], aiNote: '', showChk: false, acks: {} };
+const fileText = new Map(); // 첨부 파일 주소 → 요약에 쓸 글자(이번에 올린 파일만 있어요)
+const logAi = (kind, feature) => addDoc(collection(db, 'aiLogs'), { kind, feature, post: existing ? existing.id : '', at: serverTimestamp() }).catch(() => {}); // 기록이 안 돼도 글쓰기는 계속돼요
+async function aiCall(action, input) {
+  const u = auth.currentUser;
+  if (!u) throw new Error(aiErr('FORBIDDEN'));
+  let res;
+  try { res = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify({ action, input }) }); } catch (e) { throw new Error(aiErr('')); }
+  let j = {}; try { j = await res.json(); } catch (e) { /* 본문이 없어도 돼요 */ }
+  if (!res.ok) throw new Error(aiErr(j.error));
+  return j.result;
+}
 const edEl = () => $('wed');
 function syncDraft() {
   if (!draft || !$('wtitle')) return;
-  draft.title = $('wtitle').value; draft.cat = $('wcat').value; draft.sum = $('wsum').value; draft.date = $('wdate').value;
+  draft.title = $('wtitle').value; draft.cat = $('wcat').value; draft.sum = $('wsum').value; draft.date = $('wdate').value; if ($('wdesc')) draft.desc = $('wdesc').value;
+  document.querySelectorAll('[data-fsum]').forEach((el) => { const f = draft.files[Number(el.dataset.fsum)]; if (f) { f.summary = el.value; if (!el.value.trim()) f.ai = false; } });
+  document.querySelectorAll('.ail').forEach((el, i) => { if (draft.ai.lines[i] !== undefined) draft.ai.lines[i] = el.value; });
+  if ($('aion')) draft.ai.on = $('aion').checked;
   const ed = edEl(); if (ed) draft.html = ed.innerHTML;
 }
 function thumbPicker(d) {
@@ -274,9 +302,9 @@ function thumbPicker(d) {
   return `<div class="field" id="thl">썸네일<div class="thpick"><div class="thcur">${thumbHtml(d)}</div>${bs}<label class="thfile btn sm" for="thfile">${uploading ? '올리는 중…' : '이미지 올리기'}</label><input class="sr" id="thfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"${uploading ? ' disabled' : ''}>${d.img ? '<button type="button" class="btn sm" data-a="thumbclear">올린 이미지 지우기</button>' : ''}</div><span class="hint">모양을 고르거나 내 이미지(PNG, JPG, WebP, GIF, 10MB 이하)를 올려요.</span></div>`;
 }
 function filePicker(d) {
-  const items = d.files.map((f, i) => `<li><span class="fname">${esc(f.name)}</span> <small>${fmtSize(f.size)}</small> <button type="button" class="btn sm" data-a="fdel" data-v="${i}" aria-label="${esc(f.name)} 빼기">빼기</button></li>`).join('');
+  const items = d.files.map((f, i) => `<li><span class="fname">${esc(f.name)}</span> <small>${fmtSize(f.size)}</small> <button type="button" class="btn sm" data-a="fdel" data-v="${i}" aria-label="${esc(f.name)} 빼기">빼기</button>${fileText.has(f.url) ? ` <button type="button" class="btn sm" data-a="aifile" data-v="${i}"${ai.busy ? ' disabled' : ''}>${ai.busy === 'aifile' + i ? '요약 중…' : 'AI 요약'}</button>` : ''}${f.summary !== undefined ? `<div class="fsum"><label for="fs${i}">방문자에게 보일 요약${f.ai ? ' <span class="aib">AI</span>' : ''} <small>(고쳐 써도 돼요. 비우면 요약 없이 올라가요)</small></label><input id="fs${i}" data-fsum="${i}" type="text" maxlength="300" value="${esc(f.summary)}"></div>` : ''}</li>`).join('');
   const full = d.files.length >= MAX_FILES;
-  return `<div class="field" id="fl">첨부 파일${items ? `<ul class="flist">${items}</ul>` : ''}<div class="thpick"><label class="thfile btn sm" for="ffile"${full ? ' aria-disabled="true"' : ''}>${attaching ? '올리는 중…' : '파일 올리기'}</label><input class="sr" id="ffile" type="file" accept="${Object.keys(FILE_TYPES).map((x) => '.' + x).join(',')}"${attaching || full ? ' disabled' : ''}><span class="hint" id="fnote" role="status">${full ? '파일은 글당 ' + MAX_FILES + '개까지예요.' : ''}</span></div><span class="hint">PDF, 문서(Word·Excel·PowerPoint·한글), 텍스트, 압축(zip), 이미지 · 파일당 25MB 이하 · 글당 5개까지. 실행 파일과 HTML은 올릴 수 없어요. 방문자는 공개 글에서 내려받을 수 있어요.</span></div>`;
+  return `<div class="field" id="fl">첨부 파일${items ? `<ul class="flist">${items}</ul>` : ''}<div class="thpick"><label class="thfile btn sm" for="ffile"${full ? ' aria-disabled="true"' : ''}>${attaching ? '올리는 중…' : '파일 올리기'}</label><input class="sr" id="ffile" type="file" accept="${Object.keys(FILE_TYPES).map((x) => '.' + x).join(',')}"${attaching || full ? ' disabled' : ''}><span class="hint" id="fnote" role="status">${full ? '파일은 글당 ' + MAX_FILES + '개까지예요.' : ''}</span></div><span class="hint">방금 올린 PDF·텍스트 파일은 “AI 요약”으로 방문자용 요약을 만들 수 있어요.</span><span class="hint">PDF, 문서(Word·Excel·PowerPoint·한글), 텍스트, 압축(zip), 이미지 · 파일당 25MB 이하 · 글당 5개까지. 실행 파일과 HTML은 올릴 수 없어요. 방문자는 공개 글에서 내려받을 수 있어요.</span></div>`;
 }
 function toolbarHtml() {
   const b = (v, label, title) => `<button type="button" class="tbb" data-a="fmt" data-v="${v}" title="${title}" aria-label="${title}">${label}</button>`;
@@ -291,6 +319,19 @@ function toolbarHtml() {
     '<div class="imgrow" id="imgrow" hidden><label class="sr" for="imgfile">본문에 넣을 이미지</label><input id="imgfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><label class="sr" for="imgalt">이미지 설명</label><input id="imgalt" type="text" maxlength="200" placeholder="이미지 설명(대체 글): 눈이 불편한 분과 검색에 쓰여요"><button type="button" class="btn sm" data-a="imgcancel">닫기</button><span class="hint" id="imgnote" role="status"></span></div>' +
     '<div class="linkrow" id="linkrow" hidden><label class="sr" for="linkurl">링크 주소</label><input id="linkurl" type="url" placeholder="https://"><button type="button" class="btn sm pri" data-a="linkok">적용</button><button type="button" class="btn sm" data-a="linkcancel">취소</button></div>';
 }
+// 지금 글에서 찾은 점검 항목: 규칙(항상) + AI가 찾아 준 것 중 지금 글에 아직 있는 문장
+function liveHits(d) {
+  const text = IC.plain(sanitizeHtml(d.html));
+  return IC.run(text).concat(IC.fromAi(ai.aiHits, text));
+}
+const bodyText = () => { syncDraft(); return IC.plain(sanitizeHtml(draft.html)); };
+const aiRender = () => { syncDraft(); writePage(); const el = $('aip'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); };
+async function runAi(feature, action, input, onOk) {
+  ai.busy = feature; ai.msg = ''; aiRender();
+  try { onOk(await aiCall(action, input)); logAi('suggest', feature); } catch (e) { ai.msg = e.message; }
+  ai.busy = ''; aiRender();
+}
+
 function writePage() {
   if (!cats.length) { show('<h1 class="ptitle">새 글 쓰기</h1><p class="notice warn" role="alert">글을 올릴 메뉴가 없어요. 메뉴 관리에서 메뉴를 먼저 추가하세요.</p><p><a class="btn" href="menus.html">메뉴 관리로</a></p>'); return; }
   const d = draft;
@@ -306,8 +347,8 @@ function writePage() {
   const editing = !!existing;
   show(`<div class="head"><h1 class="ptitle">${editing ? '글 수정' : '새 글 쓰기'}</h1><div class="btns"><button class="btn" type="button" data-a="cancel">취소</button><button class="btn pri" type="button" data-a="save" id="save">${editing ? '저장하기' : '발행하기'}</button></div></div>${notice()}` +
     `<label><span class="sr">제목</span><input class="title" id="wtitle" type="text" maxlength="120" placeholder="제목을 입력하세요" value="${esc(d.title)}"></label>` +
-    `<div class="meta"><label class="field" for="wcat">카테고리<select id="wcat">${opts}</select></label>${visHtml}<label class="field" for="wdate">날짜<input id="wdate" type="date" value="${esc(d.date)}"></label><label class="field" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록과 검색 결과에 보일 한두 문장" value="${esc(d.sum)}"></label></div>` +
-    thumbPicker(d) + filePicker(d) +
+    `<div class="meta"><label class="field" for="wcat">카테고리<select id="wcat">${opts}</select></label>${visHtml}<label class="field" for="wdate">날짜<input id="wdate" type="date" value="${esc(d.date)}"></label><label class="field" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록과 글 위쪽에 보일 한두 문장" value="${esc(d.sum)}"></label><label class="field" for="wdesc">검색용 설명<input id="wdesc" type="text" maxlength="300" placeholder="검색 결과와 공유 미리보기에 보일 설명(비우면 요약을 써요)" value="${esc(d.desc)}"></label></div>` +
+    thumbPicker(d) + filePicker(d) + panelHtml(d, { ...ai, pub: d.vis === 'public' && !isPrivCat(d.cat) }, checkHtml(liveHits(d), ai.acks, ai.aiNote)) +
     `<div class="tabs" role="tablist" aria-label="편집 방식"><button role="tab" type="button" data-a="tab" data-v="write" aria-selected="${wtab === 'write'}">작성</button><button role="tab" type="button" data-a="tab" data-v="preview" aria-selected="${wtab === 'preview'}">미리보기</button></div>` + edit);
 }
 
@@ -384,7 +425,9 @@ async function attachFile(file) {
     const r = sref(storage, `files/${crypto.randomUUID()}.${ext}`);
     const task = uploadBytesResumable(r, file, { contentType: FILE_TYPES[ext], contentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(name)}` });
     await new Promise((resolve, reject) => task.on('state_changed', (s) => { if (note()) note().textContent = '올리는 중… ' + Math.round((s.bytesTransferred / s.totalBytes) * 100) + '%'; }, reject, resolve));
-    draft.files.push({ name, url: await getDownloadURL(r), size: file.size });
+    const furl = await getDownloadURL(r);
+    draft.files.push({ name, url: furl, size: file.size });
+    const txt = await extractText(file, ext); if (txt.length >= 30) fileText.set(furl, txt);
     say('“' + name + '” 파일을 올렸어요. 글을 저장하면 첨부돼요.');
   } catch (e) { say(uploadErr(e), true); }
   attaching = false; writePage();
@@ -412,7 +455,7 @@ async function savePost() {
   const priv = isPrivCat(d.cat);
   const data = {
     title: d.title.trim(), slug: existing ? existing.slug || '' : '', category: d.cat, visibility: priv ? 'private' : d.vis,
-    summary: d.sum.trim(), description: existing ? existing.description || '' : '', body: html, format: 'html', thumb: d.thumb, img: d.img || '', files: cleanFiles(d.files), date: d.date,
+    summary: d.sum.trim(), description: d.desc.trim(), body: html, format: 'html', thumb: d.thumb, img: d.img || '', files: cleanFiles(d.files), date: d.date,
   };
   const bad = (m) => { say(m, true); writePage(); };
   if (!data.title) return bad('제목을 입력해 주세요.');
@@ -421,6 +464,21 @@ async function savePost() {
   if (data.summary.length > 300) return bad('요약은 300자 이하로 써 주세요.');
   if (data.files.length > MAX_FILES) return bad('첨부 파일은 글당 ' + MAX_FILES + '개까지예요.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data.date)) return bad('날짜를 입력해 주세요.');
+  if (data.description.length > 300) return bad('검색용 설명은 300자 이하로 써 주세요.');
+  // 3줄 요약: 승인한 뒤 본문이 바뀌었으면 승인을 풀어요. (공개 화면은 승인된 요약만 보여 줘요)
+  const lines = d.ai.lines.map((t) => t.trim()).filter(Boolean).slice(0, 3);
+  const hNow = IC.hash(IC.plain(html));
+  const approved = d.ai.on && lines.length > 0 && d.ai.for === hNow;
+  data.aiSummary = lines; data.aiSummaryOn = approved; data.aiSummaryFor = approved ? hNow : '';
+  if (d.ai.on && lines.length && !approved) { d.ai.on = false; ai.msg = '본문이 바뀌어서 3줄 요약 승인이 풀렸어요. 요약을 다시 확인하고 체크해 주세요.'; }
+  // 발행 전 점검: 공개 글은 "해결 필요"가 없고 "확인 필요"를 모두 확인해야 저장돼요. (firestore.rules도 해결 필요 항목은 한 번 더 막아요)
+  if (data.visibility === 'public') {
+    const g = IC.gate(liveHits(d), ai.acks);
+    if (!g.ok) {
+      ai.showChk = true; logAi('gate', 'check');
+      return bad(g.bad.length ? `공개 글로 저장하기 전에 해결할 것이 ${g.bad.length}개 있어요. 아래 AI 도우미의 점검 결과를 확인해 주세요.` : `확인이 필요한 것이 ${g.pending.length}개 있어요. 아래 점검 결과에서 “확인했어요”를 눌러 주세요.`);
+    }
+  }
   data.updatedAt = serverTimestamp();
   $('save').disabled = true;
   try {
@@ -428,9 +486,84 @@ async function savePost() {
     if (existing) { data.createdAt = existing.createdAt; id = existing.id; await setDoc(doc(db, 'posts', id), data); }
     else { data.createdAt = serverTimestamp(); id = (await addDoc(collection(db, 'posts'), data)).id; }
     if (existing) { const keep = new Set(data.files.map((f) => f.url)); await dropFiles(cleanFiles(existing.files).filter((f) => !keep.has(f.url))); } // 글에서 뺀 파일은 저장소에서도 지워요
+    { const had = new Set(existing ? cleanFiles(existing.files).filter((f) => f.ai).map((f) => f.url) : []); if (data.files.some((f) => f.ai && !had.has(f.url))) logAi('apply', 'aifile'); } // 새로 저장하는 첨부 요약은 적용으로 세요
     sendFlash(data.visibility === 'public' ? (existing ? '저장했어요.' : '발행했어요.') + NOTE_DEPLOY : '나만 보기 글로 저장했어요. 방문자에게는 보이지 않아요.');
     location.href = `view.html?id=${encodeURIComponent(id)}`;
   } catch (e) { say(dbMsg(e), true); writePage(); }
+}
+
+// ---------- 회고 정리 (AI RETRO) ----------
+// 나만 보기 메뉴(예: 회고)의 글을 골라 반복되는 배움을 찾고, 공개 글 초안으로 만들어 글쓰기로 보내요.
+// 기본은 회고 본문을 AI로 보내요. "요약만 보내기"를 켜면 원문 대신 내가 쓴 한두 줄 요약만 보내요.
+const rt = { sel: new Set(), only: false, sums: {}, noQuote: true, themes: null, pick: new Set(), draft: '', busy: '', msg: '' };
+const retroPosts = () => posts.filter((p) => isPrivCat(p.category));
+function retroPage() {
+  const list = retroPosts();
+  if (!list.length) { show('<h1 class="ptitle">회고 정리</h1><p class="empty">나만 보기 메뉴(예: 회고)에 쓴 글이 아직 없어요. 회고를 먼저 써 주세요.</p><p><a class="btn" href="write.html">글쓰기</a></p>'); return; }
+  const busy = rt.busy;
+  const rows = list.map((p) => `<li><label class="ackl"><input type="checkbox" data-rt="${esc(p.id)}"${rt.sel.has(p.id) ? ' checked' : ''}> <a href="view.html?id=${encodeURIComponent(p.id)}">${esc(p.title)}</a> <small>${fd(p.date)}</small></label>${rt.only && rt.sel.has(p.id) ? `<div class="fsum"><label for="rs${esc(p.id)}">AI에 보낼 요약 (원문은 보내지 않아요)</label><input id="rs${esc(p.id)}" data-rtsum="${esc(p.id)}" type="text" maxlength="300" value="${esc(rt.sums[p.id] !== undefined ? rt.sums[p.id] : p.summary || '')}"></div>` : ''}</li>`).join('');
+  const th = rt.themes
+    ? `<div class="abox"><p class="hint">AI가 찾은 반복되는 배움이에요. 초안에 쓸 것만 고르세요. “몇 편에서” 나왔는지와 근거 글을 함께 보여 드려요.</p><ul class="ahits">${rt.themes.map((t, i) => `<li class="warn"><label class="ackl"><input type="checkbox" data-rtp="${i}"${rt.pick.has(i) ? ' checked' : ''}> <b>${esc(t.name)}</b> <span class="aib">AI</span> <small>${t.titles.length}편에서</small></label><div>${t.titles.map((x) => { const q = retroPosts().find((p) => p.title === x); return q ? `<a href="view.html?id=${encodeURIComponent(q.id)}">${esc(x)}</a>` : esc(x); }).join(' · ')}</div></li>`).join('')}</ul><button type="button" class="btn sm pri" data-a="rtdraft"${busy ? ' disabled' : ''}>${busy === 'rtdraft' ? '쓰는 중…' : '고른 배움으로 공개 글 초안 만들기'}</button></div>`
+    : '';
+  const dr = rt.draft
+    ? `<div class="abox"><p class="hint"><span class="aib">AI 초안</span> 고쳐 쓴 뒤 글쓰기로 보내세요. 글쓰기에서는 나만 보기로 시작하고, 공개로 바꿀 때 발행 전 점검이 먼저 돌아요.</p><label class="sr" for="rtd">AI 초안</label><textarea id="rtd" style="min-height:240px">${esc(rt.draft)}</textarea><button type="button" class="btn sm pri" data-a="rtsend">글쓰기로 보내기</button></div>`
+    : '';
+  show(`<h1 class="ptitle">회고 정리 <span class="aib">AI</span></h1>${notice()}<p class="hint">나만 보기 회고를 읽고 반복되는 배움을 찾아 공개 글 초안으로 만들어 줘요. AI는 제안만 하고, 글은 내가 확인하고 고쳐서 발행해요.</p>` +
+    `<div class="abox"><ul class="flist">${rows}</ul><label class="ackl"><input type="checkbox" id="rtquote"${rt.noQuote ? ' checked' : ''}> 회고 원문 문장을 그대로 쓰지 않기</label><label class="ackl"><input type="checkbox" id="rtonly"${rt.only ? ' checked' : ''}> 원문 대신 내가 쓴 요약만 AI로 보내기</label><p class="hint">${rt.only ? '고른 글마다 보낼 요약을 적어요. 원문은 서버로도 가지 않아요.' : '켜지 않으면 고른 회고의 본문 글자가 AI 서비스로 보내져요. 방문자 정보는 보내지 않아요.'}</p><button type="button" class="btn pri" data-a="rtthemes"${busy ? ' disabled' : ''}>${busy === 'rtthemes' ? '찾는 중…' : '반복되는 배움 찾기'}</button><p class="hint" role="status">${esc(rt.msg)}</p></div>${th}${dr}`);
+}
+const retroTexts = () => retroPosts().filter((p) => rt.sel.has(p.id)).map((p) => ({ title: p.title, body: rt.only ? (rt.sums[p.id] !== undefined ? rt.sums[p.id] : p.summary || '') : IC.plain(bodyHtml(p)).slice(0, 6000) }));
+async function retroRun(kind, input, onOk) {
+  rt.busy = kind; rt.msg = ''; retroPage();
+  try { onOk(await aiCall(kind === 'rtthemes' ? 'themes' : 'retro', input)); logAi('suggest', 'retro'); } catch (e) { rt.msg = e.message; }
+  rt.busy = ''; retroPage();
+}
+main && main.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-a]'); if (!b || page !== 'retro') return;
+  if (b.dataset.a === 'rtthemes') {
+    const texts = retroTexts();
+    if (!texts.length) { rt.msg = '회고를 하나 이상 골라 주세요.'; return retroPage(); }
+    retroRun('rtthemes', { texts }, (r) => { rt.themes = r.themes || []; rt.pick = new Set(rt.themes.map((_, i) => i)); rt.draft = ''; rt.msg = rt.themes.length ? '' : '반복되는 주제를 찾지 못했어요. 글을 더 고르거나 요약을 보강해 보세요.'; });
+  } else if (b.dataset.a === 'rtdraft') {
+    const themes = rt.themes.filter((_, i) => rt.pick.has(i));
+    if (!themes.length) { rt.msg = '초안에 쓸 배움을 하나 이상 골라 주세요.'; return retroPage(); }
+    retroRun('rtdraft', { themes, texts: retroTexts(), noQuote: rt.noQuote }, (r) => { rt.draft = r.draft || ''; rt.msg = rt.draft ? '' : '초안을 만들지 못했어요. 다시 눌러 주세요.'; });
+  } else if (b.dataset.a === 'rtsend') {
+    const t = $('rtd') ? $('rtd').value : rt.draft;
+    try { sessionStorage.setItem('intentRetro', t); } catch (x) { /* 저장소를 못 쓰면 가져가지 못해요 */ }
+    logAi('apply', 'retro');
+    const pub = cats.find((c) => !c.priv);
+    location.href = 'write.html?retro=1' + (pub ? '&cat=' + encodeURIComponent(pub.slug) : '');
+  }
+});
+main && main.addEventListener('change', (e) => {
+  const t = e.target; if (page !== 'retro') return;
+  if (t.dataset.rt) { t.checked ? rt.sel.add(t.dataset.rt) : rt.sel.delete(t.dataset.rt); retroPage(); }
+  else if (t.id === 'rtonly') { rt.only = t.checked; retroPage(); }
+  else if (t.id === 'rtquote') rt.noQuote = t.checked;
+  else if (t.dataset.rtp !== undefined) { const i = Number(t.dataset.rtp); t.checked ? rt.pick.add(i) : rt.pick.delete(i); }
+});
+main && main.addEventListener('input', (e) => {
+  const t = e.target; if (page !== 'retro') return;
+  if (t.dataset.rtsum) rt.sums[t.dataset.rtsum] = t.value; else if (t.id === 'rtd') rt.draft = t.value;
+});
+
+// ---------- AI 이용 현황 (AI USAGE) ----------
+const AI_FEATURES = { aisug: '글쓰기 보조', aichk: '발행 전 점검', aitl: '3줄 요약', aifile: '첨부 요약', retro: '회고 정리', check: '발행 막기(점검)' };
+async function aiPage() {
+  show('<h1 class="ptitle">AI 이용 현황</h1><p class="empty">불러오는 중…</p>');
+  let usage = null, logs = [], err = '';
+  try { usage = await aiCall('usage', {}); } catch (e) { err = e.message; }
+  try { logs = (await getDocs(query(collection(db, 'aiLogs'), orderBy('at', 'desc'), limit(2000)))).docs.map((d) => d.data()); } catch (e) { err += ' ' + dbMsg(e); }
+  const ym = (usage && usage.month) || new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 7).replace('-', '');
+  const inMonth = logs.filter((l) => l.at && l.at.toDate && new Date(l.at.toDate().getTime() + 9 * 3600e3).toISOString().slice(0, 7).replace('-', '') === ym);
+  const tab = {};
+  inMonth.forEach((l) => { const f = String(l.feature || '').replace(/\d+$/, ''); const r = tab[f] || (tab[f] = { suggest: 0, apply: 0, ignore: 0, gate: 0 }); if (r[l.kind] !== undefined) r[l.kind]++; });
+  const pct = usage ? Math.round((usage.count / usage.limit) * 100) : 0;
+  const warn = usage && pct >= 80 ? `<p class="notice warn" role="alert">이번 달 한도의 ${pct}%를 썼어요. 한도(${usage.limit}회)를 넘으면 AI 기능만 멈추고 글쓰기·저장은 그대로 돼요.</p>` : '';
+  const rows = Object.keys(tab).map((f) => { const r = tab[f]; return `<tr><td>${esc(AI_FEATURES[f] || f)}</td><td>${r.suggest}</td><td>${r.apply}</td><td>${r.suggest ? Math.round((r.apply / r.suggest) * 100) + '%' : '-'}</td><td>${r.ignore}</td><td>${r.gate}</td></tr>`; }).join('');
+  show(`<h1 class="ptitle">AI 이용 현황 <span class="aib">AI</span></h1>${err ? `<p class="notice warn" role="alert">${esc(err.trim())}</p>` : ''}${warn}` +
+    (usage ? `<table class="atab"><caption>${ym.slice(0, 4)}년 ${ym.slice(4)}월 호출 수</caption><tr><th>이번 달 호출</th><td>${usage.count}회 / 한도 ${usage.limit}회 (${pct}%)</td></tr><tr><th>사용 모델</th><td>${esc(usage.model)}</td></tr></table>` : '') +
+    `<table class="atab"><caption>기능별 이용 (최근 기록 최대 2000건 중 이번 달)</caption><tr><th>기능</th><th>제안</th><th>적용</th><th>적용률</th><th>무시</th><th>막은 수</th></tr>${rows || '<tr><td colspan="6">이번 달 기록이 아직 없어요.</td></tr>'}</table><p class="hint">기록에는 본문·회고 원문·PDF 내용이 들어가지 않아요. 종류, 기능 이름, 글 번호, 시간만 남아요.</p>`);
 }
 
 // ---------- 이벤트 ----------
@@ -474,6 +607,29 @@ main && main.addEventListener('click', async (e) => {
   else if (a === 'thumb') { syncDraft(); draft.thumb = Number(v); draft.img = ''; writePage(); }
   else if (a === 'fdel') { syncDraft(); draft.files.splice(Number(v), 1); say('목록에서 뺐어요. 글을 저장하면 파일도 지워져요.'); writePage(); }
   else if (a === 'thumbclear') { syncDraft(); draft.img = ''; writePage(); }
+  else if (a === 'aisug') {
+    const body = bodyText();
+    runAi('aisug', 'suggest', { body }, (r) => { ai.sug = r; ai.msg = '제안을 가져왔어요.'; });
+  } else if (a === 'aiapply') {
+    syncDraft();
+    if (v === 'summary') draft.sum = ai.sug.summary; else if (v === 'description') draft.desc = ai.sug.description; else if (/^t\d$/.test(v)) draft.title = ai.sug.titles[Number(v[1])] || draft.title;
+    if (!ai.sug.logged) { ai.sug.logged = true; logAi('apply', 'aisug'); } /* 제안 1번당 적용 1회로 세요 */ ai.msg = '적용했어요. 저장하기 전에는 내용을 더 고칠 수 있어요.'; writePage();
+  } else if (a === 'aiignore') { ai.sug = null; ai.msg = ''; logAi('ignore', 'aisug'); aiRender(); }
+  else if (a === 'aichk') {
+    const body = bodyText(); ai.showChk = true;
+    ai.busy = 'aichk'; ai.msg = ''; aiRender();
+    try { const r = await aiCall('check', { body }); ai.aiHits = r.items || []; ai.aiNote = 'AI가 실명·내부 자료로 보이는 표현도 살펴봤어요. AI는 놓칠 수 있으니 마지막 확인은 내가 해요.'; logAi('suggest', 'aichk'); }
+    catch (e) { ai.aiHits = []; ai.aiNote = e.message + ' (규칙 점검 결과만 보여 드려요.)'; }
+    ai.busy = ''; aiRender();
+  } else if (a === 'aitl') {
+    const body = bodyText();
+    runAi('aitl', 'tldr', { body }, (r) => { syncDraft(); draft.ai.lines = r.lines || []; draft.ai.on = false; draft.ai.for = ''; ai.msg = r.lines && r.lines.length ? '3줄 요약을 만들었어요. 고쳐 쓰고 체크하면 공개 글에 보여요.' : '요약을 만들지 못했어요. 다시 눌러 주세요.'; });
+  } else if (a === 'aifile') {
+    syncDraft();
+    const f = draft.files[Number(v)], text = f && fileText.get(f.url);
+    if (!text) return;
+    runAi('aifile' + v, 'files', { text }, (r) => { const g = draft.files[Number(v)]; if (g && r.summary) { g.summary = r.summary; g.ai = true; ai.msg = '첨부 요약을 만들었어요. 고쳐 쓴 뒤 저장하면 공개 글의 파일 옆에 보여요.'; } });
+  }
   else if (a === 'fmt') fmt(v);
   else if (a === 'imgcancel') { $('imgrow').hidden = true; }
   else if (a === 'linkcancel') { $('linkrow').hidden = true; tbNote(''); }
@@ -489,6 +645,8 @@ main && main.addEventListener('change', async (e) => {
   if (t.id === 'thfile') { const f = t.files && t.files[0]; if (f) uploadThumb(f); }
   else if (t.id === 'ffile') { const f = t.files && t.files[0]; if (f) attachFile(f); }
   else if (t.id === 'imgfile') { const f = t.files && t.files[0]; if (f) insertBodyImage(f); }
+  else if (t.dataset && t.dataset.ack) { ai.acks[t.dataset.ack] = t.checked; }
+  else if (t.id === 'aion') { syncDraft(); draft.ai.on = t.checked; draft.ai.for = t.checked ? IC.hash(IC.plain(sanitizeHtml(draft.html))) : ''; if (t.checked) logAi('apply', 'aitl'); }
   else if (t.dataset && t.dataset.tb) {
     const map = { font: 'fontFamily', size: 'fontSize', weight: 'fontWeight', color: 'color' };
     if (!t.value) return;
@@ -544,13 +702,15 @@ document.addEventListener('selectionchange', () => { const ed = edEl(), s = getS
 function rerender() { if (page === 'posts') postsPage(); else if (page === 'view') viewPage(); }
 
 // ---------- 화면별 시작 ----------
-if (['posts', 'menus', 'write', 'list', 'view'].includes(page)) {
+if (['posts', 'menus', 'write', 'list', 'view', 'retro', 'ai'].includes(page)) {
   if (await requireAdmin()) {
     try { await loadMenus(); await loadPosts(); } catch (e) { $('gate').textContent = dbMsg(e); throw e; }
     if (page === 'posts') { sideKey = 'posts'; renderSidebar(sideKey); postsPage(); }
     else if (page === 'menus') { sideKey = 'menus'; renderSidebar(sideKey); menusPage(); }
     else if (page === 'list') { sideKey = params.get('cat') ? 'cat:' + params.get('cat') : 'all'; renderSidebar(sideKey); listPage(); }
     else if (page === 'view') { viewPage(); }
+    else if (page === 'retro') { sideKey = 'retro'; renderSidebar(sideKey); retroPage(); }
+    else if (page === 'ai') { sideKey = 'ai'; renderSidebar(sideKey); await aiPage(); }
     else if (page === 'write') {
       sideKey = 'write'; renderSidebar(sideKey);
       const id = params.get('id');
@@ -558,8 +718,8 @@ if (['posts', 'menus', 'write', 'list', 'view'].includes(page)) {
       if (id && !existing) { show('<h1 class="ptitle">글을 찾을 수 없어요</h1><p class="empty">삭제되었거나 없는 글이에요.</p><p><a class="btn" href="posts.html">글 관리로</a></p>'); }
       else {
         draft = existing
-          ? { title: existing.title, cat: existing.category, vis: existing.visibility, sum: existing.summary || '', date: existing.date, html: bodyHtml(existing), thumb: Number.isInteger(existing.thumb) ? existing.thumb : 0, img: existing.img || '', files: cleanFiles(existing.files) }
-          : { title: '', cat: (params.get('cat') && catOf(params.get('cat')) ? params.get('cat') : cats.length ? cats[0].slug : ''), vis: 'public', sum: '', date: today(), html: '', thumb: Math.floor(Math.random() * 6), img: '', files: [] };
+          ? { title: existing.title, cat: existing.category, vis: existing.visibility, sum: existing.summary || '', date: existing.date, html: bodyHtml(existing), thumb: Number.isInteger(existing.thumb) ? existing.thumb : 0, img: existing.img || '', files: cleanFiles(existing.files), desc: existing.description || '', ai: aiOf(existing) }
+          : { title: '', cat: (params.get('cat') && catOf(params.get('cat')) ? params.get('cat') : cats.length ? cats[0].slug : ''), vis: params.get('retro') ? 'private' : 'public', sum: '', date: today(), html: retroHtml(), thumb: Math.floor(Math.random() * 6), img: '', files: [], desc: '', ai: { lines: [], on: false, for: '' } };
         writePage();
       }
     }

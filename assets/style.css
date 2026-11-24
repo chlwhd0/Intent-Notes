@@ -278,3 +278,37 @@ footer a{text-decoration:underline;text-underline-offset:2px}
 .sidex-l .wx{width:auto;border:0;padding:0;margin:0;order:1;color:#fff}
 .sidex-l .wx .wt,.sidex-l .wx .ws,.sidex-l .wx .wc{color:#fff}
 .sidex-l .wx .ws,.sidex-l .wx .wc{opacity:.85}
+/* AI 기능: 표시(AI 배지), 관리자 AI 도우미 패널, 글 상세의 3줄 요약·이어서 읽을 글 */
+.aib{display:inline-block;font:600 10px/1 var(--sans,inherit);letter-spacing:.06em;padding:3px 6px;border:1px solid var(--accent);color:var(--accent);border-radius:3px;vertical-align:middle}
+.aip{border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:10px;background:#fcfbf9}
+.aip h2{margin:0;font-size:16px}
+.aibtns{display:flex;flex-wrap:wrap;gap:8px}
+.abox{border:1px solid var(--line);background:#fff;padding:12px;display:flex;flex-direction:column;gap:8px}
+.arow{display:grid;grid-template-columns:92px 1fr auto;gap:8px;align-items:center;font-size:14px}
+.arow b{font-size:12px;color:var(--sub);font-weight:500}
+.ahits{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.ahits li{border-left:3px solid #d9a441;padding:4px 10px;font-size:13px;line-height:1.5}
+.ahits li.bad{border-left-color:#c0452f;background:#fbf1ee}
+.ahits q{display:block;font-weight:600;word-break:break-all}
+.aitag{font-size:11px;font-weight:600;padding:2px 6px;background:#f6ecd2;margin-right:6px}
+.aitag.bad{background:#f3d3cb}
+.ackl{font-size:13px;display:inline-flex;gap:6px;align-items:center}
+.aok{font-size:13px;margin:0}
+.ail{width:100%;font:inherit;font-size:14px;min-height:40px;padding:0 10px;border:1px solid var(--line)}
+.fsum{display:flex;flex-direction:column;gap:4px;margin-top:6px;font-size:12px;color:var(--sub)}
+.fsum input{font:inherit;font-size:14px;min-height:40px;padding:0 10px;border:1px solid var(--line)}
+.fsumv{margin:4px 0 0;font-size:13px;color:var(--sub);line-height:1.6}
+.tldr{width:100%;max-width:680px;margin-top:24px;border:1px solid var(--line);padding:12px 16px;text-align:left;background:#fcfbf9}
+.tldr summary{cursor:pointer;font-weight:600;font-size:15px;min-height:28px}
+.tldr ol{margin:8px 0;padding-left:1.4em;font-size:15px;line-height:1.7}
+.rel{width:100%;max-width:680px;margin-top:40px;padding-top:24px;border-top:1px solid var(--line);text-align:left}
+.relg{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:10px}
+.relc{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);padding:12px;color:var(--ink);text-decoration:none;font-size:13px;line-height:1.5}
+.relc:hover{border-color:var(--ink)}
+.relc b{font-size:14px}
+.relc span{color:var(--sub)}
+@media(max-width:600px){.arow{grid-template-columns:1fr}}
+.atab{border-collapse:collapse;width:100%;font-size:14px;margin:12px 0}
+.atab caption{text-align:left;font-weight:600;padding:4px 0}
+.atab th,.atab td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+.atab th{background:#f6f3ee;font-weight:500}
