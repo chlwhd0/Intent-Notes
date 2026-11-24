@@ -62,8 +62,8 @@ export function checkHtml(hits, acks, aiNote) {
 // 버튼 3개는 한 줄 탭이고, 누른 기능의 결과만 보여요. 이미 만든 결과는 다시 누르면 그대로 보이고, [새로고침]을 눌러야 새로 만들어요.
 export function panelHtml(d, s, hitsHtml) {
   const busy = s.busy, tab = s.tab;
-  const tabBtn = (t, a, label) => `<button type="button" class="btn sm aitab" data-a="${a}" aria-pressed="${tab === t}"${busy ? ' disabled' : ''}>${busy === a ? '요청 중…' : label}</button>`;
-  const ref = (t) => `<button type="button" class="btn sm airef" data-a="airef" data-v="${t}"${busy ? ' disabled' : ''} aria-label="결과 새로 만들기">${busy ? '요청 중…' : '↻ 새로고침'}</button>`;
+  const tabBtn = (t, a, label) => `<button type="button" class="aitab" data-a="${a}" aria-pressed="${tab === t}"${busy ? ' disabled' : ''}>${busy === a ? '요청 중…' : label}</button>`;
+  const ref = (t) => `<button type="button" class="airef${busy ? ' spin' : ''}" data-a="airef" data-v="${t}"${busy ? ' disabled' : ''} aria-label="새로고침" title="새로고침"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4.5h-4.5"/></svg></button>`;
   let body = '';
   if (tab === 'sug' && s.sug) {
     const row = (label, text, key) => (text ? `<div class="arow"><b>${label}</b><span>${esc(text)}</span><button type="button" class="btn sm pri" data-a="aiapply" data-v="${key}">적용</button></div>` : '');
