@@ -52,7 +52,6 @@ export async function extractText(file, ext) {
 const CHECKS = [
   { id: 'ph', name: '자리표시자', desc: '[이름], [샘플] 같은 빈칸 표시가 남아 있는지', ai: false },
   { id: 'tel', name: '전화번호', desc: '휴대전화 번호가 들어 있는지', ai: false },
-  { id: 'num', name: '정확한 수치', desc: '12,345명처럼 정확한 숫자가 있는지', ai: false },
   { id: 'ai-name', name: '실명으로 보이는 표현', desc: '실제 사람 이름이 그대로 적혀 있는지', ai: true },
   { id: 'ai-internal', name: '회사 내부 자료', desc: '대외비·내부 자료로 보이는 표현이 있는지', ai: true },
 ];
