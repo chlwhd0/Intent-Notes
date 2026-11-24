@@ -1,0 +1,159 @@
+<title>조회수 시안 B 차트형</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@500;700&display=swap">
+<style>
+:root{--bg:#ffffff;--side:#f4f1ec;--ink:#222222;--sub:#5f5f5f;--mute:#767676;--line:#e9e5de;--accent:#b5573f;--accentsoft:#f6e7e2;--surface:#ffffff;--good:#2e7d4f;--bad:#b3392a;--c1:#b5573f;--c2:#3c6e91;--c3:#c9962b;--track:#efebe4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15130f;--side:#1d1a15;--ink:#ece7df;--sub:#b9b2a7;--mute:#948d82;--line:#2e2a23;--accent:#e08a6f;--accentsoft:#3a2620;--surface:#1b1813;--good:#6cc08c;--bad:#ee8a7b;--c1:#e08a6f;--c2:#7db0d4;--c3:#e0b84f;--track:#2a261f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15130f;--side:#1d1a15;--ink:#ece7df;--sub:#b9b2a7;--mute:#948d82;--line:#2e2a23;--accent:#e08a6f;--accentsoft:#3a2620;--surface:#1b1813;--good:#6cc08c;--bad:#ee8a7b;--c1:#e08a6f;--c2:#7db0d4;--c3:#e0b84f;--track:#2a261f;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif;line-height:1.65;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.banner{margin:0 -16px;padding:6px 16px;background:var(--ink);color:var(--bg);font-size:12px;text-align:center}
+.wrap{display:flex;flex-wrap:wrap;min-height:calc(100vh - 30px);max-width:1280px;margin:0 auto}
+aside{flex:1 1 220px;max-width:240px;background:var(--side);padding:48px 28px 32px;display:flex;flex-direction:column;gap:36px}
+.brand{font-family:"Cormorant Garamond","Noto Serif KR",serif;font-size:24px;font-weight:600;line-height:1.2;color:inherit;text-decoration:none}
+nav{display:flex;flex-direction:column;gap:14px;font-size:12px;letter-spacing:.14em;font-weight:500}
+nav a{color:inherit;text-decoration:none;display:flex;align-items:center;gap:8px}
+nav a:hover,nav a:focus-visible{color:var(--accent);outline:none}
+nav a.on{color:var(--accent)}
+nav .sep{height:1px;background:var(--line)}
+nav .grp{font-size:11px;color:var(--mute);margin-top:2px}
+nav a.sub{padding-left:14px;font-size:11px;letter-spacing:.12em;color:var(--sub)}
+nav a.sub.on{color:var(--accent)}
+.new{font-size:10px;letter-spacing:.04em;background:var(--accent);color:#fff;padding:0 6px;border-radius:999px}
+.bottom{margin-top:auto;font-size:12px;color:var(--mute);display:flex;flex-direction:column;gap:6px}
+.bottom a{color:var(--mute)}
+main{flex:999 1 520px;min-width:0;padding:48px 40px 56px;display:flex;flex-direction:column;gap:28px}
+.eyebrow{font-size:11px;letter-spacing:.16em;color:var(--accent);font-weight:700}
+h1{font-family:"Noto Serif KR",serif;font-size:32px;line-height:1.25;margin:2px 0 0;font-weight:700;text-wrap:balance}
+h2{font-family:"Noto Serif KR",serif;font-size:19px;margin:0;font-weight:700}
+.head{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-end;justify-content:space-between}
+.hint{font-size:13px;color:var(--mute);margin:0}
+.tile-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:16px 18px;background:var(--surface);min-width:0}
+.tile small{display:block;font-size:12px;color:var(--mute)}
+.tile b{display:block;font-size:30px;line-height:1.2;font-variant-numeric:tabular-nums;font-weight:500}
+.tile span{font-size:12.5px;color:var(--sub);overflow-wrap:anywhere}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-size:13px;padding:5px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select{font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.card{border:1px solid var(--line);border-radius:12px;padding:20px;background:var(--surface);min-width:0}
+.tag{font-size:11px;letter-spacing:.12em;color:var(--sub);font-weight:500}
+.foot{font-size:12.5px;color:var(--mute);margin:0}
+@media(max-width:800px){aside{max-width:none;padding:16px;gap:12px}nav{flex-direction:row;flex-wrap:wrap;gap:8px 18px}nav .sep,nav .grp{display:none}nav a.sub{padding-left:0}.bottom{flex-direction:row;flex-wrap:wrap;gap:4px 14px}main{padding:24px 16px 40px}h1{font-size:26px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.delta{font-variant-numeric:tabular-nums;font-size:12.5px}
+.up{color:var(--good)}.down{color:var(--bad)}
+.grid2{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px}
+.grid3{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px}
+.chartbox{position:relative;height:300px}
+.chartbox.sm{height:240px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-size:13px;padding:6px 16px;border:0;background:transparent;color:var(--ink);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.ch{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+thead th{font-size:12px;color:var(--mute);font-weight:500}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:last-child td{border-bottom:0}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}
+.memo{border:1px dashed var(--accent);background:var(--accentsoft);border-radius:12px;padding:16px 18px;font-size:14px}
+.memo b{font-weight:700}
+.memo ul{margin:8px 0 0;padding-left:20px}
+@media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
+@media(max-width:800px){.chartbox{height:260px}}
+</style>
+<div class="banner">조회수 시안 B 차트형 · 코드에 반영하지 않은 디자인 미리보기 · 숫자는 예시</div>
+<div class="wrap">
+<aside>
+<a class="brand" href="#" aria-label="Intent Notes 관리자">Intent Notes</a>
+<nav aria-label="관리자 메뉴"><a href="#">NEW POST</a><span class="sep"></span><span class="grp">ADMIN</span><a class="sub" href="#">MANAGE MENUS</a><a class="sub" href="#">MANAGE POSTS</a><a class="sub on" href="#" aria-current="page">VIEW STATS <span class="new">신규</span></a></nav>
+<div class="bottom"><span>로그인: 관리자</span><a href="#">블로그 보기</a><a href="#">로그아웃</a></div>
+</aside>
+<main>
+
+<div class="head"><div><p class="eyebrow">ADMIN</p><h1>조회수 추이</h1><p class="hint">기간을 바꿔서 글별 조회수의 흐름을 볼 수 있어요. 숫자는 모두 예시예요.</p></div>
+  <div class="seg" role="group" aria-label="기간 고르기"><button type="button" data-d="7" aria-pressed="false">7일</button><button type="button" data-d="30" aria-pressed="true">30일</button><button type="button" data-d="90" aria-pressed="false">90일</button></div></div>
+<div class="kpis" aria-label="요약">
+  <div class="tile"><small>기간 조회수</small><b id="k-total">0</b><span class="delta" id="k-delta"></span></div>
+  <div class="tile"><small>하루 평균</small><b id="k-avg">0</b><span>기간 합계 ÷ 일수</span></div>
+  <div class="tile"><small>가장 많이 읽힌 글</small><b id="k-top" style="font-size:20px;line-height:1.5;font-family:'Noto Serif KR',serif">-</b><span id="k-topv"></span></div>
+  <div class="tile"><small>가장 많이 읽힌 날</small><b id="k-peak" style="font-size:20px;line-height:1.5">-</b><span id="k-peakv"></span></div>
+</div>
+<section class="card" aria-labelledby="h-line">
+  <div class="ch"><h2 id="h-line">일별 조회수</h2><span class="hint">범례를 누르면 그 글만 숨기거나 보여요</span></div>
+  <div class="chartbox"><canvas id="line" role="img" aria-label="글별 일별 조회수 꺾은선 그래프. 아래 표에 같은 숫자가 있어요."></canvas></div>
+</section>
+<div class="grid2">
+  <section class="card" aria-labelledby="h-bar"><div class="ch"><h2 id="h-bar">글별 합계</h2><span class="hint" id="bar-sub"></span></div><div class="chartbox sm"><canvas id="bar" role="img" aria-label="글별 조회수 합계 막대 그래프"></canvas></div></section>
+  <section class="card" aria-labelledby="h-pie"><div class="ch"><h2 id="h-pie">메뉴별 비중</h2></div><div class="chartbox sm"><canvas id="pie" role="img" aria-label="메뉴별 조회수 비중 도넛 그래프"></canvas></div></section>
+</div>
+<section class="card" aria-labelledby="h-tbl">
+  <div class="ch"><h2 id="h-tbl">숫자로 보기</h2><span class="hint">직전 같은 길이의 기간과 비교해요</span></div>
+  <div class="scroll"><table><thead><tr><th>글</th><th>메뉴</th><th class="n">조회수</th><th class="n">비율</th><th class="n">직전 대비</th></tr></thead><tbody id="tbody"></tbody></table></div>
+  <p class="foot" style="margin-top:12px">회고 같은 나만 보기 메뉴의 글은 조회수를 세지 않아서 이 화면에 나오지 않아요.</p>
+</section>
+<div class="memo" role="note" aria-label="만들 때 필요한 것">
+  <b>이 화면을 실제로 만들려면</b>
+  <ul>
+    <li>지금은 글마다 <b>누적 숫자 하나</b>만 저장돼요. 기간별 추이는 <b>하루 단위 집계</b>(글별·날짜별 숫자)를 새로 쌓아야 그릴 수 있어요.</li>
+    <li>쌓기 시작한 날 이전은 비어 있어요. 그래서 7일, 30일, 90일은 데이터가 모일 때까지 짧게만 보여요.</li>
+    <li>누적 숫자만 쓰는 간단한 화면은 시안 A예요. 지금 데이터로 바로 만들 수 있어요.</li>
+  </ul>
+</div>
+
+</main>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+/* 예시 데이터: 글 3개의 180일치 일별 조회수를 같은 규칙으로 만들어요(항상 같은 모양). */
+var POSTS=[{id:'cat',t:'고양이',m:'PORTFOLIO',base:2.6,amp:1.2,spike:[150,9]},{id:'tiger',t:'호랑이',m:'STUDY',base:2.1,amp:1.0,spike:[168,7]},{id:'reports',t:'오늘 만든 보고서들',m:'STUDY',base:0.8,amp:0.7,spike:[172,5]}];
+var N=180, END=new Date(2026,10,18);
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+POSTS.forEach(function(p,i){var r=rng(7+i*13);p.s=[];for(var d=0;d<N;d++){var wk=[0.8,1.1,1.05,1.0,0.95,0.7,0.6][(d+i)%7];var grow=0.7+0.6*(d/N);var v=Math.max(0,Math.round((p.base*wk*grow)+(r()-0.5)*p.amp*2));if(d===p.spike[0])v+=p.spike[1];p.s.push(v)}});
+var DAYS=[];for(var d=0;d<N;d++){var x=new Date(END);x.setDate(END.getDate()-(N-1-d));DAYS.push(x)}
+function lab(x){return (x.getMonth()+1)+'.'+x.getDate()}
+function sum(a){return a.reduce(function(s,v){return s+v},0)}
+var $=function(s){return document.querySelector(s)};
+var days=30, charts={};
+function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+var SERIES=['--c1','--c2','--c3'];
+function build(){
+  var tc=css('--sub'),gc=css('--line'),inkc=css('--ink');
+  Chart.defaults.font.family='"Noto Sans KR",system-ui,sans-serif';Chart.defaults.font.size=12;Chart.defaults.color=tc;
+  Object.keys(charts).forEach(function(k){charts[k].destroy()});charts={};
+  var from=N-days, xs=DAYS.slice(from), labels=xs.map(lab);
+  var tot=POSTS.map(function(p){return sum(p.s.slice(from))});
+  var prev=POSTS.map(function(p){return sum(p.s.slice(from-days<0?0:from-days,from))});
+  var all=sum(tot), allPrev=sum(prev);
+  $('#k-total').textContent=all.toLocaleString('ko-KR');
+  var dl=allPrev?Math.round((all-allPrev)/allPrev*100):0;
+  $('#k-delta').innerHTML='<span class="'+(dl>=0?'up':'down')+'">'+(dl>=0?'▲ ':'▼ ')+Math.abs(dl)+'%</span> 직전 '+days+'일 대비';
+  $('#k-avg').textContent=(all/days).toFixed(1);
+  var ti=tot.indexOf(Math.max.apply(null,tot));$('#k-top').textContent=POSTS[ti].t;$('#k-topv').textContent='조회 '+tot[ti]+'회';
+  var daily=xs.map(function(_,i){return sum(POSTS.map(function(p){return p.s[from+i]}))});
+  var pk=daily.indexOf(Math.max.apply(null,daily));$('#k-peak').textContent=lab(xs[pk]);$('#k-peakv').textContent='하루 '+daily[pk]+'회';
+  $('#bar-sub').textContent='최근 '+days+'일 합계';
+  var colors=SERIES.map(css);
+  charts.line=new Chart($('#line'),{type:'line',data:{labels:labels,datasets:POSTS.map(function(p,i){return{label:p.t,data:p.s.slice(from),borderColor:colors[i],backgroundColor:colors[i],borderWidth:2,tension:.3,pointRadius:0,pointHoverRadius:4}})},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',align:'start',labels:{usePointStyle:true,boxWidth:8,color:inkc}},tooltip:{padding:10}},
+      scales:{x:{grid:{display:false},ticks:{maxTicksLimit:days>30?9:8,maxRotation:0}},y:{beginAtZero:true,grid:{color:gc},ticks:{precision:0},border:{display:false}}}}});
+  charts.bar=new Chart($('#bar'),{type:'bar',data:{labels:POSTS.map(function(p){return p.t}),datasets:[{data:tot,backgroundColor:colors,borderRadius:6,maxBarThickness:28}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:gc},ticks:{precision:0},border:{display:false}},y:{grid:{display:false},ticks:{color:inkc}}}}});
+  var mp=sum([tot[0]]),ms=tot[1]+tot[2];
+  charts.pie=new Chart($('#pie'),{type:'doughnut',data:{labels:['PORTFOLIO','STUDY'],datasets:[{data:[mp,ms],backgroundColor:[css('--accent'),css('--c2')],borderColor:css('--surface'),borderWidth:3}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8,color:inkc}}}}});
+  $('#tbody').innerHTML=POSTS.map(function(p,i){var d=prev[i]?Math.round((tot[i]-prev[i])/prev[i]*100):0;
+    return '<tr><td><span class="sw" style="background:'+colors[i]+'"></span>'+p.t+'</td><td>'+p.m+'</td><td class="n">'+tot[i]+'</td><td class="n">'+(all?Math.round(tot[i]/all*100):0)+'%</td><td class="n"><span class="delta '+(d>=0?'up':'down')+'">'+(d>=0?'▲ ':'▼ ')+Math.abs(d)+'%</span></td></tr>'}).join('');
+}
+document.querySelectorAll('.seg button').forEach(function(b){b.addEventListener('click',function(){days=+b.getAttribute('data-d');document.querySelectorAll('.seg button').forEach(function(x){x.setAttribute('aria-pressed',x===b)});build()})});
+build();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',build);
+new MutationObserver(build).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+</script>

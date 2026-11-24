@@ -1,0 +1,136 @@
+<title>조회수 시안 A 간단형</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@500;700&display=swap">
+<style>
+:root{--bg:#ffffff;--side:#f4f1ec;--ink:#222222;--sub:#5f5f5f;--mute:#767676;--line:#e9e5de;--accent:#b5573f;--accentsoft:#f6e7e2;--surface:#ffffff;--good:#2e7d4f;--bad:#b3392a;--c1:#b5573f;--c2:#3c6e91;--c3:#c9962b;--track:#efebe4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15130f;--side:#1d1a15;--ink:#ece7df;--sub:#b9b2a7;--mute:#948d82;--line:#2e2a23;--accent:#e08a6f;--accentsoft:#3a2620;--surface:#1b1813;--good:#6cc08c;--bad:#ee8a7b;--c1:#e08a6f;--c2:#7db0d4;--c3:#e0b84f;--track:#2a261f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15130f;--side:#1d1a15;--ink:#ece7df;--sub:#b9b2a7;--mute:#948d82;--line:#2e2a23;--accent:#e08a6f;--accentsoft:#3a2620;--surface:#1b1813;--good:#6cc08c;--bad:#ee8a7b;--c1:#e08a6f;--c2:#7db0d4;--c3:#e0b84f;--track:#2a261f;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif;line-height:1.65;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.banner{margin:0 -16px;padding:6px 16px;background:var(--ink);color:var(--bg);font-size:12px;text-align:center}
+.wrap{display:flex;flex-wrap:wrap;min-height:calc(100vh - 30px);max-width:1280px;margin:0 auto}
+aside{flex:1 1 220px;max-width:240px;background:var(--side);padding:48px 28px 32px;display:flex;flex-direction:column;gap:36px}
+.brand{font-family:"Cormorant Garamond","Noto Serif KR",serif;font-size:24px;font-weight:600;line-height:1.2;color:inherit;text-decoration:none}
+nav{display:flex;flex-direction:column;gap:14px;font-size:12px;letter-spacing:.14em;font-weight:500}
+nav a{color:inherit;text-decoration:none;display:flex;align-items:center;gap:8px}
+nav a:hover,nav a:focus-visible{color:var(--accent);outline:none}
+nav a.on{color:var(--accent)}
+nav .sep{height:1px;background:var(--line)}
+nav .grp{font-size:11px;color:var(--mute);margin-top:2px}
+nav a.sub{padding-left:14px;font-size:11px;letter-spacing:.12em;color:var(--sub)}
+nav a.sub.on{color:var(--accent)}
+.new{font-size:10px;letter-spacing:.04em;background:var(--accent);color:#fff;padding:0 6px;border-radius:999px}
+.bottom{margin-top:auto;font-size:12px;color:var(--mute);display:flex;flex-direction:column;gap:6px}
+.bottom a{color:var(--mute)}
+main{flex:999 1 520px;min-width:0;padding:48px 40px 56px;display:flex;flex-direction:column;gap:28px}
+.eyebrow{font-size:11px;letter-spacing:.16em;color:var(--accent);font-weight:700}
+h1{font-family:"Noto Serif KR",serif;font-size:32px;line-height:1.25;margin:2px 0 0;font-weight:700;text-wrap:balance}
+h2{font-family:"Noto Serif KR",serif;font-size:19px;margin:0;font-weight:700}
+.head{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-end;justify-content:space-between}
+.hint{font-size:13px;color:var(--mute);margin:0}
+.tile-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:16px 18px;background:var(--surface);min-width:0}
+.tile small{display:block;font-size:12px;color:var(--mute)}
+.tile b{display:block;font-size:30px;line-height:1.2;font-variant-numeric:tabular-nums;font-weight:500}
+.tile span{font-size:12.5px;color:var(--sub);overflow-wrap:anywhere}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-size:13px;padding:5px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select{font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.card{border:1px solid var(--line);border-radius:12px;padding:20px;background:var(--surface);min-width:0}
+.tag{font-size:11px;letter-spacing:.12em;color:var(--sub);font-weight:500}
+.foot{font-size:12.5px;color:var(--mute);margin:0}
+@media(max-width:800px){aside{max-width:none;padding:16px;gap:12px}nav{flex-direction:row;flex-wrap:wrap;gap:8px 18px}nav .sep,nav .grp{display:none}nav a.sub{padding-left:0}.bottom{flex-direction:row;flex-wrap:wrap;gap:4px 14px}main{padding:24px 16px 40px}h1{font-size:26px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.list{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+.row{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(120px,48%);gap:6px 16px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.row:first-child{border-top:1px solid var(--line)}
+.rank{font-variant-numeric:tabular-nums;font-size:13px;color:var(--mute);text-align:center}
+.ttl{min-width:0}
+.ttl b{display:block;font-family:"Noto Serif KR",serif;font-size:17px;font-weight:500;overflow-wrap:anywhere}
+.barcell{display:flex;align-items:center;gap:12px;min-width:0}
+.track{flex:1;height:12px;background:var(--track);border-radius:6px;overflow:hidden}
+.fill{display:block;height:100%;background:var(--accent);border-radius:6px;transition:width .35s ease}
+.row.rest .fill{background:var(--mute);opacity:.55}
+.row:first-child .fill{background:var(--accent);opacity:1}
+.val{font-variant-numeric:tabular-nums;font-size:17px;min-width:32px;text-align:right;font-weight:500}
+.dash{color:var(--mute)}
+.private{grid-column:2/-1;font-size:12.5px;color:var(--mute)}
+.split{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--track);margin:14px 0 10px}
+.split i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13px;margin:0;padding:0;list-style:none}
+.legend li{display:flex;align-items:center;gap:8px}
+.legend .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+.legend b{font-weight:500;font-variant-numeric:tabular-nums}
+.empty{padding:28px 0;color:var(--mute);text-align:center}
+@media(max-width:800px){.row{grid-template-columns:24px minmax(0,1fr)}.barcell{grid-column:2}.private{grid-column:2}}
+</style>
+<div class="banner">조회수 시안 A 간단형 · 코드에 반영하지 않은 디자인 미리보기 · 숫자는 예시</div>
+<div class="wrap">
+<aside>
+<a class="brand" href="#" aria-label="Intent Notes 관리자">Intent Notes</a>
+<nav aria-label="관리자 메뉴"><a href="#">NEW POST</a><span class="sep"></span><span class="grp">ADMIN</span><a class="sub" href="#">MANAGE MENUS</a><a class="sub" href="#">MANAGE POSTS</a><a class="sub on" href="#" aria-current="page">VIEW STATS <span class="new">신규</span></a></nav>
+<div class="bottom"><span>로그인: 관리자</span><a href="#">블로그 보기</a><a href="#">로그아웃</a></div>
+</aside>
+<main>
+
+<div class="head"><div><p class="eyebrow">ADMIN</p><h1>조회수</h1><p class="hint">공개 글이 열린 횟수의 누적 합계예요. 관리자가 열어 본 것은 세지 않아요.</p></div>
+  <div class="chips" role="group" aria-label="메뉴 고르기"><button class="chip" type="button" data-m="all" aria-pressed="true">전체</button><button class="chip" type="button" data-m="PORTFOLIO" aria-pressed="false">PORTFOLIO</button><button class="chip" type="button" data-m="STUDY" aria-pressed="false">STUDY</button></div></div>
+<div class="tile-row" aria-label="요약">
+  <div class="tile"><small>전체 조회수</small><b id="k-total">0</b><span>공개 글 3개 합계</span></div>
+  <div class="tile"><small>글 한 편 평균</small><b id="k-avg">0</b><span>합계 ÷ 글 수</span></div>
+  <div class="tile"><small>가장 많이 읽힌 글</small><b id="k-top" style="font-size:20px;line-height:1.5;font-family:'Noto Serif KR',serif">-</b><span id="k-topv"></span></div>
+</div>
+<section class="card" aria-labelledby="h-list">
+  <div class="head" style="margin-bottom:6px"><h2 id="h-list">글별 조회수</h2>
+    <label class="hint" for="sort">정렬 <select id="sort"><option value="views">조회순</option><option value="new">최신순</option></select></label></div>
+  <ol class="list" id="list"></ol>
+  <p class="foot" style="margin-top:12px">회고 같은 나만 보기 메뉴의 글은 조회수를 세지 않아서 "-"로 보여요.</p>
+</section>
+<section class="card" aria-labelledby="h-menu">
+  <h2 id="h-menu">메뉴별 비중</h2>
+  <div class="split" id="split" role="img" aria-label="메뉴별 조회수 비중"></div>
+  <ul class="legend" id="legend"></ul>
+</section>
+
+</main>
+</div>
+<script>
+var POSTS=[
+ {t:'고양이',m:'PORTFOLIO',v:15,d:2},
+ {t:'호랑이',m:'STUDY',v:13,d:1},
+ {t:'오늘 만든 보고서들',m:'STUDY',v:4,d:0},
+ {t:'[샘플] 지난 회고',m:'RETROSPECTIVE',v:null,d:3,priv:true}
+];
+var MC={PORTFOLIO:'var(--accent)',STUDY:'var(--c2)'};
+var state={m:'all',sort:'views'};
+var $=function(s){return document.querySelector(s)};
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function render(){
+  var pub=POSTS.filter(function(p){return !p.priv&&(state.m==='all'||p.m===state.m)});
+  var priv=POSTS.filter(function(p){return p.priv&&state.m==='all'});
+  pub.sort(function(a,b){return state.sort==='views'?b.v-a.v:a.d-b.d});
+  var max=Math.max.apply(null,pub.map(function(p){return p.v}).concat([1]));
+  var total=pub.reduce(function(s,p){return s+p.v},0);
+  $('#k-total').textContent=total;
+  $('#k-avg').textContent=pub.length?(total/pub.length).toFixed(1):'0';
+  var top=pub.slice().sort(function(a,b){return b.v-a.v})[0];
+  $('#k-top').textContent=top?top.t:'-'; $('#k-topv').textContent=top?'조회 '+top.v+'회':'';
+  var html=pub.map(function(p,i){
+    return '<li class="row'+(i?' rest':'')+'"><span class="rank">'+(i+1)+'</span><div class="ttl"><b>'+esc(p.t)+'</b><span class="tag">'+p.m+'</span></div>'+
+      '<div class="barcell"><span class="track"><span class="fill" style="width:'+(p.v/max*100).toFixed(1)+'%"></span></span><span class="val">'+p.v+'</span></div></li>';
+  }).join('');
+  html+=priv.map(function(p){return '<li class="row rest"><span class="rank dash">-</span><div class="ttl"><b>'+esc(p.t)+'</b><span class="tag">'+p.m+' · 나만 보기</span></div><div class="barcell"><span class="val dash">-</span></div><span class="private">조회수를 세지 않는 메뉴예요.</span></li>'}).join('');
+  $('#list').innerHTML=html||'<li class="empty">이 메뉴에는 공개 글이 없어요.</li>';
+  var by={};pub.forEach(function(p){by[p.m]=(by[p.m]||0)+p.v});
+  var keys=Object.keys(by);
+  $('#split').innerHTML=keys.map(function(k){return '<i style="width:'+(total?by[k]/total*100:0)+'%;background:'+MC[k]+'"></i>'}).join('');
+  $('#legend').innerHTML=keys.map(function(k){return '<li><span class="dot" style="background:'+MC[k]+'"></span>'+k+' <b>'+by[k]+'</b> ('+(total?Math.round(by[k]/total*100):0)+'%)</li>'}).join('')||'<li class="hint">표시할 데이터가 없어요.</li>';
+}
+document.addEventListener('click',function(e){var c=e.target.closest('.chip');if(!c)return;state.m=c.getAttribute('data-m');document.querySelectorAll('.chip').forEach(function(x){x.setAttribute('aria-pressed',x===c)});render()});
+$('#sort').addEventListener('change',function(e){state.sort=e.target.value;render()});
+render();
+</script>

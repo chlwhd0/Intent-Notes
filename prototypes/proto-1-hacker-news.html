@@ -1,0 +1,65 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>프로토타입 1 · Hacker News</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Noto+Sans+KR:wght@300;400;500&family=Noto+Serif+KR:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://my-blog-test-b439a.web.app/assets/style.css">
+<style>.proto{position:sticky;top:0;z-index:9;background:#fff3cf;border-bottom:1px solid #e6cf85;color:#7a5b00;font-size:13px;padding:7px 14px;text-align:center}
+.hn{margin-top:40px;text-align:left}
+.hn h2{font-family:var(--serif-kr);font-size:20px;margin:0}
+.hn .bar2{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:4px}
+.hn .bar2 small{color:var(--mute);font-size:12px}
+.hn ol{list-style:none;margin:0;padding:0}
+.hn li a{display:grid;grid-template-columns:28px 1fr auto;gap:12px;align-items:baseline;padding:13px 4px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink)}
+.hn li a:hover b{color:var(--accent)}
+.hn .n{font-family:var(--serif);font-size:20px;color:var(--accent);text-align:center}
+.hn b{font-weight:500;font-size:15px;line-height:1.45}
+.hn .sub{display:block;color:var(--mute);font-size:12px;margin-top:3px}
+.hn .sc{color:var(--sub);font-size:12px;white-space:nowrap}
+.hn .st{color:var(--mute);font-size:13px;padding:18px 4px}
+.hn .tabs{display:flex;gap:8px;margin:12px 0 2px}
+.hn .tabs button{font:inherit;font-size:12px;border:1px solid var(--line);background:#fff;border-radius:14px;padding:3px 11px;cursor:pointer;color:var(--sub)}
+.hn .tabs button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+.hn .src{color:var(--mute);font-size:11px;margin-top:10px}
+</style></head><body><div class="proto">프로토타입 1 · 홈 화면에 "오늘의 AI 이야기" (Hacker News API) 추가 · 실제 블로그에는 배포되지 않았습니다</div>
+<div class="wrap"><aside><a class="brand" href="https://my-blog-test-b439a.web.app/">Intent Notes</a>
+<nav aria-label="주 메뉴"><a href="https://my-blog-test-b439a.web.app/about.html">ABOUT</a><a href="https://my-blog-test-b439a.web.app/portfolio/">PORTFOLIO</a><a href="https://my-blog-test-b439a.web.app/study/" class="on">STUDY</a></nav>
+<div class="bottom"><span class="linkbtn">Google 로그인</span></div></aside><main>
+<h1 class="hero">Build with intent.</h1>
+<p class="tagline">AI PM의 포트폴리오, 회고, 그리고 일하며 배운 것들을 기록합니다.</p>
+<div class="bar"><span><b>최근 글</b> 3개</span><a href="https://my-blog-test-b439a.web.app/posts/">전체 글 보기 →</a></div>
+<div class="list">
+<a class="row" href="https://my-blog-test-b439a.web.app/posts/nvVdCkqMDLS0qWodwc4b.html"><span class="tag">STUDY</span><span class="rt"><b>호랑이</b><small>사실 고양이</small></span><span class="meta2"><time>2026.11.17</time></span></a>
+<a class="row" href="https://my-blog-test-b439a.web.app/posts/E8D8hn0oIYpnzUkRtPKR.html"><span class="tag">PORTFOLIO</span><span class="rt"><b>고양이</b><small>고양이</small></span><span class="meta2"><time>2026.11.17</time></span></a>
+<a class="row" href="https://my-blog-test-b439a.web.app/posts/3h8heFBimCXTVgLng9La.html"><span class="tag">STUDY</span><span class="rt"><b>오늘 만든 보고서들</b><small></small></span><span class="meta2"><time>2026.11.17</time></span></a></div>
+
+<section class="hn" aria-labelledby="hnh">
+<div class="bar2"><h2 id="hnh">오늘의 AI 이야기</h2><small>Hacker News 인기 글</small></div>
+<div class="tabs" role="group" aria-label="보기 방식"><button type="button" data-m="ai" aria-pressed="true">AI 관련만</button><button type="button" data-m="all" aria-pressed="false">전체 인기</button></div>
+<ol id="hnl"><li class="st">불러오는 중…</li></ol>
+<p class="src">출처: Hacker News (news.ycombinator.com). 방문자 브라우저에서 직접 불러오며, 링크는 새 탭에서 열립니다.</p>
+</section>
+<footer>© 2026 [이름] · Intent Notes · <a href="https://my-blog-test-b439a.web.app/privacy.html">개인정보 처리방침</a></footer>
+</main></div>
+<script>
+const API='https://hacker-news.firebaseio.com/v0/';
+const RE=/\b(ai|a\.i\.|llm|llms|gpt|chatgpt|claude|anthropic|openai|gemini|agent|agents|model|models|neural|machine learning|deep learning|transformer|diffusion|copilot|rag)\b/i;
+let items=null,mode='ai';
+const el=document.getElementById('hnl');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const host=u=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return 'news.ycombinator.com'}};
+function draw(){
+  if(!items)return;
+  let list=mode==='ai'?items.filter(i=>RE.test(i.title)):items;
+  list=list.slice(0,5);
+  if(!list.length){el.innerHTML='<li class="st">지금 인기 글 중에는 AI 관련 글이 없어요. "전체 인기"를 눌러 보세요.</li>';return}
+  el.innerHTML=list.map((i,k)=>`<li><a href="${esc(i.url||'https://news.ycombinator.com/item?id='+i.id)}" target="_blank" rel="noopener noreferrer"><span class="n">${k+1}</span><span><b>${esc(i.title)}</b><span class="sub">${esc(host(i.url))} · 댓글 ${i.descendants||0}개</span></span><span class="sc">▲ ${i.score}</span></a></li>`).join('');
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{mode=b.dataset.m;document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-pressed',x===b));draw()});
+(async()=>{
+  try{
+    const ids=await (await fetch(API+'topstories.json')).json();
+    const got=await Promise.all(ids.slice(0,60).map(id=>fetch(API+'item/'+id+'.json').then(r=>r.json()).catch(()=>null)));
+    items=got.filter(i=>i&&i.title&&!i.dead&&!i.deleted);
+    draw();
+  }catch(e){el.innerHTML='<li class="st">지금은 불러올 수 없어요. 잠시 후 다시 시도해 주세요. (글 읽기에는 영향이 없습니다)</li>'}
+})();
+</script></body></html>

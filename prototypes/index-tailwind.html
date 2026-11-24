@@ -1,0 +1,458 @@
+<title>Intent Notes 리디자인</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          bg: 'rgb(var(--bg) / <alpha-value>)',
+          surface: 'rgb(var(--surface) / <alpha-value>)',
+          ink: 'rgb(var(--ink) / <alpha-value>)',
+          mute: 'rgb(var(--mute) / <alpha-value>)',
+          line: 'rgb(var(--line) / <alpha-value>)',
+          accent: 'rgb(var(--accent) / <alpha-value>)',
+          soft: 'rgb(var(--soft) / <alpha-value>)',
+          hi: 'rgb(var(--hi) / <alpha-value>)',
+          danger: 'rgb(var(--danger) / <alpha-value>)'
+        },
+        fontFamily: {
+          display: ['"Space Grotesk"', '"Noto Sans KR"', 'system-ui', 'sans-serif'],
+          sans: ['"Noto Sans KR"', 'system-ui', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace']
+        }
+      }
+    }
+  }
+</script>
+<style>
+  /* 레이아웃 개념: 왼쪽 사이드바 대신 위쪽 가로 바. 홈은 큰 제목 + 오른쪽 "오늘" 카드(날씨·고양이), 글은 한 줄기 읽기 폭 */
+  :root {
+    --bg: 243 245 246;
+    --surface: 255 255 255;
+    --ink: 16 24 32;
+    --mute: 92 104 116;
+    --line: 223 228 232;
+    --accent: 15 118 110;
+    --soft: 222 242 239;
+    --hi: 240 180 0;
+    --danger: 185 58 48;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: 11 15 19; --surface: 19 25 31; --ink: 231 236 240; --mute: 142 154 166;
+      --line: 38 47 56; --accent: 45 190 176; --soft: 16 50 50; --hi: 240 180 0; --danger: 240 120 108;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: 11 15 19; --surface: 19 25 31; --ink: 231 236 240; --mute: 142 154 166;
+    --line: 38 47 56; --accent: 45 190 176; --soft: 16 50 50; --hi: 240 180 0; --danger: 240 120 108;
+    color-scheme: dark;
+  }
+  body {
+    background: rgb(var(--bg)); color: rgb(var(--ink));
+    font-family: "Noto Sans KR", system-ui, sans-serif; line-height: 1.7;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  h1, h2, h3 { text-wrap: balance; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .prose-x p { margin: 0 0 1.1em; }
+  .prose-x h2 { font-family: "Space Grotesk","Noto Sans KR",sans-serif; font-size: 1.35rem; font-weight: 700; margin: 1.8em 0 .6em; }
+  .prose-x ol { list-style: decimal; padding-left: 1.4em; margin: 0 0 1.1em; }
+  .prose-x blockquote { border-left: 3px solid rgb(var(--accent)); padding: .1em 0 .1em 1em; color: rgb(var(--mute)); margin: 1.4em 0; }
+  .focus-ring:focus-visible, a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 2px solid rgb(var(--accent)); outline-offset: 2px; border-radius: 6px;
+  }
+  .scroll-x { overflow-x: auto; }
+  @media (prefers-reduced-motion: no-preference) { .rise { animation: rise .35s ease both; } @keyframes rise { from { opacity: .0; transform: translateY(6px);} to {opacity:1; transform:none;} } }
+</style>
+
+<div id="root" class="min-h-screen flex flex-col">
+  <div id="banner" class="bg-ink text-bg text-[12px] font-mono text-center py-1.5 px-3 -mx-4">리디자인 미리보기 · 실제 블로그에는 반영되지 않았어요 · 글 내용과 숫자는 예시</div>
+  <header id="header" class="sticky top-0 z-30 -mx-4 px-4 bg-bg/90 backdrop-blur border-b border-line"></header>
+  <main id="app" class="flex-1 w-full max-w-6xl mx-auto py-8 md:py-12"></main>
+  <footer id="footer" class="border-t border-line py-8 text-sm text-mute"></footer>
+</div>
+
+<script>
+/* ---------- 예시 데이터 (실제 블로그의 글·메뉴 구조를 따랐어요) ---------- */
+var CATS = { portfolio: 'PORTFOLIO', study: 'STUDY' };
+var POSTS = [
+  { id: 'tiger', cat: 'study', title: '호랑이', summary: '사실 고양이', date: '2026.11.17', views: 13, vis: 'public', art: 0,
+    body: ['호랑이는 고양이과에서 가장 큰 동물이에요. 이름만 다를 뿐 집고양이와 같은 가족이고, 사냥하는 방식도 닮았어요.',
+           '<h2>같은 점</h2>', '살금살금 다가가 한 번에 뛰어오르는 습관, 몸을 길게 늘이는 기지개, 그루밍하는 모습까지 거의 같아요.',
+           '<blockquote>작은 고양이를 관찰하면 큰 고양이의 행동이 보여요.</blockquote>'],
+    comments: [
+      { name: '김지우', admin: false, time: '11.17 21:40', text: '@관리자 호랑이도 고양이과가 맞죠? 몰랐어요.' },
+      { name: '관리자', admin: true, time: '11.17 22:05', text: '맞아요. 읽어 주셔서 고마워요.' } ] },
+  { id: 'cat', cat: 'portfolio', title: '고양이', summary: '고양이', date: '2026.11.17', views: 15, vis: 'public', art: 1,
+    body: ['이 글은 포트폴리오 메뉴의 예시 글이에요. 만든 것, 왜 만들었는지, 무엇을 배웠는지를 짧게 적는 자리예요.',
+           '<h2>만든 것</h2>', '고양이 사진을 모아 보여 주는 작은 화면이에요.'],
+    comments: [] },
+  { id: 'reports', cat: 'study', title: '오늘 만든 보고서들', summary: '', date: '2026.11.17', views: 4, vis: 'public', art: 2,
+    body: ['<ol><li>5종 화면들 시안</li><li>테스트 보고서</li><li>이벤트 택소노미 보고서</li></ol>'],
+    files: [ { name: 'Intent-Notes-GA-Event-Taxonomy.pdf', size: '891KB', type: 'PDF' },
+             { name: 'blog-screens-overview.pdf', size: '429KB', type: 'PDF' },
+             { name: '블로그_테스트보고서.pdf', size: '4.4MB', type: 'PDF' } ],
+    comments: [] }
+];
+var MENUS = [
+  { slug: 'portfolio', name: 'PORTFOLIO', vis: 'public' },
+  { slug: 'study', name: 'STUDY', vis: 'public' },
+  { slug: 'retro', name: 'RETROSPECTIVE', vis: 'private' }
+];
+var NOTES = [
+  { id: 1, who: '김지우', where: '호랑이', post: 'tiger', text: '@관리자 호랑이도 고양이과가 맞죠? 몰랐어요.', time: '11.17 21:40', unread: true },
+  { id: 2, who: '관리자', where: '호랑이', post: 'tiger', text: '@김지우 맞아요. 읽어 주셔서 고마워요.', time: '11.17 22:05', unread: false }
+];
+var WEATHER = { place: '서울', temp: '7.7', hum: 49, rain: '강수 없음' };
+
+/* ---------- 작은 도구들 ---------- */
+var S = { user: null, shareOpen: false, copied: false, menuOpen: false, loginOpen: false, sort: 'new', q: '', delId: null, vis: 'public', thumb: 0, files: [], newMenu: '' };
+var $ = function (s) { return document.querySelector(s); };
+var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+var byId = function (id) { return POSTS.filter(function (p) { return p.id === id; })[0]; };
+var sameMenu = function (p) { return POSTS.filter(function (x) { return x.cat === p.cat && x.vis === 'public'; }); };
+
+var I = {
+  search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  share: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>',
+  arrow: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  back: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
+  menu: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  close: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  moon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+  file: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
+  eye: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  lock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+  g: '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 0 1 0-9.4l-7.9-6.1a24 24 0 0 0 0 21.6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.500 42.600 14.600 48 24 48z"/></svg>'
+};
+
+/* 글 썸네일 대신 쓰는 그림 (실제 사진 자리). 세 가지 무늬를 돌려 써요. */
+function art(n, cls) {
+  var p = [
+    '<rect width="320" height="200" fill="rgb(var(--soft))"/><circle cx="230" cy="70" r="46" fill="rgb(var(--hi))"/><path d="M0 200V140c60-40 110-10 160-30s110-30 160 10v80z" fill="rgb(var(--accent))"/><path d="M0 200v-30c70-30 120 0 180-14s100-8 140 8v36z" fill="rgb(var(--ink))" opacity=".85"/>',
+    '<rect width="320" height="200" fill="rgb(var(--ink))"/><g fill="rgb(var(--accent))"><circle cx="90" cy="100" r="62"/><path d="M40 60 52 6l36 36zM140 42 166 0l8 56z" transform="translate(30 4)"/></g><circle cx="70" cy="92" r="9" fill="rgb(var(--hi))"/><circle cx="112" cy="92" r="9" fill="rgb(var(--hi))"/><rect x="190" y="40" width="90" height="12" rx="6" fill="rgb(var(--mute))"/><rect x="190" y="66" width="62" height="12" rx="6" fill="rgb(var(--mute))" opacity=".6"/>',
+    '<rect width="320" height="200" fill="rgb(var(--surface))"/><g fill="none" stroke="rgb(var(--line))" stroke-width="2"><path d="M0 50h320M0 100h320M0 150h320M80 0v200M160 0v200M240 0v200"/></g><rect x="40" y="60" width="90" height="80" rx="6" fill="rgb(var(--accent))"/><rect x="150" y="40" width="70" height="60" rx="6" fill="rgb(var(--hi))"/><rect x="170" y="110" width="100" height="50" rx="6" fill="rgb(var(--ink))"/>'
+  ][n % 3];
+  return '<svg viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" class="' + (cls || '') + '" role="img" aria-label="글 대표 이미지 자리">' + p + '</svg>';
+}
+function catFace(cls) {
+  return '<svg viewBox="0 0 120 110" class="' + cls + '" role="img" aria-label="오늘의 고양이 그림"><rect width="120" height="110" fill="rgb(var(--soft))"/><path d="M26 54 22 14l30 20zM94 54l4-40-30 20z" fill="rgb(var(--ink))"/><ellipse cx="60" cy="64" rx="38" ry="34" fill="rgb(var(--ink))"/><path d="M40 78c0-14 9-22 20-22s20 8 20 22c0 10-9 16-20 16s-20-6-20-16z" fill="rgb(var(--surface))"/><ellipse cx="46" cy="58" rx="7" ry="8" fill="rgb(var(--hi))"/><ellipse cx="74" cy="58" rx="7" ry="8" fill="rgb(var(--hi))"/><ellipse cx="46" cy="58" rx="2.2" ry="6" fill="rgb(var(--ink))"/><ellipse cx="74" cy="58" rx="2.2" ry="6" fill="rgb(var(--ink))"/><path d="M55 72h10l-5 6z" fill="rgb(var(--danger))"/></svg>';
+}
+function chip(cat, extra) {
+  return '<a href="#' + cat + '" class="inline-flex items-center font-mono text-[11px] tracking-widest uppercase text-accent bg-soft rounded px-2 py-0.5 ' + (extra || '') + '">' + CATS[cat] + '</a>';
+}
+function chipS(cat, extra) {
+  return '<span class="inline-flex items-center font-mono text-[11px] tracking-widest uppercase text-accent bg-soft rounded px-2 py-0.5 ' + (extra || '') + '">' + CATS[cat] + '</span>';
+}
+function badge(vis) {
+  return vis === 'public'
+    ? '<span class="inline-flex items-center gap-1 text-[12px] rounded-full bg-soft text-accent px-2 py-0.5">공개</span>'
+    : '<span class="inline-flex items-center gap-1 text-[12px] rounded-full bg-hi/25 text-ink px-2 py-0.5">' + I.lock + '나만 보기</span>';
+}
+function btn(label, o) {
+  o = o || {};
+  var base = 'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ';
+  var kind = o.kind === 'ghost' ? 'border border-line text-ink hover:bg-surface' : o.kind === 'danger' ? 'bg-danger text-white hover:opacity-90' : 'bg-accent text-white hover:opacity-90';
+  var attrs = (o.href ? 'href="' + o.href + '"' : 'type="button"') + (o.act ? ' data-act="' + o.act + '"' : '') + (o.arg ? ' data-arg="' + o.arg + '"' : '') + (o.id ? ' id="' + o.id + '"' : '');
+  return '<' + (o.href ? 'a' : 'button') + ' ' + attrs + ' class="' + base + kind + ' ' + (o.cls || '') + '">' + label + '</' + (o.href ? 'a' : 'button') + '>';
+}
+
+/* ---------- 공통 틀: 헤더·푸터 ---------- */
+function nav(route) {
+  var items = [['about', 'ABOUT'], ['portfolio', 'PORTFOLIO'], ['study', 'STUDY'], ['posts', '전체 글']];
+  return items.map(function (n) {
+    var on = route === n[0] || (n[0] !== 'posts' && route.indexOf('post-') === 0 && byId(route.slice(5)) && byId(route.slice(5)).cat === n[0]);
+    return '<a href="#' + n[0] + '" class="font-mono text-[12px] tracking-widest uppercase py-1 border-b-2 ' + (on ? 'text-accent border-accent' : 'text-ink border-transparent hover:text-accent') + '"' + (on ? ' aria-current="page"' : '') + '>' + n[1] + '</a>';
+  }).join('');
+}
+function userBox() {
+  if (!S.user) return btn(I.g + '<span>Google 로그인</span>', { kind: 'ghost', act: 'open-login', cls: '!py-1.5 !px-3' });
+  var unread = NOTES.filter(function (n) { return n.unread; }).length;
+  return '<div class="flex items-center gap-2">' +
+    '<a href="#mentions" class="relative inline-flex items-center rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-surface">@ 알림' + (unread ? '<span class="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-medium text-white tnum">' + unread + '</span>' : '') + '</a>' +
+    '<button type="button" data-act="logout" class="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-surface">' + (S.user === 'admin' ? '관리자' : '김지우') + ' · 로그아웃</button></div>';
+}
+function renderHeader(route) {
+  var admin = S.user === 'admin';
+  $('#header').innerHTML =
+    '<div class="max-w-6xl mx-auto flex items-center gap-4 h-14">' +
+      '<a href="#home" class="flex items-center gap-2 font-display text-lg font-semibold tracking-tight" aria-label="Intent Notes 홈"><span class="grid h-7 w-7 place-items-center rounded-md bg-accent font-mono text-[11px] font-bold text-white">IN</span>Intent Notes</a>' +
+      '<nav class="ml-6 hidden md:flex items-center gap-6" aria-label="주 메뉴">' + nav(route) + '</nav>' +
+      '<div class="ml-auto flex items-center gap-2">' +
+        '<div class="hidden sm:flex items-center gap-2 rounded-lg bg-surface border border-line px-2.5 py-1 text-[12px] text-mute tnum" title="출처: 기상청"><span class="font-medium text-ink">' + WEATHER.place + ' ' + WEATHER.temp + '°C</span><span>습도 ' + WEATHER.hum + '%</span></div>' +
+        '<button type="button" data-act="theme" class="grid h-9 w-9 place-items-center rounded-lg border border-line hover:bg-surface" aria-label="화면 밝기 바꾸기">' + I.moon + '</button>' +
+        '<div class="hidden md:block">' + userBox() + '</div>' +
+        '<button type="button" data-act="menu" class="grid h-9 w-9 place-items-center rounded-lg border border-line md:hidden" aria-expanded="' + S.menuOpen + '" aria-controls="drawer" aria-label="메뉴 열기">' + (S.menuOpen ? I.close : I.menu) + '</button>' +
+      '</div>' +
+    '</div>' +
+    (admin ? '<div class="max-w-6xl mx-auto flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-line py-2 text-[13px]"><span class="font-mono text-[11px] tracking-widest uppercase text-accent">관리자 모드</span><a class="hover:text-accent" href="#admin-posts">글 관리</a><a class="hover:text-accent" href="#admin-write">새 글</a><a class="hover:text-accent" href="#admin-menus">메뉴 관리</a></div>' : '') +
+    '<div id="drawer" class="max-w-6xl mx-auto md:hidden border-t border-line py-3 ' + (S.menuOpen ? '' : 'hidden') + '"><div class="flex flex-col gap-3">' +
+      nav(route).replace(/py-1 border-b-2/g, 'py-1.5 border-b-0') +
+      '<div class="flex items-center gap-2 pt-1 text-[12px] text-mute tnum"><span class="font-medium text-ink">' + WEATHER.place + ' ' + WEATHER.temp + '°C</span>습도 ' + WEATHER.hum + '% · ' + WEATHER.rain + ' · 출처: 기상청</div>' +
+      '<div>' + userBox() + '</div></div></div>';
+}
+function renderFooter() {
+  $('#footer').innerHTML =
+    '<div class="max-w-6xl mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">' +
+      '<p>© 2026 [이름] · Intent Notes · <a class="underline underline-offset-2 hover:text-accent" href="#privacy">개인정보 처리방침</a></p>' +
+      '<div class="flex items-center gap-4 font-mono text-[12px]"><a class="hover:text-accent" href="#admin-login">관리자 로그인</a><a class="hover:text-accent" href="#home">RSS</a></div>' +
+    '</div>';
+}
+
+/* ---------- 화면들 ---------- */
+function postRow(p) {
+  return '<a href="#post-' + p.id + '" class="group grid grid-cols-[88px_1fr] sm:grid-cols-[132px_1fr_auto] items-center gap-x-4 gap-y-1 border-b border-line py-4 hover:bg-surface/60 -mx-3 px-3 rounded-lg">' +
+    '<div class="row-span-3 sm:row-span-1 overflow-hidden rounded-lg border border-line aspect-[3/2]">' + art(p.art, 'h-full w-full') + '</div>' +
+    '<div class="min-w-0"><div class="flex items-center gap-2">' + chipS(p.cat) + (p.vis === 'private' ? badge('private') : '') + '</div>' +
+    '<h3 class="mt-1 font-display text-lg font-semibold tracking-tight group-hover:text-accent">' + esc(p.title) + '</h3>' +
+    (p.summary ? '<p class="text-sm text-mute truncate">' + esc(p.summary) + '</p>' : '') + '</div>' +
+    '<div class="col-start-2 sm:col-start-auto flex items-center gap-3 font-mono text-[12px] text-mute tnum sm:flex-col sm:items-end sm:gap-1"><time>' + p.date + '</time><span class="inline-flex items-center gap-1">' + I.eye + p.views + '</span></div></a>';
+}
+function viewHome() {
+  var recent = POSTS.filter(function (p) { return p.vis === 'public'; });
+  var feat = recent[0];
+  return '<div class="rise">' +
+    '<section class="grid gap-10 lg:grid-cols-[1fr_340px] lg:items-end">' +
+      '<div><p class="font-mono text-[12px] tracking-widest uppercase text-mute">AI PM · Portfolio / Study</p>' +
+      '<h1 class="mt-4 font-display text-5xl font-bold leading-[1.02] tracking-tight sm:text-6xl md:text-7xl">Build with <span class="whitespace-nowrap underline decoration-accent decoration-[6px] underline-offset-[10px]">intent.</span></h1>' +
+      '<p class="mt-6 max-w-xl text-lg text-mute">AI PM의 포트폴리오, 회고, 그리고 일하며 배운 것들을 기록합니다.</p>' +
+      '<div class="mt-8 flex flex-wrap gap-3">' + btn('최근 글 읽기' + I.arrow, { href: '#posts' }) + btn('소개 보기', { href: '#about', kind: 'ghost' }) + '</div></div>' +
+      '<aside aria-label="오늘" class="rounded-2xl border border-line bg-surface p-4">' +
+        '<div class="flex items-baseline justify-between"><h2 class="font-mono text-[11px] tracking-widest uppercase text-mute">오늘</h2><span class="text-[11px] text-mute">출처: 기상청 · TheCatAPI</span></div>' +
+        '<div class="mt-3 flex items-center gap-4"><div class="min-w-0 flex-1"><p class="font-display text-4xl font-bold tnum leading-none">' + WEATHER.temp + '<span class="text-xl text-mute">°C</span></p><p class="mt-2 text-sm text-mute">' + WEATHER.place + ' · 습도 ' + WEATHER.hum + '% · ' + WEATHER.rain + '</p></div>' +
+        '<figure class="m-0 w-28 shrink-0"><div class="overflow-hidden rounded-xl border border-line">' + catFace('block h-auto w-full') + '</div><figcaption class="mt-1 text-center text-[11px] text-mute">오늘의 고양이</figcaption></figure></div>' +
+      '</aside>' +
+    '</section>' +
+    '<section class="mt-16" aria-labelledby="recent-h">' +
+      '<div class="flex items-end justify-between border-b border-ink pb-3"><h2 id="recent-h" class="font-display text-2xl font-bold tracking-tight">최근 글 <span class="ml-1 font-mono text-sm font-normal text-mute tnum">' + recent.length + '</span></h2><a href="#posts" class="inline-flex items-center gap-1 text-sm hover:text-accent">전체 글 보기' + I.arrow + '</a></div>' +
+      '<div class="mt-6 grid gap-6 md:grid-cols-5">' +
+        '<a href="#post-' + feat.id + '" class="group md:col-span-3"><div class="overflow-hidden rounded-2xl border border-line aspect-[16/10]">' + art(feat.art, 'h-full w-full transition-transform duration-300 group-hover:scale-[1.02]') + '</div>' +
+        '<div class="mt-4 flex items-center gap-3">' + chipS(feat.cat) + '<time class="font-mono text-[12px] text-mute tnum">' + feat.date + '</time></div>' +
+        '<h3 class="mt-2 font-display text-3xl font-bold tracking-tight group-hover:text-accent">' + esc(feat.title) + '</h3><p class="text-mute">' + esc(feat.summary) + '</p></a>' +
+        '<div class="md:col-span-2 flex flex-col">' + recent.slice(1).map(function (p) {
+          return '<a href="#post-' + p.id + '" class="group flex gap-4 border-b border-line py-4 first:pt-0"><div class="w-28 shrink-0 overflow-hidden rounded-lg border border-line aspect-[3/2]">' + art(p.art, 'h-full w-full') + '</div><div class="min-w-0">' + chipS(p.cat) + '<h3 class="mt-1 font-display text-lg font-semibold leading-snug group-hover:text-accent">' + esc(p.title) + '</h3><p class="font-mono text-[12px] text-mute tnum">' + p.date + ' · 조회 ' + p.views + '</p></div></a>';
+        }).join('') + '</div>' +
+      '</div>' +
+    '</section>' +
+    '<section class="mt-16 grid gap-4 sm:grid-cols-2" aria-label="메뉴 바로가기">' + Object.keys(CATS).map(function (k) {
+      var n = POSTS.filter(function (p) { return p.cat === k && p.vis === 'public'; }).length;
+      return '<a href="#' + k + '" class="group flex items-center justify-between rounded-2xl border border-line bg-surface p-6 hover:border-accent"><div><p class="font-mono text-[12px] tracking-widest text-mute">' + CATS[k] + '</p><p class="mt-1 font-display text-2xl font-bold">' + (k === 'portfolio' ? '만든 것과 만든 이유' : '일하며 배운 것') + '</p></div><span class="font-mono text-3xl font-bold text-accent tnum">' + n + '</span></a>';
+    }).join('') + '</section></div>';
+}
+function listRows() {
+  var scope = S.scope === 'posts' ? null : S.scope;
+  var rows = POSTS.filter(function (p) { return p.vis === 'public' && (!scope || p.cat === scope) && (!S.q || (p.title + p.summary).toLowerCase().indexOf(S.q.toLowerCase()) >= 0); });
+  rows.sort(function (a, b) { return S.sort === 'views' ? b.views - a.views : 0; });
+  if (!rows.length) return '<div class="rounded-2xl border border-dashed border-line p-10 text-center text-mute">"' + esc(S.q) + '"와 맞는 글이 없어요. 다른 단어로 찾아 보세요.</div>';
+  return rows.map(postRow).join('');
+}
+function viewList(scope) {
+  S.scope = scope;
+  var name = scope === 'posts' ? '전체 글' : CATS[scope];
+  var count = POSTS.filter(function (p) { return p.vis === 'public' && (scope === 'posts' || p.cat === scope); }).length;
+  return '<div class="rise mx-auto max-w-3xl">' +
+    '<p class="font-mono text-[12px] tracking-widest uppercase text-mute">' + (scope === 'posts' ? 'ARCHIVE' : 'MENU') + '</p>' +
+    '<h1 class="mt-2 font-display text-4xl font-bold tracking-tight">' + name + ' <span class="font-mono text-lg font-normal text-mute tnum">' + count + '</span></h1>' +
+    '<div class="mt-6 flex flex-col gap-3 sm:flex-row"><label class="relative flex-1"><span class="sr-only">글 검색</span><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-mute">' + I.search + '</span><input id="q" type="search" value="' + esc(S.q) + '" placeholder="제목이나 요약으로 찾기" class="w-full rounded-lg border border-line bg-surface py-2.5 pl-10 pr-3 text-sm"></label>' +
+    '<label class="sm:w-40"><span class="sr-only">정렬</span><select id="sort" class="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm"><option value="new"' + (S.sort === 'new' ? ' selected' : '') + '>최신순</option><option value="views"' + (S.sort === 'views' ? ' selected' : '') + '>조회순</option></select></label></div>' +
+    '<div id="rows" class="mt-4">' + listRows() + '</div></div>';
+}
+function commentsHtml(p) {
+  var list = p.comments.map(function (c) {
+    return '<li class="flex gap-3 py-4"><div class="grid h-9 w-9 shrink-0 place-items-center rounded-full ' + (c.admin ? 'bg-accent text-white' : 'bg-soft text-accent') + ' text-sm font-medium">' + esc(c.name.slice(0, 1)) + '</div><div class="min-w-0 flex-1"><p class="flex flex-wrap items-center gap-2 text-sm"><b class="font-medium">' + esc(c.name) + '</b>' + (c.admin ? '<span class="rounded bg-ink px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-bg">운영자</span>' : '') + '<time class="font-mono text-[12px] text-mute tnum">' + c.time + '</time></p><p class="mt-1 break-words">' + esc(c.text).replace(/@(\S+)/g, '<span class="rounded bg-soft px-1 text-accent">@$1</span>') + '</p><button type="button" class="mt-1 text-[13px] text-mute hover:text-accent" data-act="reply">답글</button></div></li>';
+  }).join('');
+  var form = S.user
+    ? '<form id="cform" class="mt-4 rounded-xl border border-line bg-surface p-3"><label for="ctext" class="sr-only">댓글 쓰기</label><textarea id="ctext" rows="3" placeholder="댓글을 남겨 보세요. @이름으로 부를 수 있어요." class="w-full resize-y bg-transparent text-sm"></textarea><div class="mt-2 flex items-center justify-between gap-3"><p class="text-[12px] text-mute">댓글 작성 시 이름과 시각이 공개돼요. <a class="underline" href="#privacy">개인정보 처리방침</a></p>' + btn('등록', { cls: '!py-1.5' }).replace('type="button"', 'type="submit"') + '</div></form>'
+    : '<div class="mt-4 flex flex-col items-start gap-3 rounded-xl border border-dashed border-line p-5 sm:flex-row sm:items-center sm:justify-between"><p class="text-sm text-mute">댓글은 Google로 로그인하면 쓸 수 있어요.<br><a class="underline" href="#privacy">개인정보 처리방침</a></p>' + btn(I.g + 'Google 로그인', { kind: 'ghost', act: 'open-login' }) + '</div>';
+  return '<section class="mt-14" aria-labelledby="cm-h"><h2 id="cm-h" class="font-display text-xl font-bold">댓글 <span class="font-mono text-sm font-normal text-mute tnum">' + p.comments.length + '</span></h2>' +
+    (p.comments.length ? '<ul id="clist" class="mt-2 divide-y divide-line">' + list + '</ul>' : '<ul id="clist" class="mt-2"></ul><p id="cempty" class="mt-2 text-sm text-mute">아직 댓글이 없어요. 첫 댓글을 남겨 보세요.</p>') + form + '</section>';
+}
+function viewPost(id) {
+  var p = byId(id); if (!p) return view404();
+  var sib = sameMenu(p), i = sib.indexOf(p), prev = sib[i - 1], next = sib[i + 1];
+  var admin = S.user === 'admin';
+  var words = p.body.join(' ').replace(/<[^>]+>/g, '').length;
+  return '<article class="rise mx-auto max-w-2xl">' +
+    '<a href="#' + p.cat + '" class="inline-flex items-center gap-1 text-sm text-mute hover:text-accent">' + I.back + CATS[p.cat] + ' 목록</a>' +
+    (admin ? '<div class="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-accent/40 bg-soft px-3 py-2 text-sm"><b class="font-medium text-accent">관리자 보기</b>' + badge(p.vis) + '<span class="ml-auto flex gap-2"><a class="underline" href="#admin-write">수정</a><a class="underline text-danger" href="#admin-posts">삭제</a></span></div>' : '') +
+    '<div class="mt-6">' + chip(p.cat) + '</div>' +
+    '<h1 class="mt-3 font-display text-4xl font-bold leading-tight tracking-tight md:text-5xl">' + esc(p.title) + '</h1>' +
+    (p.summary ? '<p class="mt-3 text-lg text-mute">' + esc(p.summary) + '</p>' : '') +
+    '<div class="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[12px] text-mute tnum"><time>' + p.date + '</time><span class="inline-flex items-center gap-1">' + I.eye + '조회 ' + p.views + '</span><span>읽는 시간 약 ' + Math.max(1, Math.round(words / 500)) + '분</span>' +
+      '<div class="relative ml-auto">' + btn(I.share + '공유하기', { kind: 'ghost', act: 'share', cls: '!py-1.5 !px-3 !text-[13px]' }).replace('type="button"', 'type="button" aria-expanded="' + S.shareOpen + '"') +
+      (S.shareOpen ? '<div class="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-line bg-surface p-3 shadow-lg font-sans"><label for="surl" class="sr-only">글 주소</label><input id="surl" readonly value="https://my-blog-test-b439a.web.app/posts/' + p.id + '.html" class="w-full rounded-md border border-line bg-bg px-2 py-1.5 text-[12px]"><button type="button" data-act="copy" class="mt-2 w-full rounded-md bg-accent py-1.5 text-sm text-white">' + (S.copied ? '복사했어요' : '링크 복사') + '</button><div class="mt-2 flex justify-center gap-4 text-[12px] text-mute"><span>X</span><span>Facebook</span><span>LinkedIn</span></div></div>' : '') + '</div></div>' +
+    '<div class="mt-8 overflow-hidden rounded-2xl border border-line aspect-[16/9]">' + art(p.art, 'h-full w-full') + '</div>' +
+    '<div class="prose-x mt-8 text-[17px]">' + p.body.map(function (b) { return /^<(h2|ol|blockquote)/.test(b) ? b : '<p>' + b + '</p>'; }).join('') + '</div>' +
+    (p.files ? '<section class="mt-10" aria-labelledby="fh"><h2 id="fh" class="font-display text-lg font-bold">첨부 파일</h2><ul class="mt-3 divide-y divide-line rounded-xl border border-line bg-surface">' + p.files.map(function (f) {
+      return '<li><a href="#post-' + p.id + '" class="flex items-center gap-3 px-4 py-3 hover:bg-bg"><span class="text-accent">' + I.file + '</span><span class="min-w-0 flex-1 break-all text-sm">' + esc(f.name) + '</span><span class="font-mono text-[12px] text-mute tnum">' + f.size + ' · ' + f.type + '</span></a></li>'; }).join('') + '</ul></section>' : '') +
+    '<nav class="mt-12 grid gap-3 sm:grid-cols-2" aria-label="같은 메뉴의 이전·다음 글">' +
+      (prev ? '<a href="#post-' + prev.id + '" class="rounded-xl border border-line p-4 hover:border-accent"><span class="font-mono text-[11px] uppercase tracking-widest text-mute">← 이전 글</span><span class="mt-1 block font-display font-semibold">' + esc(prev.title) + '</span></a>' : '<span></span>') +
+      (next ? '<a href="#post-' + next.id + '" class="rounded-xl border border-line p-4 text-right hover:border-accent"><span class="font-mono text-[11px] uppercase tracking-widest text-mute">다음 글 →</span><span class="mt-1 block font-display font-semibold">' + esc(next.title) + '</span></a>' : '<span></span>') +
+    '</nav>' + commentsHtml(p) + '</article>';
+}
+function viewAbout() {
+  return '<div class="rise mx-auto max-w-3xl"><p class="font-mono text-[12px] tracking-widest uppercase text-mute">ABOUT</p>' +
+    '<h1 class="mt-2 font-display text-4xl font-bold tracking-tight md:text-5xl">의도를 가지고 만드는 사람</h1>' +
+    '<div class="mt-8 grid gap-8 md:grid-cols-[200px_1fr]"><div><div class="grid aspect-square place-items-center rounded-2xl border border-line bg-soft font-display text-6xl font-bold text-accent">IN</div><dl class="mt-4 space-y-2 text-sm"><div><dt class="font-mono text-[11px] uppercase tracking-widest text-mute">이름</dt><dd>[이름]</dd></div><div><dt class="font-mono text-[11px] uppercase tracking-widest text-mute">하는 일</dt><dd>AI 제품 기획</dd></div><div><dt class="font-mono text-[11px] uppercase tracking-widest text-mute">연락</dt><dd>글 아래 댓글로 남겨 주세요</dd></div></dl></div>' +
+    '<div class="prose-x text-[17px]"><p>AI PM의 포트폴리오, 회고, 그리고 일하며 배운 것들을 기록하는 블로그예요. 문제를 정의하고, 가설을 세우고, 지표로 확인하는 과정을 그대로 남깁니다.</p><h2>이 블로그에서 볼 수 있는 것</h2><ol><li>PORTFOLIO: 만든 것과 만든 이유</li><li>STUDY: 일하며 배운 것, 보고서와 문서</li></ol><h2>어떻게 만들었나</h2><p>글을 쓰면 배포 없이 바로 사이트에 반영되고, 방문 통계는 Google Analytics로 확인해요.</p></div></div></div>';
+}
+function viewPrivacy() {
+  var sec = [
+    ['1. 모으는 정보와 쓰는 곳', '<ul class="list-disc space-y-2 pl-5"><li><b class="font-medium">방문 통계(구글 애널리틱스)</b>: 기기·브라우저, 대략적인 지역, 방문한 페이지와 머문 시간. 어떤 글이 읽히는지 알기 위해 씁니다.</li><li><b class="font-medium">구글 로그인(댓글을 쓸 때만)</b>: 표시 이름, 계정 식별 번호, 이메일. 댓글에 공개되는 것은 이름과 작성 시각뿐입니다.</li><li><b class="font-medium">댓글·조회수</b>: 쓴 내용과 시각, 글별 합계 숫자만 저장합니다.</li><li><b class="font-medium">사이드바의 고양이 사진</b>: 방문자의 브라우저가 TheCatAPI에서 직접 받아 옵니다. 이때 접속 정보가 해당 서비스에 전달될 수 있어요.</li></ul>'],
+    ['2. 보관 기간', '<p>방문 통계는 최대 14개월 보관 후 삭제됩니다. 댓글은 삭제할 때까지, 로그인 정보는 삭제를 요청할 때까지 보관합니다.</p>'],
+    ['3. 맡기는 곳과 국외 처리', '<p>구글(Google LLC)이 구글 애널리틱스와 Firebase를 제공합니다. 댓글 데이터베이스는 서울 지역에 두지만 일부 정보는 국외 서버에서 처리될 수 있어요.</p>'],
+    ['4. 거부하고 삭제하는 방법', '<p>쿠키 차단이나 구글 애널리틱스 차단 부가기능으로 방문 통계를 거부할 수 있어요. 내 댓글은 로그인 후 직접 삭제할 수 있습니다.</p>'],
+    ['5. 문의', '<p>아무 글 아래에 구글 로그인 후 댓글로 남겨 주세요. 운영자가 확인하고 답합니다.</p>']
+  ];
+  return '<div class="rise mx-auto grid max-w-4xl gap-10 md:grid-cols-[200px_1fr]">' +
+    '<nav class="hidden md:block" aria-label="목차"><p class="sticky top-24 space-y-2 text-sm">' + sec.map(function (s, i) { return '<a class="block text-mute hover:text-accent" href="#privacy">' + s[0] + '</a>'; }).join('') + '</p></nav>' +
+    '<div><p class="font-mono text-[12px] tracking-widest uppercase text-mute">POLICY</p><h1 class="mt-2 font-display text-4xl font-bold tracking-tight">개인정보 처리방침</h1><p class="mt-4 text-mute">글을 읽는 데는 로그인이나 개인정보 입력이 필요하지 않습니다. 방문자의 정보를 아래처럼 다룹니다.</p>' +
+    sec.map(function (s) { return '<section class="mt-8"><h2 class="font-display text-xl font-bold">' + s[0] + '</h2><div class="mt-3 text-[16px]">' + s[1] + '</div></section>'; }).join('') +
+    '<p class="mt-10 font-mono text-[12px] text-mute">시행일 2026.11.17</p></div></div>';
+}
+function view404() {
+  return '<div class="rise mx-auto max-w-xl py-16 text-center"><p class="font-display text-8xl font-bold text-accent tnum">404</p><h1 class="mt-4 font-display text-2xl font-bold">페이지를 찾을 수 없어요</h1><p class="mt-2 text-mute">주소가 바뀌었거나 없는 글이에요.</p><div class="mt-6">' + btn('홈으로 가기', { href: '#home' }) + '</div></div>';
+}
+function viewMentions() {
+  if (!S.user) return gate('알림은 로그인하면 볼 수 있어요.');
+  return '<div class="rise mx-auto max-w-2xl"><h1 class="font-display text-3xl font-bold tracking-tight">@ 알림</h1><p class="mt-1 text-sm text-mute">내 이름을 부른 댓글이에요.</p><ul class="mt-6 divide-y divide-line rounded-2xl border border-line bg-surface">' + NOTES.map(function (n) {
+    return '<li><a href="#post-' + n.post + '" class="flex gap-3 p-4 hover:bg-bg"><span class="mt-2 h-2 w-2 shrink-0 rounded-full ' + (n.unread ? 'bg-accent' : 'bg-line') + '" aria-label="' + (n.unread ? '안 읽음' : '읽음') + '"></span><div class="min-w-0"><p class="text-sm"><b class="font-medium">' + n.who + '</b>님이 <b class="font-medium">' + n.where + '</b>에서 불렀어요 <span class="font-mono text-[12px] text-mute tnum">' + n.time + '</span></p><p class="mt-1 break-words text-[15px] text-mute">' + esc(n.text) + '</p></div></a></li>'; }).join('') + '</ul></div>';
+}
+function gate(msg) {
+  return '<div class="rise mx-auto max-w-md rounded-2xl border border-line bg-surface p-8 text-center"><p>' + msg + '</p><div class="mt-5">' + btn(I.g + 'Google 로그인', { act: 'open-login' }) + '</div></div>';
+}
+
+/* ---------- 관리자 화면들 ---------- */
+function adminShell(tab, title, inner, actions) {
+  if (S.user !== 'admin') return viewAdminLogin();
+  var tabs = [['admin-posts', '글 관리'], ['admin-write', '새 글 쓰기'], ['admin-menus', '메뉴 관리']];
+  return '<div class="rise"><div class="flex flex-wrap items-end justify-between gap-4"><div><p class="font-mono text-[12px] tracking-widest uppercase text-accent">ADMIN</p><h1 class="mt-1 font-display text-3xl font-bold tracking-tight">' + title + '</h1></div><div class="flex gap-2">' + (actions || '') + '</div></div>' +
+    '<div class="scroll-x mt-6 border-b border-line"><div class="flex gap-6" role="tablist">' + tabs.map(function (t) { return '<a role="tab" href="#' + t[0] + '" aria-selected="' + (t[0] === tab) + '" class="whitespace-nowrap border-b-2 py-2 text-sm ' + (t[0] === tab ? 'border-accent font-medium text-accent' : 'border-transparent text-mute hover:text-ink') + '">' + t[1] + '</a>'; }).join('') + '</div></div>' +
+    '<div class="mt-6">' + inner + '</div></div>';
+}
+function viewAdminLogin() {
+  return '<div class="rise mx-auto max-w-md rounded-2xl border border-line bg-surface p-8"><p class="font-mono text-[12px] tracking-widest uppercase text-accent">ADMIN</p><h1 class="mt-1 font-display text-3xl font-bold">관리자 로그인</h1><p class="mt-3 text-sm text-mute">지정된 구글 계정으로만 글을 쓰고 고칠 수 있어요. 이메일·비밀번호 로그인은 쓰지 않아요.</p><div class="mt-6">' + btn(I.g + 'Google 계정으로 로그인', { act: 'admin-login', cls: 'w-full' }) + '</div><p class="mt-4 text-[12px] text-mute">방문자용 로그인은 상단의 Google 로그인 버튼이에요.</p></div>';
+}
+function viewAdminPosts() {
+  var rows = POSTS.map(function (p) {
+    var del = S.delId === p.id
+      ? '<span class="inline-flex items-center gap-2 text-sm"><span class="text-danger">댓글 ' + p.comments.length + '개와 함께 삭제할까요?</span><button type="button" data-act="del-yes" data-arg="' + p.id + '" class="rounded bg-danger px-2 py-1 text-white">삭제</button><button type="button" data-act="del-no" class="rounded border border-line px-2 py-1">취소</button></span>'
+      : '<a class="hover:text-accent" href="#post-' + p.id + '">보기</a><a class="hover:text-accent" href="#admin-write">수정</a><button type="button" data-act="del" data-arg="' + p.id + '" class="text-danger hover:underline">삭제</button>';
+    return '<tr class="border-b border-line align-middle"><td class="py-3 pr-3"><div class="flex items-center gap-3"><div class="hidden w-16 shrink-0 overflow-hidden rounded border border-line aspect-[3/2] sm:block">' + art(p.art, 'h-full w-full') + '</div><span class="font-medium">' + esc(p.title) + '</span></div></td><td class="pr-3">' + chip(p.cat) + '</td><td class="pr-3">' + badge(p.vis) + '</td><td class="pr-3 font-mono text-[12px] text-mute tnum">' + p.date + '</td><td class="pr-3 text-right tnum">' + p.views + '</td><td class="pr-3 text-right tnum">' + p.comments.length + '</td><td class="flex items-center gap-3 py-3 text-sm whitespace-nowrap">' + del + '</td></tr>';
+  }).join('');
+  return adminShell('admin-posts', '글 관리',
+    '<div class="scroll-x rounded-2xl border border-line bg-surface px-4"><table class="w-full min-w-[720px] text-left text-sm"><thead><tr class="border-b border-line font-mono text-[11px] uppercase tracking-widest text-mute"><th class="py-3 font-normal">제목</th><th class="font-normal">메뉴</th><th class="font-normal">공개</th><th class="font-normal">날짜</th><th class="text-right font-normal">조회</th><th class="text-right font-normal">댓글</th><th class="font-normal"><span class="sr-only">작업</span></th></tr></thead><tbody>' + (rows || '<tr><td colspan="7" class="py-10 text-center text-mute">글이 없어요. 새 글을 써 보세요.</td></tr>') + '</tbody></table></div>' +
+    '<p class="mt-3 text-[12px] text-mute">삭제하면 그 글의 댓글·조회수·첨부 파일도 함께 지워지고 되돌릴 수 없어요.</p>',
+    btn('새 글 쓰기', { href: '#admin-write' }));
+}
+function viewAdminWrite() {
+  var tools = ['B', 'I', 'U', 'S', 'H2', 'H3', '• 목록', '1. 목록', '인용', '링크', '이미지'];
+  var swatches = [0, 1, 2, 3, 4, 5].map(function (n) {
+    return '<button type="button" data-act="thumb" data-arg="' + n + '" aria-pressed="' + (S.thumb === n) + '" class="overflow-hidden rounded-lg border-2 aspect-[3/2] ' + (S.thumb === n ? 'border-accent' : 'border-line') + '" aria-label="썸네일 ' + (n + 1) + '">' + art(n, 'h-full w-full') + '</button>';
+  }).join('');
+  var files = S.files.map(function (f, i) { return '<li class="flex items-center gap-3 px-3 py-2 text-sm"><span class="text-accent">' + I.file + '</span><span class="min-w-0 flex-1 break-all">' + esc(f) + '</span><button type="button" data-act="rmfile" data-arg="' + i + '" class="text-danger hover:underline">빼기</button></li>'; }).join('');
+  var field = 'w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-sm';
+  return adminShell('admin-write', '새 글 쓰기',
+    '<form id="wform" class="grid gap-8 lg:grid-cols-[1fr_320px]"><div class="space-y-5">' +
+      '<label class="block"><span class="mb-1 block text-sm font-medium">제목</span><input id="w-title" class="' + field + ' !text-lg font-display" placeholder="글 제목"></label>' +
+      '<label class="block"><span class="mb-1 block text-sm font-medium">한 줄 요약</span><input id="w-sum" class="' + field + '" placeholder="목록과 검색 결과에 보여요"></label>' +
+      '<div><span class="mb-1 block text-sm font-medium">본문</span><div class="rounded-xl border border-line bg-bg"><div class="scroll-x flex gap-1 border-b border-line p-2" role="toolbar" aria-label="서식">' + tools.map(function (t) { return '<button type="button" class="whitespace-nowrap rounded-md px-2.5 py-1 text-[13px] hover:bg-surface">' + t + '</button>'; }).join('') + '</div><label class="sr-only" for="w-body">본문</label><textarea id="w-body" rows="12" class="w-full resize-y bg-transparent p-4 text-[16px]" placeholder="여기에 글을 써요. 이미지는 10MB까지 본문에 넣을 수 있어요."></textarea></div></div>' +
+      '<div><span class="mb-1 block text-sm font-medium">파일 첨부 <span class="font-normal text-mute">(25MB 이하, 글당 5개)</span></span><label for="w-file" class="flex cursor-pointer flex-col items-center gap-1 rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-mute hover:border-accent">' + I.file + '<span>파일을 끌어다 놓거나 눌러서 고르기</span><span class="text-[12px]">html, svg, exe는 올릴 수 없어요</span></label><input id="w-file" type="file" class="sr-only" multiple>' + (files ? '<ul class="mt-3 divide-y divide-line rounded-xl border border-line">' + files + '</ul>' : '') + '<button type="button" data-act="addfile" class="mt-2 text-[13px] text-accent underline">예시 파일 추가해 보기</button></div>' +
+    '</div><aside class="space-y-6"><div class="rounded-2xl border border-line bg-surface p-4"><label class="block"><span class="mb-1 block text-sm font-medium">메뉴</span><select id="w-cat" class="' + field + '">' + MENUS.map(function (m) { return '<option value="' + m.slug + '">' + m.name + (m.vis === 'private' ? ' (나만 보기)' : '') + '</option>'; }).join('') + '</select></label>' +
+      '<fieldset class="mt-4"><legend class="mb-1 text-sm font-medium">공개 범위</legend><div class="grid grid-cols-2 gap-2">' + [['public', '공개'], ['private', '나만 보기']].map(function (v) { return '<button type="button" data-act="vis" data-arg="' + v[0] + '" aria-pressed="' + (S.vis === v[0]) + '" class="rounded-lg border px-3 py-2 text-sm ' + (S.vis === v[0] ? 'border-accent bg-soft text-accent' : 'border-line') + '">' + v[1] + '</button>'; }).join('') + '</div></fieldset></div>' +
+      '<div class="rounded-2xl border border-line bg-surface p-4"><p class="mb-2 text-sm font-medium">대표 이미지</p><div class="grid grid-cols-3 gap-2">' + swatches + '</div><label for="w-img" class="mt-3 block cursor-pointer rounded-lg border border-line px-3 py-2 text-center text-sm hover:bg-bg">내 사진 올리기 (10MB 이하)</label><input id="w-img" type="file" accept="image/*" class="sr-only"></div>' +
+      '<div class="flex gap-2">' + btn('저장하고 올리기', { cls: 'flex-1' }).replace('type="button"', 'type="submit"') + btn('미리보기', { kind: 'ghost', href: '#post-tiger' }) + '</div><p id="wmsg" role="status" class="text-sm text-accent"></p></aside></form>');
+}
+function viewAdminMenus() {
+  var rows = MENUS.map(function (m, i) {
+    return '<li class="flex flex-wrap items-center gap-3 px-4 py-3"><span class="cursor-grab text-mute" aria-hidden="true">⋮⋮</span><label class="sr-only" for="mn-' + i + '">메뉴 이름</label><input id="mn-' + i + '" value="' + m.name + '" class="w-40 rounded-md border border-line bg-bg px-2 py-1.5 font-mono text-sm uppercase"><span class="font-mono text-[12px] text-mute">/' + m.slug + '/</span><span class="ml-auto flex items-center gap-3"><button type="button" data-act="mvis" data-arg="' + i + '" aria-pressed="' + (m.vis === 'public') + '" class="rounded-full border px-3 py-1 text-[13px] ' + (m.vis === 'public' ? 'border-accent bg-soft text-accent' : 'border-line text-mute') + '">' + (m.vis === 'public' ? '공개' : '나만 보기') + '</button><button type="button" data-act="mdel" data-arg="' + i + '" class="text-[13px] text-danger hover:underline">삭제</button></span></li>';
+  }).join('');
+  return adminShell('admin-menus', '메뉴 관리',
+    '<ul class="divide-y divide-line rounded-2xl border border-line bg-surface">' + rows + '</ul>' +
+    '<form id="mform" class="mt-4 flex flex-col gap-2 sm:flex-row"><label class="sr-only" for="m-new">새 메뉴 이름</label><input id="m-new" value="' + esc(S.newMenu) + '" placeholder="새 메뉴 이름 (예: PLAYGROUND)" class="flex-1 rounded-lg border border-line bg-surface px-3 py-2.5 text-sm">' + btn('메뉴 추가').replace('type="button"', 'type="submit"') + '</form>' +
+    '<p class="mt-3 text-[12px] text-mute">나만 보기 메뉴의 글은 방문자에게 보이지 않고, 메뉴 이름도 방문자용 사이드바에 나오지 않아요.</p>');
+}
+
+/* ---------- 로그인 창 ---------- */
+function renderModal() {
+  var el = $('#modal');
+  if (!el) { el = document.createElement('div'); el.id = 'modal'; document.body.appendChild(el); }
+  el.innerHTML = S.loginOpen
+    ? '<div class="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4" data-act="close-login"><div role="dialog" aria-modal="true" aria-labelledby="lg-h" class="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-xl" onclick="event.stopPropagation()"><h2 id="lg-h" class="font-display text-xl font-bold">Google로 로그인</h2><p class="mt-2 text-sm text-mute">댓글을 쓰고 @ 알림을 받을 수 있어요. 공개되는 정보는 이름과 작성 시각뿐이에요. <a class="underline" href="#privacy" data-act="close-login">개인정보 처리방침</a></p><div class="mt-5 flex flex-col gap-2">' + btn(I.g + 'Google로 계속하기', { act: 'login', id: 'lg-go' }) + btn('닫기', { kind: 'ghost', act: 'close-login' }) + '</div></div></div>'
+    : '';
+  if (S.loginOpen) { var go = $('#lg-go'); if (go) go.focus(); }
+}
+
+/* ---------- 라우터 ---------- */
+function route() { var h = (location.hash || '#home').slice(1); return h || 'home'; }
+function render() {
+  var r = route(), v;
+  S.shareOpen = (r.indexOf('post-') === 0) ? S.shareOpen : false;
+  if (r === 'home') v = viewHome();
+  else if (r === 'posts' || r === 'portfolio' || r === 'study') v = viewList(r);
+  else if (r.indexOf('post-') === 0) v = viewPost(r.slice(5));
+  else if (r === 'about') v = viewAbout();
+  else if (r === 'privacy') v = viewPrivacy();
+  else if (r === 'mentions') v = viewMentions();
+  else if (r === 'admin-login') v = viewAdminLogin();
+  else if (r === 'admin-posts') v = viewAdminPosts();
+  else if (r === 'admin-write') v = viewAdminWrite();
+  else if (r === 'admin-menus') v = viewAdminMenus();
+  else v = view404();
+  renderHeader(r); $('#app').innerHTML = v; renderFooter(); renderModal();
+}
+window.addEventListener('hashchange', function () { S.menuOpen = false; S.q = ''; S.delId = null; render(); window.scrollTo(0, 0); });
+
+document.addEventListener('click', function (e) {
+  var t = e.target.closest('[data-act]'); if (!t) return;
+  var a = t.getAttribute('data-act'), arg = t.getAttribute('data-arg');
+  if (a === 'theme') { var d = document.documentElement; var dark = d.getAttribute('data-theme') ? d.getAttribute('data-theme') === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; d.setAttribute('data-theme', dark ? 'light' : 'dark'); return; }
+  if (a === 'menu') S.menuOpen = !S.menuOpen;
+  else if (a === 'open-login') { S.loginOpen = true; S.menuOpen = false; }
+  else if (a === 'close-login') S.loginOpen = false;
+  else if (a === 'login') { S.user = 'visitor'; S.loginOpen = false; }
+  else if (a === 'logout') { S.user = null; if (route().indexOf('admin') === 0 || route() === 'mentions') location.hash = '#home'; }
+  else if (a === 'admin-login') { S.user = 'admin'; location.hash = '#admin-posts'; }
+  else if (a === 'share') { S.shareOpen = !S.shareOpen; S.copied = false; }
+  else if (a === 'copy') { S.copied = true; try { navigator.clipboard.writeText($('#surl').value).catch(function () { $('#surl').select(); }); } catch (err) { $('#surl').select(); } }
+  else if (a === 'del') S.delId = arg;
+  else if (a === 'del-no') S.delId = null;
+  else if (a === 'del-yes') { POSTS = POSTS.filter(function (p) { return p.id !== arg; }); S.delId = null; }
+  else if (a === 'vis') S.vis = arg;
+  else if (a === 'thumb') S.thumb = +arg;
+  else if (a === 'addfile') { if (S.files.length < 5) S.files.push('예시-보고서-' + (S.files.length + 1) + '.pdf'); }
+  else if (a === 'rmfile') S.files.splice(+arg, 1);
+  else if (a === 'mvis') MENUS[+arg].vis = MENUS[+arg].vis === 'public' ? 'private' : 'public';
+  else if (a === 'mdel') MENUS.splice(+arg, 1);
+  else if (a === 'reply') { var ta = $('#ctext'); if (ta) { ta.focus(); ta.value = '@'; } else { S.loginOpen = true; } }
+  render();
+});
+document.addEventListener('input', function (e) {
+  if (e.target.id === 'q') { S.q = e.target.value; $('#rows').innerHTML = listRows(); }
+});
+document.addEventListener('change', function (e) {
+  if (e.target.id === 'sort') { S.sort = e.target.value; $('#rows').innerHTML = listRows(); }
+});
+document.addEventListener('submit', function (e) {
+  e.preventDefault();
+  var id = e.target.id;
+  if (id === 'cform') {
+    var p = byId(route().slice(5)), v = $('#ctext').value.trim(); if (!v) return;
+    p.comments.push({ name: S.user === 'admin' ? '관리자' : '김지우', admin: S.user === 'admin', time: '방금', text: v }); render();
+  } else if (id === 'wform') {
+    $('#wmsg').textContent = $('#w-title').value.trim() ? '저장했어요. (미리보기라 실제로 올라가지는 않아요)' : '제목을 입력해 주세요.';
+  } else if (id === 'mform') {
+    var n = $('#m-new').value.trim(); if (!n) return;
+    MENUS.push({ slug: n.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'menu', name: n.toUpperCase(), vis: 'public' }); S.newMenu = ''; render();
+  }
+});
+addEventListener('keydown', function (e) { if (e.key === 'Escape' && S.loginOpen) { S.loginOpen = false; render(); } });
+render();
+</script>

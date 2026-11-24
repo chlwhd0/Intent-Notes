@@ -1,0 +1,349 @@
+<title>블로그 AI 기능 시안</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@500;700&display=swap">
+<style>
+/* 레이아웃 개념: 지금 블로그의 모양(크림 사이드바, 세리프 제목, 테라코타 포인트)을 그대로 쓰고,
+   AI가 만든 것만 짙은 청록 "AI 초안" 표시로 구분해요. 위쪽 탭으로 화면 3개를 오가요. */
+:root{--bg:#ffffff;--side:#f4f1ec;--ink:#222222;--sub:#5f5f5f;--mute:#767676;--line:#e9e5de;--accent:#b5573f;--accentsoft:#f6e7e2;--surface:#ffffff;--ai:#1f6f6a;--aisoft:#e1f1ef;--warn:#9a6a00;--warnsoft:#fbf0d4;--bad:#b3392a;--badsoft:#f8e1dd;--good:#2e7d4f;--goodsoft:#e1f1e7}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15130f;--side:#1d1a15;--ink:#ece7df;--sub:#b9b2a7;--mute:#948d82;--line:#2e2a23;--accent:#e08a6f;--accentsoft:#3a2620;--surface:#1b1813;--ai:#59c0b8;--aisoft:#17302e;--warn:#e3b64f;--warnsoft:#3a2f12;--bad:#ee8a7b;--badsoft:#3d1f1a;--good:#6cc08c;--goodsoft:#16301f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15130f;--side:#1d1a15;--ink:#ece7df;--sub:#b9b2a7;--mute:#948d82;--line:#2e2a23;--accent:#e08a6f;--accentsoft:#3a2620;--surface:#1b1813;--ai:#59c0b8;--aisoft:#17302e;--warn:#e3b64f;--warnsoft:#3a2f12;--bad:#ee8a7b;--badsoft:#3d1f1a;--good:#6cc08c;--goodsoft:#16301f;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif;line-height:1.65;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.banner{margin:0 -16px;padding:6px 16px;background:var(--ink);color:var(--bg);font-size:12px;text-align:center}
+.page{max-width:1240px;margin:0 auto;padding-block:28px 56px}
+h1{font-family:"Noto Serif KR",serif;font-size:clamp(24px,3.4vw,32px);margin:0 0 6px;line-height:1.25;text-wrap:balance}
+h2{font-family:"Noto Serif KR",serif;font-size:19px;margin:0}
+h3{font-size:14px;margin:0}
+.lead{color:var(--sub);margin:0;max-width:72ch;font-size:15px}
+.rule{display:flex;flex-wrap:wrap;gap:8px 18px;margin:16px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--side);font-size:13px;color:var(--sub)}
+.ai{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--ai);background:var(--aisoft);padding:1px 8px;border-radius:999px;white-space:nowrap}
+.ai::before{content:"AI";font-size:9px;border:1px solid currentColor;border-radius:3px;padding:0 3px;line-height:1.3}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 14px}
+.tabs a{display:flex;flex-direction:column;padding:8px 16px;border:1px solid var(--line);border-radius:10px;color:inherit;text-decoration:none;background:var(--surface);min-width:150px}
+.tabs a b{font-size:14px;font-weight:700}
+.tabs a span{font-size:12px;color:var(--mute)}
+.tabs a[aria-current="page"]{border-color:var(--accent);background:var(--accentsoft)}
+.tabs a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.view{display:none}.view.on{display:block}
+.frame{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg)}
+aside{flex:1 1 200px;max-width:210px;background:var(--side);padding:32px 22px;display:flex;flex-direction:column;gap:26px}
+.brand{font-family:"Cormorant Garamond","Noto Serif KR",serif;font-size:22px;font-weight:600}
+nav{display:flex;flex-direction:column;gap:12px;font-size:11px;letter-spacing:.14em;font-weight:500}
+nav span.on{color:var(--accent)}nav .sub{padding-left:12px;color:var(--sub)}nav .grp{color:var(--mute)}nav .sep{height:1px;background:var(--line)}
+.shell-foot{margin-top:auto;font-size:12px;color:var(--mute)}
+.main{flex:999 1 560px;min-width:0;padding:28px 28px 36px;display:flex;flex-direction:column;gap:20px}
+.cols{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:22px;align-items:start}
+.eyebrow{font-size:11px;letter-spacing:.16em;color:var(--accent);font-weight:700}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field label,.field .lab{font-size:12.5px;font-weight:700;color:var(--sub)}
+.field label.opt{font-weight:400;font-size:13.5px;color:var(--ink)}
+input[type=text],textarea,select{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+textarea{resize:vertical;line-height:1.7}
+button{font:inherit;cursor:pointer}
+.btn{font-size:13px;padding:6px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn:hover{border-color:var(--ink)}
+.btn.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.ai-b{background:var(--ai);color:#fff;border-color:var(--ai)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.card{border:1px solid var(--line);border-radius:12px;background:var(--surface);min-width:0}
+details.card>summary{list-style:none;display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer}
+details.card>summary::-webkit-details-marker{display:none}
+details.card>summary h3{flex:1}
+details.card>summary::after{content:"▾";color:var(--mute);font-size:12px;transition:transform .2s}
+details.card[open]>summary::after{transform:rotate(180deg)}
+.body-in{padding:0 16px 16px;display:flex;flex-direction:column;gap:12px}
+.sug{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);display:flex;flex-direction:column;gap:6px}
+.sug .k{font-size:11.5px;color:var(--mute);letter-spacing:.06em;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.sug p{margin:0;font-size:14px;overflow-wrap:anywhere}
+.sug .why{font-size:12px;color:var(--mute)}
+.acts{display:flex;flex-wrap:wrap;gap:6px}
+.opt{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.loading{padding:14px;color:var(--mute);font-size:13px;display:flex;align-items:center;gap:8px}
+.dots::after{content:"";animation:d 1s steps(4) infinite}@keyframes d{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+.badge{font-size:11.5px;padding:1px 9px;border-radius:999px;font-weight:700;white-space:nowrap}
+.b-bad{background:var(--badsoft);color:var(--bad)}.b-warn{background:var(--warnsoft);color:var(--warn)}.b-good{background:var(--goodsoft);color:var(--good)}.b-mute{background:var(--side);color:var(--mute)}
+.issue{border-left:3px solid var(--line);padding:8px 10px;border-radius:0 8px 8px 0;background:var(--bg);display:flex;flex-direction:column;gap:4px}
+.issue.bad{border-left-color:var(--bad)}.issue.warn{border-left-color:var(--warn)}.issue.ok{border-left-color:var(--good);opacity:.7}
+.issue q{font-size:13.5px;quotes:none}
+mark{background:var(--warnsoft);color:var(--ink);padding:0 2px;border-radius:3px}
+.issue.bad mark{background:var(--badsoft)}
+.issue .fix{font-size:12.5px;color:var(--sub)}
+.file{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13.5px}
+.file small{color:var(--mute)}
+.memo{margin-top:6px;padding:12px 14px;border:1px dashed var(--ai);background:var(--aisoft);border-radius:10px;font-size:13px}
+.memo b{font-weight:700}.memo ul{margin:6px 0 0;padding-left:18px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;z-index:20}
+.toast[hidden]{display:none}
+/* 회고 */
+.retro-list{display:flex;flex-direction:column;gap:8px}
+.retro-item{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface)}
+.retro-item p{margin:2px 0 0;font-size:13px;color:var(--sub)}
+.lock{font-size:11.5px;color:var(--warn);background:var(--warnsoft);padding:1px 8px;border-radius:999px;font-weight:700}
+.theme{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface);display:flex;flex-direction:column;gap:6px}
+.theme h3{font-family:"Noto Serif KR",serif;font-size:16px;font-weight:500}
+.theme .ev{font-size:12.5px;color:var(--mute)}
+.times{font-variant-numeric:tabular-nums;font-size:12px;color:var(--ai);font-weight:700}
+.draft{border:1px solid var(--ai);border-radius:12px;padding:16px 18px;background:var(--surface)}
+.draft h2{font-size:21px}
+.draft p{margin:8px 0 0;font-size:14.5px}
+/* 독자 화면 */
+.pub-main{flex:999 1 560px;min-width:0;padding:44px 36px 36px;display:flex;flex-direction:column;align-items:center}
+.post{width:100%;max-width:640px;display:flex;flex-direction:column;gap:16px}
+.post .tag{text-align:center;font-size:11px;letter-spacing:.16em;color:var(--sub)}
+.post h1{text-align:center;font-size:30px}
+.post .meta{text-align:right;font-size:12.5px;color:var(--mute)}
+.cover{height:150px;border-radius:6px;background:linear-gradient(135deg,var(--accentsoft),var(--side));border:1px solid var(--line);display:grid;place-items:center;color:var(--mute);font-size:12px}
+.sum{border:1px solid var(--ai);background:var(--aisoft);border-radius:12px;padding:14px 16px}
+.sum ul{margin:8px 0 0;padding-left:18px;display:grid;gap:4px;font-size:15px}
+.sum small{display:block;margin-top:10px;color:var(--mute);font-size:12px}
+.sum summary{cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none}
+.sum summary::-webkit-details-marker{display:none}
+.related{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.rel{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;background:var(--surface)}
+.rel .th{height:70px;border-radius:6px;border:1px solid var(--line)}
+.rel b{font-family:"Noto Serif KR",serif;font-weight:500;font-size:16px}
+.rel small{color:var(--mute);font-size:12px}
+.rel .why{font-size:12px;color:var(--ai)}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+@media(max-width:800px){aside{max-width:none;padding:16px;gap:12px}nav{flex-direction:row;flex-wrap:wrap;gap:8px 16px}nav .sep,nav .grp{display:none}nav .sub{padding-left:0}.main,.pub-main{padding:20px 16px 28px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="banner">블로그 AI 기능 시안 · 코드에 반영하지 않은 미리보기 · AI 결과와 숫자는 모두 예시</div>
+<div class="page">
+  <p class="eyebrow">INTENT NOTES · AI FEATURES</p>
+  <h1>AI로 자동화할 6가지, 이렇게 보여요</h1>
+  <p class="lead">관리자 글쓰기 화면에 붙는 3가지(①②④), 회고 정리(⑥), 독자가 보는 글 화면의 2가지(⑦⑧)를 클릭해 볼 수 있어요. 위 탭으로 화면을 바꿔요.</p>
+  <div class="rule"><span><span class="ai">AI 초안</span> 이 표시가 붙은 것은 AI가 만든 제안이에요.</span><span>저장하거나 공개되는 것은 <b>내가 [적용]을 누른 것만</b>이에요.</span><span>방문자 화면의 요약·추천은 <b>글을 저장할 때 한 번</b> 만들어 둬요.</span></div>
+
+  <nav class="tabs" aria-label="시안 화면" style="flex-direction:row;letter-spacing:0">
+    <a href="#write" data-v="write"><b>글쓰기 화면</b><span>① 글쓰기 보조 · ② 발행 전 점검 · ④ 첨부 요약</span></a>
+    <a href="#retro" data-v="retro"><b>회고 정리</b><span>⑥ 반복되는 배움 → 공개 글 초안</span></a>
+    <a href="#post" data-v="post"><b>독자가 보는 글</b><span>⑦ 3줄 요약 · ⑧ 관련 글 추천</span></a>
+  </nav>
+
+  <!-- ========== 화면 1: 글쓰기 (①②④) ========== -->
+  <section class="view" id="v-write" aria-label="글쓰기 화면 시안">
+    <div class="frame">
+      <aside><div class="brand">Intent Notes</div>
+        <nav aria-label="관리자 메뉴"><span>ALL POSTS</span><span>PORTFOLIO</span><span>STUDY</span><span class="sep"></span><span class="on">NEW POST</span><span class="grp">ADMIN</span><span class="sub">MANAGE MENUS</span><span class="sub">MANAGE POSTS</span></nav>
+        <div class="shell-foot">로그인: 관리자</div></aside>
+      <div class="main">
+        <div><p class="eyebrow">ADMIN</p><h2 style="font-size:26px">새 글 쓰기</h2></div>
+        <div class="cols">
+          <form id="wf" onsubmit="return false">
+            <div class="field"><label for="f-title">제목</label><input type="text" id="f-title" value="오늘 만든 보고서들"></div>
+            <div class="field"><label for="f-sum">한 줄 요약</label><input type="text" id="f-sum" placeholder="목록과 공유 카드에 보여요"></div>
+            <div class="field"><label for="f-desc">검색용 설명 (150자 안팎)</label><textarea id="f-desc" rows="2" placeholder="검색 결과와 공유 카드에 쓰여요"></textarea></div>
+            <div class="field"><label for="f-cat">메뉴</label><select id="f-cat"><option value="">선택하세요</option><option>PORTFOLIO</option><option>STUDY</option><option>RETROSPECTIVE (나만 보기)</option></select></div>
+            <div class="field"><label for="f-body">본문 <span style="font-weight:400;color:var(--mute)">(점검은 글을 고칠 때마다 다시 돌아요)</span></label>
+              <textarea id="f-body" rows="12"></textarea></div>
+            <div class="field"><span class="lab">첨부 파일</span>
+              <div class="file"><span>Intent-Notes-GA-Event-Taxonomy.pdf <small>891KB · PDF</small></span><button type="button" class="btn" data-sumfile="택소노미">요약 만들기 <span class="ai" style="margin-left:4px">AI</span></button></div>
+              <div class="file"><span>블로그_테스트보고서.pdf <small>4.4MB · PDF</small></span><button type="button" class="btn" data-sumfile="테스트보고서">요약 만들기 <span class="ai" style="margin-left:4px">AI</span></button></div>
+            </div>
+            <div class="acts"><button type="button" class="btn">임시 저장</button><button type="button" class="btn pri" id="publish">발행</button></div>
+            <p id="pubhint" style="font-size:12.5px;color:var(--mute);margin:8px 0 0"></p>
+          </form>
+
+          <div style="display:flex;flex-direction:column;gap:12px" aria-label="AI 도우미">
+            <details class="card" open id="d-assist"><summary><h3>① 글쓰기 보조</h3><span class="ai">AI 초안</span></summary>
+              <div class="body-in"><p style="margin:0;font-size:13px;color:var(--sub)">본문을 읽고 아래 칸을 채울 제안을 만들어요. 마음에 드는 것만 [적용]하세요.</p>
+                <div class="acts"><button type="button" class="btn ai-b" id="go-assist">본문으로 채우기</button></div>
+                <div id="assist-out" aria-live="polite"></div></div></details>
+
+            <details class="card" open id="d-check"><summary><h3>② 발행 전 점검</h3><span class="badge b-mute" id="check-badge">점검 중</span></summary>
+              <div class="body-in"><p style="margin:0;font-size:13px;color:var(--sub)">공개 전에 개인정보·내부 자료·자리표시자를 찾아요. <b>빨강</b>은 해결해야 발행되고, <b>노랑</b>은 확인했다고 표시하면 돼요.</p>
+                <div id="check-out" style="display:flex;flex-direction:column;gap:8px" aria-live="polite"></div></div></details>
+
+            <details class="card" open id="d-file"><summary><h3>④ 첨부 파일 요약</h3><span class="ai">AI 초안</span></summary>
+              <div class="body-in"><div id="file-out" aria-live="polite"><p style="margin:0;font-size:13px;color:var(--mute)">왼쪽 첨부 파일 옆의 [요약 만들기]를 눌러 보세요.</p></div></div></details>
+          </div>
+        </div>
+        <div class="memo"><b>만드는 방식(메모)</b><ul>
+          <li>①④: 서버 함수가 본문·파일을 AI에 보내고, 결과는 <b>제안</b>으로만 돌려줘요. 저장은 [적용]을 누를 때만 일어나요.</li>
+          <li>②: 자리표시자·전화번호·정확한 숫자는 <b>규칙</b>으로 바로 찾고, 실명 추정·내부 자료 같은 문맥이 필요한 것은 AI가 맡아요. 이 화면의 점검은 규칙 부분만 실제로 돌아가요.</li>
+          <li>회고(나만 보기) 글의 본문은 외부 AI로 보내지 않는 선택지를 둬요(⑥ 화면 참고).</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 화면 2: 회고 정리 (⑥) ========== -->
+  <section class="view" id="v-retro" aria-label="회고 정리 시안">
+    <div class="frame">
+      <aside><div class="brand">Intent Notes</div>
+        <nav aria-label="관리자 메뉴"><span>ALL POSTS</span><span>PORTFOLIO</span><span class="on">RETROSPECTIVE</span><span>STUDY</span><span class="sep"></span><span>NEW POST</span><span class="grp">ADMIN</span><span class="sub">MANAGE MENUS</span><span class="sub">MANAGE POSTS</span></nav>
+        <div class="shell-foot">로그인: 관리자</div></aside>
+      <div class="main">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+          <div><p class="eyebrow">ADMIN</p><h2 style="font-size:26px">회고 정리</h2></div>
+          <span class="lock">나만 보기 · 방문자에게 보이지 않아요</span></div>
+        <div class="cols">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <h3>1. 정리할 회고를 고르세요 <span style="font-weight:400;color:var(--mute)">(예시 글)</span></h3>
+            <div class="retro-list" id="retro-list">
+              <label class="retro-item"><input type="checkbox" checked><span><b>11월 1주 회고</b><p>이벤트를 먼저 만들고 나중에 보고서를 보려다 데이터가 비어 있었다. 등록이 늦으면 소급이 안 된다.</p></span></label>
+              <label class="retro-item"><input type="checkbox" checked><span><b>11월 2주 회고</b><p>범위를 줄여서 한 화면씩 배포하니 되돌리기가 쉬웠다. 한 번에 다 고치지 말 것.</p></span></label>
+              <label class="retro-item"><input type="checkbox" checked><span><b>11월 3주 회고</b><p>배포 후 확인 없이 끝냈다가 화면에 빠진 곳을 발견했다. 측정 설계는 처음에 정하자.</p></span></label>
+            </div>
+            <div class="field" style="margin-top:4px"><label class="opt"><input type="checkbox" id="r-nocopy" checked> 회고 원문 문장은 그대로 쓰지 않고 풀어서 쓰기</label>
+              <label class="opt"><input type="checkbox" id="r-local"> 원문을 외부 AI로 보내지 않고, 내가 고른 문장 요약만 보내기</label></div>
+            <div class="acts"><button type="button" class="btn ai-b" id="go-retro">반복되는 배움 찾기</button></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <h3>2. 찾은 배움 <span class="ai">AI 초안</span></h3>
+            <div id="retro-out" aria-live="polite"><p style="margin:0;font-size:13px;color:var(--mute)">회고를 고르고 [반복되는 배움 찾기]를 눌러 보세요.</p></div>
+          </div>
+        </div>
+        <div id="draft-wrap" aria-live="polite"></div>
+        <div class="memo"><b>만드는 방식(메모)</b><ul>
+          <li>회고는 <b>항상 나만 보기</b>예요. 만든 초안도 처음에는 나만 보기 글로 저장되고, 공개하려면 ②번 발행 전 점검을 거쳐요.</li>
+          <li>화면에 보이는 "근거"는 어느 회고에서 나왔는지 알려 줘서, 내가 원문과 대조해 볼 수 있게 해요.</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 화면 3: 독자 화면 (⑦⑧) ========== -->
+  <section class="view" id="v-post" aria-label="독자가 보는 글 시안">
+    <div class="frame">
+      <aside><div class="brand">Intent Notes</div>
+        <nav aria-label="주 메뉴"><span>ABOUT</span><span>PORTFOLIO</span><span class="on">STUDY</span></nav>
+        <div class="shell-foot">Google 로그인<br>관리자 로그인</div></aside>
+      <div class="pub-main">
+        <article class="post">
+          <div class="tag">STUDY</div>
+          <h1>오늘 만든 보고서들</h1>
+          <div class="meta">2026.11.17 · 조회 4 · <button type="button" class="btn" style="padding:2px 10px;font-size:12px">공유하기</button></div>
+          <div class="cover">대표 이미지 자리</div>
+
+          <details class="sum" open id="sum-box"><summary><span class="ai">AI 요약</span><b style="font-size:14px;flex:1">이 글을 세 줄로 먼저 읽기</b><span style="color:var(--mute);font-size:12px">접기/펼치기</span></summary>
+            <ul><li>이 글은 이번 주에 만든 문서 3종(화면 시안, 테스트 보고서, 이벤트 택소노미 보고서)을 모아 둔 글이에요.</li><li>세 문서 모두 PDF로 첨부되어 있어서 바로 내려받을 수 있어요.</li><li>가장 용량이 큰 것은 블로그 테스트 보고서(4.4MB)예요.</li></ul>
+            <small>글을 저장할 때 AI가 만든 요약이에요. 틀릴 수 있어서 본문을 기준으로 봐 주세요.</small></details>
+
+          <div style="font-size:16px;line-height:1.9"><p style="margin:0">1. 5종 화면들 시안<br>2. 테스트보고서<br>3. 이벤트 텍소노미 보고서</p></div>
+          <div class="file"><span>Intent-Notes-GA-Event-Taxonomy.pdf <small>891KB · PDF</small></span></div>
+
+          <section aria-labelledby="rel-h" style="margin-top:14px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><h2 id="rel-h" style="font-size:18px">이어서 읽을 글</h2><span class="ai">AI 추천</span></div>
+            <div class="related">
+              <a class="rel" href="#post" style="color:inherit;text-decoration:none"><div class="th" style="background:linear-gradient(135deg,var(--side),var(--accentsoft))"></div><small>STUDY</small><b>호랑이</b><span class="why">같은 STUDY 메뉴 · 쉬운 설명으로 정리한 글</span></a>
+              <a class="rel" href="#post" style="color:inherit;text-decoration:none"><div class="th" style="background:linear-gradient(135deg,var(--aisoft),var(--side))"></div><small>PORTFOLIO</small><b>고양이</b><span class="why">자료를 모아 보여 주는 포트폴리오 글</span></a>
+            </div>
+            <p style="font-size:12px;color:var(--mute);margin:8px 0 0">추천은 글이 저장될 때 내용이 비슷한 순서로 미리 계산해 둬요. 같은 메뉴 안의 이전·다음 글은 지금처럼 따로 있어요.</p>
+          </section>
+        </article>
+      </div>
+    </div>
+    <div class="memo" style="margin-top:14px"><b>만드는 방식(메모)</b><ul>
+      <li>⑦ 요약: 글 저장 때 서버가 한 번 만들어 글 데이터에 함께 저장해요. 방문자가 열 때는 AI를 부르지 않아서 비용이 들지 않고, 검색에도 잡혀요.</li>
+      <li>⑦ 공개 전 확인: 관리자가 글쓰기 화면에서 요약을 보고 [적용]해야 방문자에게 보여요(틀린 요약이 나가지 않도록).</li>
+      <li>⑧ 추천: 지금은 글이 3개라 추천이 2개뿐이고 이유도 단순해요. 글이 10개 이상 쌓이면 정확해져요. 나만 보기 글은 추천에서 빠져요.</li></ul></div>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+var $=function(s){return document.querySelector(s)};
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function toast(t){var el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){el.hidden=true},2200)}
+
+/* ---------- 화면 전환(주소의 # 부분) ---------- */
+var VIEWS=['write','retro','post'];
+function show(){var h=(location.hash||'#write').slice(1);if(VIEWS.indexOf(h)<0)h='write';
+  VIEWS.forEach(function(v){$('#v-'+v).classList.toggle('on',v===h)});
+  document.querySelectorAll('.tabs a').forEach(function(a){if(a.getAttribute('data-v')===h)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')})}
+addEventListener('hashchange',show);
+
+/* ---------- 글쓰기 화면 ---------- */
+var BODY="이번 주에 GA4 이벤트 택소노미 보고서와 화면 시안 5종, 블로그 테스트 보고서를 만들었어요.\n\n테스트에는 김민수 매니저님이 참여해 주셨고, A사 내부 자료를 참고한 부분은 따로 표시했어요.\n\n지난달 방문자는 3,482명이었고 완독률은 41%였어요.\n\n담당: [이름] / 문의: 010-0000-0000\n\n[샘플] 이 문단은 지우세요.";
+$('#f-body').value=BODY;
+var acked={};
+var RULES=[
+ {id:'ph',lv:'bad',re:/\[(이름|샘플|이메일 주소)[^\]]*\]/g,label:'자리표시자가 남아 있어요',fix:'실제 내용으로 바꾸거나 지워 주세요.'},
+ {id:'tel',lv:'bad',re:/01\d-\d{3,4}-\d{4}/g,label:'전화번호가 들어 있어요',fix:'공개 글에는 연락처를 넣지 말고 댓글로 문의받는 방식을 써요.'},
+ {id:'name',lv:'warn',re:/[가-힣]{2,4}\s?(매니저|팀장|대리|과장|님)/g,label:'실명으로 보이는 표현이에요',fix:'동의를 받았는지 확인하거나 "동료 PM"처럼 바꿔요.',ai:true},
+ {id:'int',lv:'warn',re:/[A-Za-z가-힣]{1,6}사\s?내부\s?자료|대외비|기밀/g,label:'회사 내부 자료로 보여요',fix:'공개 가능한 자료인지 확인하고, 아니면 일반적인 설명으로 바꿔요.',ai:true},
+ {id:'num',lv:'warn',re:/\d{1,3}(,\d{3})+\s*(명|원|회)/g,label:'정확한 수치예요',fix:'필요하면 "수천 명"이나 비율로 바꿔요.'}
+];
+function runCheck(){
+  var text=$('#f-body').value+'\n'+$('#f-sum').value+'\n'+$('#f-desc').value;
+  var hits=[];
+  RULES.forEach(function(r){var m,re=new RegExp(r.re.source,'g');while((m=re.exec(text))){hits.push({id:r.id,lv:r.lv,t:m[0],label:r.label,fix:r.fix,ai:r.ai,key:r.id+':'+m[0]})}});
+  var bad=hits.filter(function(h){return h.lv==='bad'}),warn=hits.filter(function(h){return h.lv==='warn'});
+  var pend=warn.filter(function(h){return !acked[h.key]});
+  var html=hits.map(function(h){
+    var done=h.lv==='warn'&&acked[h.key];
+    return '<div class="issue '+(done?'ok':h.lv)+'"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="badge '+(h.lv==='bad'?'b-bad':'b-warn')+'">'+(h.lv==='bad'?'해결 필요':'확인 필요')+'</span><b style="font-size:13px">'+h.label+'</b>'+(h.ai?'<span class="ai">AI</span>':'')+'</div><q><mark>'+esc(h.t)+'</mark></q><span class="fix">'+h.fix+'</span>'+
+      (h.lv==='warn'?'<label class="opt" style="font-size:13px"><input type="checkbox" data-ack="'+esc(h.key)+'"'+(done?' checked':'')+'> 확인했어요</label>':'')+'</div>';
+  }).join('');
+  $('#check-out').innerHTML=html||'<div class="issue ok"><b style="font-size:13px">찾은 문제가 없어요. 발행해도 좋아요.</b></div>';
+  var b=$('#check-badge');
+  if(bad.length){b.className='badge b-bad';b.textContent='해결 필요 '+bad.length+'건'}
+  else if(pend.length){b.className='badge b-warn';b.textContent='확인 필요 '+pend.length+'건'}
+  else{b.className='badge b-good';b.textContent='통과'}
+  var p=$('#publish'),ok=!bad.length&&!pend.length;
+  p.disabled=!ok;
+  $('#pubhint').textContent=ok?'점검을 모두 통과했어요.':(bad.length?'해결이 필요한 '+bad.length+'건을 고치면 발행할 수 있어요.':'확인이 필요한 '+pend.length+'건에 "확인했어요"를 눌러 주세요.');
+}
+['#f-body','#f-sum','#f-desc'].forEach(function(s){$(s).addEventListener('input',runCheck)});
+document.addEventListener('change',function(e){var k=e.target.getAttribute&&e.target.getAttribute('data-ack');if(k!==null&&k!==undefined&&k!==''){acked[k]=e.target.checked;runCheck()}});
+$('#publish').addEventListener('click',function(){toast('발행했어요. (시안이라 실제로 올라가지는 않아요)')});
+runCheck();
+
+/* ① 글쓰기 보조 (예시 결과) */
+var SUG={sum:'이번 주에 만든 화면 시안, 테스트 보고서, 이벤트 택소노미 보고서를 한곳에 모았어요.',
+ desc:'GA4 이벤트 택소노미 보고서, 화면 시안 5종, 블로그 테스트 보고서를 이번 주에 만든 과정과 첨부 파일로 정리한 스터디 노트입니다.',
+ titles:['오늘 만든 보고서들','이번 주 산출물 3종: 시안, 테스트, 택소노미','GA 택소노미부터 테스트까지, 이번 주 기록']};
+function sug(k,label,txt,extra,btn,id){return '<div class="sug"><div class="k"><span>'+label+'</span><span class="ai">AI 초안</span></div><p>'+esc(txt)+'</p>'+(extra?'<span class="why">'+extra+'</span>':'')+'<div class="acts">'+btn+'</div></div>'}
+$('#go-assist').addEventListener('click',function(){
+  var o=$('#assist-out');o.innerHTML='<div class="loading">본문을 읽고 있어요<span class="dots"></span></div>';
+  setTimeout(function(){
+    o.innerHTML='<div style="display:flex;flex-direction:column;gap:8px">'+
+     sug('sum','한 줄 요약',SUG.sum,'',' <button type="button" class="btn" data-apply="sum">적용</button>')+
+     sug('desc','검색용 설명',SUG.desc,SUG.desc.length+'자',' <button type="button" class="btn" data-apply="desc">적용</button>')+
+     '<div class="sug"><div class="k"><span>제목 후보</span><span class="ai">AI 초안</span></div>'+SUG.titles.map(function(t,i){return '<div class="opt" style="justify-content:space-between;gap:10px"><span style="min-width:0;overflow-wrap:anywhere">'+esc(t)+'</span><button type="button" class="btn" data-title="'+i+'">적용</button></div>'}).join('')+'</div>'+
+     '<div class="acts"><button type="button" class="btn" data-apply="all">모두 적용</button></div></div>';
+  },700);
+});
+function apply(k){
+  if(k==='sum')$('#f-sum').value=SUG.sum;
+  if(k==='desc')$('#f-desc').value=SUG.desc;
+}
+document.addEventListener('click',function(e){
+  var a=e.target.closest('[data-apply]');
+  if(a){var k=a.getAttribute('data-apply');if(k==='all'){['sum','desc'].forEach(apply);$('#f-title').value=SUG.titles[0]}else apply(k);runCheck();toast('적용했어요. 왼쪽 칸에서 고칠 수 있어요.');return}
+  var t=e.target.closest('[data-title]');if(t){$('#f-title').value=SUG.titles[+t.getAttribute('data-title')];toast('제목을 바꿨어요.');return}
+  var f=e.target.closest('[data-sumfile]');if(f){fileSum(f.getAttribute('data-sumfile'));return}
+  if(e.target.id==='insert-sum'){var s=$('#f-body');s.value=s.value.replace(/\s*$/,'')+'\n\n[첨부 요약]\n- '+FS.bullets.join('\n- ');runCheck();toast('본문 아래에 넣었어요.');return}
+});
+
+/* ④ 첨부 파일 요약 (예시 결과) */
+var FS={bullets:['점검 대상은 관리자 글쓰기, 이미지 업로드, 댓글, 첨부 파일이에요.','발견한 문제와 고친 내용이 표로 정리되어 있어요.','로그인이 필요한 화면은 직접 확인하지 못했다고 적혀 있어요.']};
+function fileSum(name){
+  var o=$('#file-out');o.innerHTML='<div class="loading">'+esc(name)+' 파일을 읽고 있어요<span class="dots"></span></div>';
+  setTimeout(function(){o.innerHTML='<div class="sug"><div class="k"><span>'+esc(name)+' 핵심 3줄</span><span class="ai">AI 초안</span></div><ul style="margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px">'+FS.bullets.map(function(b){return '<li>'+esc(b)+'</li>'}).join('')+'</ul><span class="why">PDF 본문에서 뽑은 예시 결과예요. 내용이 맞는지 확인하고 넣으세요.</span><div class="acts"><button type="button" class="btn" id="insert-sum">본문 아래에 넣기</button></div></div>'},800);
+}
+
+/* ---------- 회고 정리 (⑥) ---------- */
+var THEMES=[
+ {t:'측정은 처음에 정해야 한다',n:2,ev:'11월 1주 · 11월 3주',tx:'나중에 붙인 측정은 소급되지 않아서 데이터가 비어요. 무엇을 볼지 먼저 정하고 시작해요.'},
+ {t:'작게 나눠 배포하면 되돌리기 쉽다',n:1,ev:'11월 2주',tx:'한 번에 다 고치기보다 한 화면씩 배포하면 문제가 생겨도 원인과 되돌릴 곳이 분명해요.'},
+ {t:'끝났다고 말하기 전에 실제 화면을 본다',n:1,ev:'11월 3주',tx:'배포 명령이 성공해도 화면에서 빠진 곳이 있을 수 있어요. 확인까지가 작업이에요.'}];
+$('#go-retro').addEventListener('click',function(){
+  var o=$('#retro-out');o.innerHTML='<div class="loading">회고 3편을 읽고 있어요<span class="dots"></span></div>';$('#draft-wrap').innerHTML='';
+  setTimeout(function(){
+    o.innerHTML='<div style="display:flex;flex-direction:column;gap:10px">'+THEMES.map(function(x){return '<div class="theme"><div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><h3>'+esc(x.t)+'</h3><span class="times">'+x.n+'편에서</span></div><p style="margin:0;font-size:14px">'+esc(x.tx)+'</p><span class="ev">근거: '+x.ev+'</span><label class="opt" style="font-size:13px"><input type="checkbox" checked data-theme-pick> 초안에 넣기</label></div>'}).join('')+'<div class="acts"><button type="button" class="btn ai-b" id="go-draft">공개 글 초안 만들기</button></div></div>';
+  },900);
+});
+document.addEventListener('click',function(e){
+  if(e.target.id==='go-draft'){
+    var picks=[].slice.call(document.querySelectorAll('[data-theme-pick]')).map(function(c,i){return c.checked?THEMES[i]:null}).filter(Boolean);
+    if(!picks.length){toast('초안에 넣을 배움을 하나 이상 골라 주세요.');return}
+    var w=$('#draft-wrap');w.innerHTML='<div class="loading">초안을 쓰고 있어요<span class="dots"></span></div>';
+    setTimeout(function(){w.innerHTML='<div class="draft"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px"><span class="ai">AI 초안</span><span class="lock">저장하면 먼저 나만 보기로 들어가요</span></div><h2>한 달 동안 반복해서 배운 것들</h2>'+picks.map(function(x){return '<p><b>'+esc(x.t)+'.</b> '+esc(x.tx)+'</p>'}).join('')+'<div class="acts" style="margin-top:14px"><button type="button" class="btn pri" id="to-write">글쓰기로 보내기</button><button type="button" class="btn">다시 쓰기</button></div><p style="font-size:12.5px;color:var(--mute)">글쓰기로 보내면 ② 발행 전 점검이 먼저 돌아가요. 회고 원문 문장은 그대로 들어가지 않았어요.</p></div>'},900);
+  }
+  if(e.target.id==='to-write'){location.hash='#write';toast('글쓰기 화면으로 이동했어요. 발행 전 점검을 확인하세요.')}
+});
+show();
+</script>
