@@ -326,3 +326,10 @@ footer a{text-decoration:underline;text-underline-offset:2px}
 .tile.nothumb,a.tile.has.nothumb:hover{color:var(--ink);background:transparent;border:1px solid var(--line)}
 .tile.has.nothumb:before{display:none}
 .tile.has.nothumb small,.tile.has.nothumb span{text-shadow:none}
+/* 글쓰기: AI 도우미를 오른쪽 여백에 두고, 스크롤해도 따라오게 해요(좁은 화면에서는 아래로 내려가요) */
+body[data-page="write"] main{max-width:1500px}
+.wlayout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:32px;align-items:start}
+.wmain{display:flex;flex-direction:column;gap:28px;min-width:0}
+.wlayout .aip{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto}
+@media(max-width:1180px){.wlayout{grid-template-columns:minmax(0,1fr)}.wlayout .aip{position:static;max-height:none}}
+.wlayout .arow{grid-template-columns:1fr auto}.wlayout .arow b{grid-column:1/-1}

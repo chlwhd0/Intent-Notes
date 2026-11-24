@@ -351,11 +351,12 @@ function writePage() {
     ? toolbarHtml() + `<div id="wed" class="ed" contenteditable="true" role="textbox" aria-multiline="true" aria-label="본문" data-ph="본문을 입력하세요. 글자를 선택한 뒤 위의 도구로 서식을 바꿔요.">${clean}</div>`
     : `<div class="preview">${textOf(clean) || /<img /.test(clean) ? clean : '<p style="color:var(--mute)">미리 볼 내용이 없어요.</p>'}</div>`;
   const editing = !!existing;
-  show(`<div class="head"><h1 class="ptitle">${editing ? '글 수정' : '새 글 쓰기'}</h1><div class="btns"><button class="btn" type="button" data-a="cancel">취소</button><button class="btn pri" type="button" data-a="save" id="save">${editing ? '저장하기' : '발행하기'}</button></div></div>${notice()}` +
+  const aiPanel = panelHtml(d, { ...ai, pub: d.vis === 'public' && !isPrivCat(d.cat) }, checkHtml(liveHits(d), ai.acks, ai.aiNote));
+  show(`<div class="wlayout"><div class="wmain"><div class="head"><h1 class="ptitle">${editing ? '글 수정' : '새 글 쓰기'}</h1><div class="btns"><button class="btn" type="button" data-a="cancel">취소</button><button class="btn pri" type="button" data-a="save" id="save">${editing ? '저장하기' : '발행하기'}</button></div></div>${notice()}` +
     `<label><span class="sr">제목</span><input class="title" id="wtitle" type="text" maxlength="120" placeholder="제목을 입력하세요" value="${esc(d.title)}"></label>` +
     `<div class="meta"><label class="field" for="wcat">카테고리<select id="wcat">${opts}</select></label>${visHtml}<label class="field" for="wdate">날짜<input id="wdate" type="date" value="${esc(d.date)}"></label><label class="field" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록과 글 위쪽에 보일 한두 문장" value="${esc(d.sum)}"></label><label class="field" for="wdesc">검색용 설명<input id="wdesc" type="text" maxlength="300" placeholder="검색 결과와 공유 미리보기에 보일 설명(비우면 요약을 써요)" value="${esc(d.desc)}"></label></div>` +
-    thumbPicker(d) + filePicker(d) + panelHtml(d, { ...ai, pub: d.vis === 'public' && !isPrivCat(d.cat) }, checkHtml(liveHits(d), ai.acks, ai.aiNote)) +
-    `<div class="tabs" role="tablist" aria-label="편집 방식"><button role="tab" type="button" data-a="tab" data-v="write" aria-selected="${wtab === 'write'}">작성</button><button role="tab" type="button" data-a="tab" data-v="preview" aria-selected="${wtab === 'preview'}">미리보기</button></div>` + edit);
+    thumbPicker(d) + filePicker(d) +
+    `<div class="tabs" role="tablist" aria-label="편집 방식"><button role="tab" type="button" data-a="tab" data-v="write" aria-selected="${wtab === 'write'}">작성</button><button role="tab" type="button" data-a="tab" data-v="preview" aria-selected="${wtab === 'preview'}">미리보기</button></div>` + edit + `</div>${aiPanel}</div>`);
 }
 
 // ---- 글 서식 도구 ----
@@ -512,7 +513,7 @@ function retroPage() {
     ? `<div class="abox"><p class="hint">AI가 찾은 반복되는 배움이에요. 초안에 쓸 것만 고르세요. “몇 편에서” 나왔는지와 근거 글을 함께 보여 드려요.</p><ul class="ahits">${rt.themes.map((t, i) => `<li class="warn"><label class="ackl"><input type="checkbox" data-rtp="${i}"${rt.pick.has(i) ? ' checked' : ''}> <b>${esc(t.name)}</b> <span class="aib">AI</span> <small>${t.titles.length}편에서</small></label><div>${t.titles.map((x) => { const q = retroPosts().find((p) => p.title === x); return q ? `<a href="view.html?id=${encodeURIComponent(q.id)}">${esc(x)}</a>` : esc(x); }).join(' · ')}</div></li>`).join('')}</ul><button type="button" class="btn sm pri" data-a="rtdraft"${busy ? ' disabled' : ''}>${busy === 'rtdraft' ? '쓰는 중…' : '고른 배움으로 공개 글 초안 만들기'}</button></div>`
     : '';
   const dr = rt.draft
-    ? `<div class="abox"><p class="hint"><span class="aib">AI 초안</span> 고쳐 쓴 뒤 글쓰기로 보내세요. 글쓰기에서는 나만 보기로 시작하고, 공개로 바꿀 때 발행 전 점검이 먼저 돌아요.</p><label class="field" for="rtt">제목<input id="rtt" type="text" maxlength="120" value="${esc(rt.title)}"></label><label class="field" for="rts">한 줄 요약<input id="rts" type="text" maxlength="300" value="${esc(rt.summary)}"></label><label class="field" for="rtdesc">검색용 설명<input id="rtdesc" type="text" maxlength="300" value="${esc(rt.description)}"></label><label class="field" for="rtd">본문</label><textarea id="rtd" style="min-height:240px">${esc(rt.draft)}</textarea><button type="button" class="btn sm pri" data-a="rtsend">글쓰기로 보내기</button></div>`
+    ? `<div class="abox"><p class="hint"><span class="aib">AI 초안</span> 고쳐 쓴 뒤 글쓰기로 보내세요. 글쓰기에서는 STUDY 메뉴·공개로 시작하고, 발행할 때 발행 전 점검이 먼저 돌아요.</p><label class="field" for="rtt">제목<input id="rtt" type="text" maxlength="120" value="${esc(rt.title)}"></label><label class="field" for="rts">한 줄 요약<input id="rts" type="text" maxlength="300" value="${esc(rt.summary)}"></label><label class="field" for="rtdesc">검색용 설명<input id="rtdesc" type="text" maxlength="300" value="${esc(rt.description)}"></label><label class="field" for="rtd">본문</label><textarea id="rtd" style="min-height:240px">${esc(rt.draft)}</textarea><button type="button" class="btn sm pri" data-a="rtsend">글쓰기로 보내기</button></div>`
     : '';
   show(`<h1 class="ptitle">회고 정리 <span class="aib">AI</span></h1>${notice()}<p class="hint">나만 보기 회고를 읽고 반복되는 배움을 찾아 공개 글 초안으로 만들어 줘요. AI는 제안만 하고, 글은 내가 확인하고 고쳐서 발행해요.</p>` +
     `<div class="abox"><h2 class="rsec">1. 정리할 회고 고르기 <small>(나만 보기 글 ${list.length}개)</small></h2><ul class="flist rlist">${rows}</ul><h2 class="rsec">2. AI에 보내는 방식</h2><label class="ackl"><input type="checkbox" id="rtquote"${rt.noQuote ? ' checked' : ''}> 회고 원문 문장을 그대로 쓰지 않기</label><label class="ackl"><input type="checkbox" id="rtonly"${rt.only ? ' checked' : ''}> 원문 대신 내가 쓴 요약만 AI로 보내기</label><p class="hint">${rt.only ? '고른 글마다 보낼 요약을 적어요. 원문은 서버로도 가지 않아요.' : '켜지 않으면 고른 회고의 본문 글자가 AI 서비스로 보내져요. 방문자 정보는 보내지 않아요.'}</p><button type="button" class="btn pri" data-a="rtthemes"${busy ? ' disabled' : ''}>${busy === 'rtthemes' ? '찾는 중…' : '반복되는 배움 찾기'}</button><p class="hint" role="status">${esc(rt.msg)}</p></div>${th}${dr}`);
@@ -537,7 +538,7 @@ main && main.addEventListener('click', (e) => {
     const t = $('rtd') ? $('rtd').value : rt.draft;
     try { sessionStorage.setItem('intentRetro', JSON.stringify({ title: rt.title, summary: rt.summary, description: rt.description, body: t })); } catch (x) { /* 저장소를 못 쓰면 가져가지 못해요 */ }
     logAi('apply', 'retro');
-    const pub = cats.find((c) => !c.priv);
+    const pub = cats.find((c) => c.slug === 'study' && !c.priv) || cats.find((c) => !c.priv); // 기본은 STUDY 메뉴예요(없으면 첫 공개 메뉴)
     location.href = 'write.html?retro=1' + (pub ? '&cat=' + encodeURIComponent(pub.slug) : '');
   }
 });
@@ -725,7 +726,7 @@ if (['posts', 'menus', 'write', 'list', 'view', 'retro', 'ai'].includes(page)) {
       else {
         draft = existing
           ? { title: existing.title, cat: existing.category, vis: existing.visibility, sum: existing.summary || '', date: existing.date, html: bodyHtml(existing), thumb: Number.isInteger(existing.thumb) ? existing.thumb : 0, img: existing.img || '', files: cleanFiles(existing.files), desc: existing.description || '', ai: aiOf(existing) }
-          : (() => { const rI = retroInit(); return { title: rI.title, cat: (params.get('cat') && catOf(params.get('cat')) ? params.get('cat') : cats.length ? cats[0].slug : ''), vis: params.get('retro') ? 'private' : 'public', sum: rI.sum, date: today(), html: rI.html, thumb: Math.floor(Math.random() * 6), img: '', files: [], desc: rI.desc, ai: { lines: [], on: false, for: '' } }; })();
+          : (() => { const rI = retroInit(); return { title: rI.title, cat: (params.get('cat') && catOf(params.get('cat')) ? params.get('cat') : cats.length ? cats[0].slug : ''), vis: 'public', sum: rI.sum, date: today(), html: rI.html, thumb: Math.floor(Math.random() * 6), img: '', files: [], desc: rI.desc, ai: { lines: [], on: false, for: '' } }; })();
         writePage();
       }
     }
