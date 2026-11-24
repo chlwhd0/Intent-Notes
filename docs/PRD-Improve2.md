@@ -55,7 +55,7 @@
 | 작성자 | 블로그 운영자 / 기획 (작성 시 실제 이름으로 교체) |
 | 대상 서비스 | Intent Notes (https://my-blog-test-b439a.web.app) |
 | 문서 상태 | 승인 대기 (11장 승인 표 참고) |
-| 관련 문서 | **[블로그 기획 PRD v0.3](PRD-Blog.md)**([PDF](PRD-Blog.pdf)) · **[1차 개선 PRD v1.1](PRD-Improve1.md)**(데이터 분석 개선) · 시안 `prototypes/ai-features-mockups.html`(클릭해 볼 수 있는 미리보기, 코드 미반영) · 의사결정 문서 `docs/decisions.md` · 개발 지침 `CLAUDE.md` |
+| 관련 문서 | **[블로그 기획 PRD v0.3](PRD-Blog.md)** · **[1차 개선 PRD v1.1](PRD-Improve1.md)**(데이터 분석 개선) · 시안 `prototypes/ai-features-mockups.html`(클릭해 볼 수 있는 미리보기, 코드 미반영) · 의사결정 문서 `docs/decisions.md` · 개발 지침 `CLAUDE.md` |
 
 ---
 
