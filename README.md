@@ -30,10 +30,12 @@ node build.js --with-private
 ## 만들고 확인하기
 
 ```
-node build.js
+node build.js --ssr
 ```
 
-`dist/` 폴더가 만들어집니다. 그 안의 `index.html`을 열면 바로 볼 수 있어요.
+배포용 빌드예요. `dist/`에는 이미지·스타일·스크립트만 만들어지고, 서버에서 쓸 꾸러미는 `functions/site/`에 만들어져요. 페이지(HTML)는 사이트가 열릴 때마다 서버 함수(`site`)가 최신 글로 그리기 때문에, `dist/`의 `index.html`로는 볼 수 없어요.
+
+내 컴퓨터에서 페이지를 파일로 미리 보고 싶을 때만 옵션 없이 `node build.js`를 써요. `dist/index.html`이 만들어지지만 이 결과는 **배포하지 마세요**(정적 파일이 서버가 그린 최신 페이지를 가려서 글이 바로 반영되지 않아요). 미리 본 뒤에는 `node build.js --ssr`로 `dist/`를 다시 만들어 두세요.
 
 ## 이름과 문구 바꾸기
 
@@ -41,7 +43,7 @@ node build.js
 
 ## 인터넷에 올리기
 
-`dist/` 폴더를 Vercel, Netlify, GitHub Pages 같은 곳에 올리면 됩니다.
+`node build.js --ssr`로 빌드한 뒤 파이어베이스에 배포해요. 배포 명령과 확인할 것은 [CLAUDE.md의 자주 쓰는 명령](CLAUDE.md#자주-쓰는-명령)에 있어요. `dist/`만 Vercel, Netlify 같은 곳에 올리면 안 돼요. 페이지는 서버 함수가 그리기 때문이에요.
 
 ## 검색 노출(SEO) 설정
 
