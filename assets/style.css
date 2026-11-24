@@ -312,3 +312,10 @@ footer a{text-decoration:underline;text-underline-offset:2px}
 .atab caption{text-align:left;font-weight:600;padding:4px 0}
 .atab th,.atab td{border:1px solid var(--line);padding:8px 10px;text-align:left}
 .atab th{background:#f6f3ee;font-weight:500}
+/* 회고 정리: 글 목록과 옵션을 구분 */
+.rsec{margin:0;font-size:14px;font-weight:700;padding-bottom:6px;border-bottom:1.5px solid var(--ink)}
+.rsec small{font-weight:400;color:var(--mute);font-size:12px}
+.rlist{border:1px solid var(--line);background:#faf8f5;padding:6px 12px}
+.rpost{padding:8px 0;border-bottom:1px solid var(--line)}
+.rpost:last-child{border-bottom:0}
+.rpost a{font-weight:600}
