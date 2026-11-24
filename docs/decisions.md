@@ -252,3 +252,6 @@
 
 지운 파일은 깃 기록에서 다시 꺼낼 수 있어요. 2026.11.24부터 새 파일과 문서의 이름은 짧은 영어로 지어요(`CLAUDE.md` 작업 규칙).
 
+## 2026-11-24 (시안 폴더 합치기)
+
+- **`prototype/`(처음 체험판)을 `prototypes/`(시안 모음)로 합침.** 이름이 비슷해서 헷갈렸어요. `prototype/intent-notes-trial.html`은 `prototypes/trial.html`로, `prototype/README.md`는 `prototypes/trial-readme.md`로 옮겼어요. 내용은 그대로(안내 글 속 파일 이름만 새 이름으로 고침)이고, 옛 `prototype/` 폴더는 없앴어요.
