@@ -88,7 +88,7 @@
 
 ## 2026-11-17 (파이어베이스 연결)
 
-- **파이어베이스 프로젝트는 `my-blog-test`(프로젝트 ID `my-blog-test-b439a`)로 정함.** 구글 계정 `hitodays@gmail.com`으로 로그인해 연결했어요. 같은 컴퓨터의 다른 프로젝트(petfriends 등)와 섞이지 않게, 이 폴더의 `.firebaserc`에 기본 프로젝트를 이 ID로 고정했어요.
+- **파이어베이스 프로젝트는 `my-blog-test`(프로젝트 ID `my-blog-test-b439a`)로 정함.** 관리자 구글 계정으로 로그인해 연결했어요. 같은 컴퓨터의 다른 프로젝트(petfriends 등)와 섞이지 않게, 이 폴더의 `.firebaserc`에 기본 프로젝트를 이 ID로 고정했어요.
 - **웹 앱 `intent-notes-web`을 프로젝트에 등록함.** (앱 ID `1:682043915187:web:ec9491e4883ce0440369c6`)
 - **호스팅 설정 파일(`firebase.json`)을 만들되 아직 배포하지 않음.** 올리는 폴더는 `dist`예요. `cleanUrls`는 `site.config.json`과 같은 값(false)으로 맞췄어요.
 - **요금제는 무료(Spark)인 상태.** 로그인(Authentication), 데이터베이스(Firestore), 호스팅은 무료로 쓸 수 있어요. 썸네일 이미지를 올리는 파일 저장소(Storage)와 서버 함수(Functions)는 유료(Blaze)로 바꿔야 쓸 수 있을 수 있어서, 도입 전에 요금제를 정해요.
