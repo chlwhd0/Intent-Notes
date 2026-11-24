@@ -677,7 +677,7 @@ ${headHtml({ title: `관리자 로그인 · ${cfg.name}`, root: '../', seo: { no
     ['posts', 'MANAGE POSTS'],
     ['menus', 'MANAGE MENUS'],
     ['write', 'NEW POST'],
-    ['retro', 'AI RETRO'],
+    ['retro', 'RETRO SUMMARY'],
     ['ai', 'AI USAGE'],
     ['list', '글 목록'],
     ['view', '글 보기'],

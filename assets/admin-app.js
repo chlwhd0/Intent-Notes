@@ -121,7 +121,7 @@ function renderSidebar(active) {
   $('nav').innerHTML =
     a('list.html', 'ALL POSTS', 'all') + cats.map((c) => a('list.html?cat=' + encodeURIComponent(c.slug), esc(c.name), 'cat:' + c.slug)).join('') +
     '<span class="sep" role="presentation"></span>' + a('write.html', 'NEW POST', 'write') +
-    '<span class="grp">ADMIN</span>' + a('menus.html', 'MANAGE MENUS', 'menus', 'subl') + a('posts.html', 'MANAGE POSTS', 'posts', 'subl') + a('retro.html', 'AI RETRO', 'retro', 'subl') + a('ai.html', 'AI USAGE', 'ai', 'subl');
+    '<span class="grp">ADMIN</span>' + a('menus.html', 'MANAGE MENUS', 'menus', 'subl') + a('posts.html', 'MANAGE POSTS', 'posts', 'subl') + a('retro.html', 'RETRO SUMMARY', 'retro', 'subl') + a('ai.html', 'AI USAGE', 'ai', 'subl');
   $('bottom').innerHTML = `<span class="who">로그인: 관리자</span><a href="${root}index.html">블로그 보기</a><button type="button" class="linkbtn" id="logout">로그아웃</button>`;
   $('logout').addEventListener('click', async () => { await signOut(auth); setHint(false); location.href = root + 'index.html'; });
 }
@@ -492,7 +492,7 @@ async function savePost() {
   } catch (e) { say(dbMsg(e), true); writePage(); }
 }
 
-// ---------- 회고 정리 (AI RETRO) ----------
+// ---------- 회고 정리 (RETRO SUMMARY) ----------
 // 나만 보기 메뉴(예: 회고)의 글을 골라 반복되는 배움을 찾고, 공개 글 초안으로 만들어 글쓰기로 보내요.
 // 기본은 회고 본문을 AI로 보내요. "요약만 보내기"를 켜면 원문 대신 내가 쓴 한두 줄 요약만 보내요.
 const rt = { sel: new Set(), only: false, sums: {}, noQuote: true, themes: null, pick: new Set(), draft: '', busy: '', msg: '' };
