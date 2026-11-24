@@ -43,14 +43,18 @@ const ACTIONS = {
   },
   retro: {
     need: (i) => arr(i.themes).length > 0,
-    prompt: (i) => `다음 주제들로, 한 사람이 자신의 회고를 되돌아보는 글 초안을 마크다운으로 쓰세요. 주제마다 소제목(##) 하나와 2~3문장을 쓰고, 마지막에 "다음에 해 볼 것" 한 줄을 붙이세요. 글에 없는 사실은 지어내지 마세요.${i.noQuote === false ? '' : ' 참고 회고의 문장을 그대로 옮기지 말고 새 표현으로 쓰세요.'} 설명이나 코드 블록 없이 초안 마크다운만 출력하세요.\n\n[주제]\n${JSON.stringify(arr(i.themes)).slice(0, 6000)}\n\n[참고 회고]\n${arr(i.texts).map((t) => s(t && t.body, 3000)).join('\n---\n').slice(0, 20000)}`,
-    raw: true, // JSON이 아니라 글 그대로 받아요(줄바꿈이 많은 긴 글이라 JSON이 깨지기 쉬워요)
-    max: 3000,
+    prompt: (i) => `다음 주제들로, 한 사람이 자신의 회고를 되돌아보는 공개 글 초안을 쓰세요. 주제마다 소제목(##) 하나와 2~3문장을 쓰고, 마지막에 "다음에 해 볼 것" 한 줄을 붙이세요. 본문(markdown)은 1200자 이내로 쓰세요. 글에 없는 사실은 지어내지 마세요.${i.noQuote === false ? '' : ' 참고 회고의 문장을 그대로 옮기지 말고 새 표현으로 쓰세요.'}\n다음 JSON으로만 답하세요. 줄바꿈은 \\n으로 쓰세요.\n{"title":"글 제목(40자 이내)","summary":"목록에 보일 한 줄 요약(80자 이내)","description":"검색 결과에 보일 설명(120자 이내)","markdown":"본문 마크다운"}\n\n[주제]\n${JSON.stringify(arr(i.themes)).slice(0, 6000)}\n\n[참고 회고]\n${arr(i.texts).map((t) => s(t && t.body, 3000)).join('\n---\n').slice(0, 20000)}`,
+    raw: true, // 본문이 길어 JSON이 중간에 끊기거나 깨질 수 있어서 직접 읽어요
+    max: 4000,
     parse: (t) => {
-      let x = String(t).trim();
-      // 시스템 지침 때문에 모델이 {"키":"글"} 모양으로 감싸 보내기도 해요. 그러면 안의 글만 꺼내요.
-      if (x.startsWith('{')) { try { const v = Object.values(JSON.parse(x)).find((y) => typeof y === 'string'); if (v) x = v; } catch (e) { const m = /"\s*:\s*"([\s\S]*)"\s*}?\s*$/.exec(x); if (m) x = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"'); } }
-      return { draft: s(x.replace(/^```(?:markdown|md)?\s*|\s*```$/g, ''), 8000) };
+      const x = String(t).trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
+      let o = null;
+      try { o = JSON.parse(x.slice(x.indexOf('{'), x.lastIndexOf('}') + 1)); } catch (e) { /* 아래에서 글자로 건져요 */ }
+      const un = (v) => v.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/["}\s]+$/, '');
+      const pick = (k) => { if (o && typeof o[k] === 'string') return o[k]; const m = new RegExp('"' + k + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)').exec(x); return m ? un(m[1]) : ''; };
+      let md = pick('markdown') || pick('draft') || pick('draft_markdown');
+      if (!md && !x.startsWith('{')) md = x; // JSON이 아니라 글이 그대로 온 경우
+      return { title: s(pick('title'), 120), summary: s(pick('summary'), 300), description: s(pick('description'), 300), draft: s(md, 8000) };
     },
   },
 };

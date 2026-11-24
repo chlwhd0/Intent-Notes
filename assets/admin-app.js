@@ -264,9 +264,15 @@ function viewPage() {
 
 // ---------- 글쓰기·수정 (NEW POST) ----------
 // 회고 정리에서 보낸 초안(마크다운)을 글 본문으로 바꿔요. 한 번 쓰면 지워요.
-function retroHtml() {
-  if (!params.get('retro')) return '';
-  try { const t = sessionStorage.getItem('intentRetro') || ''; sessionStorage.removeItem('intentRetro'); return t ? sanitizeHtml(MD.markdown(t)) : ''; } catch (e) { return ''; }
+function retroInit() {
+  const none = { html: '', title: '', sum: '', desc: '' };
+  if (!params.get('retro')) return none;
+  try {
+    const raw = sessionStorage.getItem('intentRetro') || ''; sessionStorage.removeItem('intentRetro');
+    if (!raw) return none;
+    const r = JSON.parse(raw);
+    return { html: r.body ? sanitizeHtml(MD.markdown(r.body)) : '', title: String(r.title || '').slice(0, 120), sum: String(r.summary || '').slice(0, 300), desc: String(r.description || '').slice(0, 300) };
+  } catch (e) { return none; }
 }
 // 저장된 3줄 요약 상태. 승인했어도 본문이 그 뒤에 바뀌었다면(지문이 다르면) 승인을 풀어서 보여 줘요.
 function aiOf(p) {
@@ -495,7 +501,7 @@ async function savePost() {
 // ---------- 회고 정리 (RETRO SUMMARY) ----------
 // 나만 보기 메뉴(예: 회고)의 글을 골라 반복되는 배움을 찾고, 공개 글 초안으로 만들어 글쓰기로 보내요.
 // 기본은 회고 본문을 AI로 보내요. "요약만 보내기"를 켜면 원문 대신 내가 쓴 한두 줄 요약만 보내요.
-const rt = { sel: new Set(), only: false, sums: {}, noQuote: true, themes: null, pick: new Set(), draft: '', busy: '', msg: '' };
+const rt = { sel: new Set(), only: false, sums: {}, noQuote: true, themes: null, pick: new Set(), draft: '', title: '', summary: '', description: '', busy: '', msg: '' };
 const retroPosts = () => posts.filter((p) => isPrivCat(p.category));
 function retroPage() {
   const list = retroPosts();
@@ -506,7 +512,7 @@ function retroPage() {
     ? `<div class="abox"><p class="hint">AI가 찾은 반복되는 배움이에요. 초안에 쓸 것만 고르세요. “몇 편에서” 나왔는지와 근거 글을 함께 보여 드려요.</p><ul class="ahits">${rt.themes.map((t, i) => `<li class="warn"><label class="ackl"><input type="checkbox" data-rtp="${i}"${rt.pick.has(i) ? ' checked' : ''}> <b>${esc(t.name)}</b> <span class="aib">AI</span> <small>${t.titles.length}편에서</small></label><div>${t.titles.map((x) => { const q = retroPosts().find((p) => p.title === x); return q ? `<a href="view.html?id=${encodeURIComponent(q.id)}">${esc(x)}</a>` : esc(x); }).join(' · ')}</div></li>`).join('')}</ul><button type="button" class="btn sm pri" data-a="rtdraft"${busy ? ' disabled' : ''}>${busy === 'rtdraft' ? '쓰는 중…' : '고른 배움으로 공개 글 초안 만들기'}</button></div>`
     : '';
   const dr = rt.draft
-    ? `<div class="abox"><p class="hint"><span class="aib">AI 초안</span> 고쳐 쓴 뒤 글쓰기로 보내세요. 글쓰기에서는 나만 보기로 시작하고, 공개로 바꿀 때 발행 전 점검이 먼저 돌아요.</p><label class="sr" for="rtd">AI 초안</label><textarea id="rtd" style="min-height:240px">${esc(rt.draft)}</textarea><button type="button" class="btn sm pri" data-a="rtsend">글쓰기로 보내기</button></div>`
+    ? `<div class="abox"><p class="hint"><span class="aib">AI 초안</span> 고쳐 쓴 뒤 글쓰기로 보내세요. 글쓰기에서는 나만 보기로 시작하고, 공개로 바꿀 때 발행 전 점검이 먼저 돌아요.</p><label class="field" for="rtt">제목<input id="rtt" type="text" maxlength="120" value="${esc(rt.title)}"></label><label class="field" for="rts">한 줄 요약<input id="rts" type="text" maxlength="300" value="${esc(rt.summary)}"></label><label class="field" for="rtdesc">검색용 설명<input id="rtdesc" type="text" maxlength="300" value="${esc(rt.description)}"></label><label class="field" for="rtd">본문</label><textarea id="rtd" style="min-height:240px">${esc(rt.draft)}</textarea><button type="button" class="btn sm pri" data-a="rtsend">글쓰기로 보내기</button></div>`
     : '';
   show(`<h1 class="ptitle">회고 정리 <span class="aib">AI</span></h1>${notice()}<p class="hint">나만 보기 회고를 읽고 반복되는 배움을 찾아 공개 글 초안으로 만들어 줘요. AI는 제안만 하고, 글은 내가 확인하고 고쳐서 발행해요.</p>` +
     `<div class="abox"><h2 class="rsec">1. 정리할 회고 고르기 <small>(나만 보기 글 ${list.length}개)</small></h2><ul class="flist rlist">${rows}</ul><h2 class="rsec">2. AI에 보내는 방식</h2><label class="ackl"><input type="checkbox" id="rtquote"${rt.noQuote ? ' checked' : ''}> 회고 원문 문장을 그대로 쓰지 않기</label><label class="ackl"><input type="checkbox" id="rtonly"${rt.only ? ' checked' : ''}> 원문 대신 내가 쓴 요약만 AI로 보내기</label><p class="hint">${rt.only ? '고른 글마다 보낼 요약을 적어요. 원문은 서버로도 가지 않아요.' : '켜지 않으면 고른 회고의 본문 글자가 AI 서비스로 보내져요. 방문자 정보는 보내지 않아요.'}</p><button type="button" class="btn pri" data-a="rtthemes"${busy ? ' disabled' : ''}>${busy === 'rtthemes' ? '찾는 중…' : '반복되는 배움 찾기'}</button><p class="hint" role="status">${esc(rt.msg)}</p></div>${th}${dr}`);
@@ -526,10 +532,10 @@ main && main.addEventListener('click', (e) => {
   } else if (b.dataset.a === 'rtdraft') {
     const themes = rt.themes.filter((_, i) => rt.pick.has(i));
     if (!themes.length) { rt.msg = '초안에 쓸 배움을 하나 이상 골라 주세요.'; return retroPage(); }
-    retroRun('rtdraft', { themes, texts: retroTexts(), noQuote: rt.noQuote }, (r) => { rt.draft = r.draft || ''; rt.msg = rt.draft ? '' : '초안을 만들지 못했어요. 다시 눌러 주세요.'; });
+    retroRun('rtdraft', { themes, texts: retroTexts(), noQuote: rt.noQuote }, (r) => { rt.draft = r.draft || ''; rt.title = r.title || ''; rt.summary = r.summary || ''; rt.description = r.description || ''; rt.msg = rt.draft ? '' : '초안을 만들지 못했어요. 다시 눌러 주세요.'; });
   } else if (b.dataset.a === 'rtsend') {
     const t = $('rtd') ? $('rtd').value : rt.draft;
-    try { sessionStorage.setItem('intentRetro', t); } catch (x) { /* 저장소를 못 쓰면 가져가지 못해요 */ }
+    try { sessionStorage.setItem('intentRetro', JSON.stringify({ title: rt.title, summary: rt.summary, description: rt.description, body: t })); } catch (x) { /* 저장소를 못 쓰면 가져가지 못해요 */ }
     logAi('apply', 'retro');
     const pub = cats.find((c) => !c.priv);
     location.href = 'write.html?retro=1' + (pub ? '&cat=' + encodeURIComponent(pub.slug) : '');
@@ -544,7 +550,7 @@ main && main.addEventListener('change', (e) => {
 });
 main && main.addEventListener('input', (e) => {
   const t = e.target; if (page !== 'retro') return;
-  if (t.dataset.rtsum) rt.sums[t.dataset.rtsum] = t.value; else if (t.id === 'rtd') rt.draft = t.value;
+  if (t.dataset.rtsum) rt.sums[t.dataset.rtsum] = t.value; else if (t.id === 'rtd') rt.draft = t.value; else if (t.id === 'rtt') rt.title = t.value; else if (t.id === 'rts') rt.summary = t.value; else if (t.id === 'rtdesc') rt.description = t.value;
 });
 
 // ---------- AI 이용 현황 (AI USAGE) ----------
@@ -719,7 +725,7 @@ if (['posts', 'menus', 'write', 'list', 'view', 'retro', 'ai'].includes(page)) {
       else {
         draft = existing
           ? { title: existing.title, cat: existing.category, vis: existing.visibility, sum: existing.summary || '', date: existing.date, html: bodyHtml(existing), thumb: Number.isInteger(existing.thumb) ? existing.thumb : 0, img: existing.img || '', files: cleanFiles(existing.files), desc: existing.description || '', ai: aiOf(existing) }
-          : { title: '', cat: (params.get('cat') && catOf(params.get('cat')) ? params.get('cat') : cats.length ? cats[0].slug : ''), vis: params.get('retro') ? 'private' : 'public', sum: '', date: today(), html: retroHtml(), thumb: Math.floor(Math.random() * 6), img: '', files: [], desc: '', ai: { lines: [], on: false, for: '' } };
+          : (() => { const rI = retroInit(); return { title: rI.title, cat: (params.get('cat') && catOf(params.get('cat')) ? params.get('cat') : cats.length ? cats[0].slug : ''), vis: params.get('retro') ? 'private' : 'public', sum: rI.sum, date: today(), html: rI.html, thumb: Math.floor(Math.random() * 6), img: '', files: [], desc: rI.desc, ai: { lines: [], on: false, for: '' } }; })();
         writePage();
       }
     }
