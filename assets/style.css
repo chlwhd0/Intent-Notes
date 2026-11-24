@@ -337,3 +337,10 @@ body[data-page="write"] main{max-width:1500px}
 body[data-page="retro"] main{max-width:1500px}
 .wlayout .rdraft{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto}
 @media(max-width:1180px){.wlayout .rdraft{position:static;max-height:none}}
+/* AI 도우미: 버튼 3개를 한 줄 탭으로, 결과는 누른 기능 것만 */
+.aibtns{display:flex;flex-wrap:nowrap;gap:6px}
+.aibtns .aitab{flex:1 1 0;min-width:0;padding:0 6px;font-size:12.5px;white-space:nowrap;min-height:36px}
+.aitab[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.ahead{display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
+.ahead .hint{flex:1;min-width:0}
+.airef{flex:none;white-space:nowrap;min-height:32px}

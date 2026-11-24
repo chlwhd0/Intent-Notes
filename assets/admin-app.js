@@ -282,7 +282,7 @@ function aiOf(p) {
 }
 let draft = null, wtab = 'write', existing = null, savedRange = null, uploading = false, attaching = false;
 // AI 도우미 상태: 요청 중인 기능(busy), 안내 글(msg), 글쓰기 보조 제안(sug), AI가 찾은 점검 항목(aiHits), 점검 목록 보이기(showChk), "확인했어요" 표시(acks)
-const ai = { busy: '', msg: '', sug: null, aiHits: [], aiNote: '', showChk: false, acks: {} };
+const ai = { busy: '', msg: '', tab: '', sug: null, aiHits: [], aiNote: '', chkRan: false, showChk: false, acks: {} };
 const fileText = new Map(); // 첨부 파일 주소 → 요약에 쓸 글자(이번에 올린 파일만 있어요)
 const logAi = (kind, feature) => addDoc(collection(db, 'aiLogs'), { kind, feature, post: existing ? existing.id : '', at: serverTimestamp() }).catch(() => {}); // 기록이 안 돼도 글쓰기는 계속돼요
 async function aiCall(action, input) {
@@ -338,6 +338,18 @@ async function runAi(feature, action, input, onOk) {
   ai.busy = ''; aiRender();
 }
 
+// AI 도우미 탭: 이미 만든 결과가 있으면 그대로 보여 주고, 없을 때만 새로 만들어요. [새로고침]은 airef가 강제로 다시 만들어요.
+const aiHas = (t) => (t === 'sug' ? !!ai.sug : t === 'chk' ? ai.chkRan : draft.ai.lines.length > 0);
+function aiPick(t) { syncDraft(); ai.tab = t; ai.msg = ''; if (aiHas(t)) aiRender(); else aiRun(t); }
+async function aiRun(t) {
+  const body = bodyText();
+  if (t === 'sug') return runAi('aisug', 'suggest', { body }, (r) => { ai.sug = r; ai.msg = '제안을 가져왔어요.'; });
+  if (t === 'tl') return runAi('aitl', 'tldr', { body }, (r) => { syncDraft(); draft.ai.lines = r.lines || []; draft.ai.on = false; draft.ai.for = ''; ai.msg = r.lines && r.lines.length ? '3줄 요약을 만들었어요. 고쳐 쓰고 체크하면 공개 글에 보여요.' : '요약을 만들지 못했어요. 다시 눌러 주세요.'; });
+  ai.showChk = true; ai.busy = 'aichk'; ai.msg = ''; aiRender();
+  try { const r = await aiCall('check', { body }); ai.aiHits = r.items || []; ai.aiNote = 'AI가 실명·내부 자료로 보이는 표현도 살펴봤어요. AI는 놓칠 수 있으니 마지막 확인은 내가 해요.'; logAi('suggest', 'aichk'); }
+  catch (e) { ai.aiHits = []; ai.aiNote = e.message + ' (규칙 점검 결과만 보여 드려요.)'; }
+  ai.chkRan = true; ai.busy = ''; aiRender();
+}
 function writePage() {
   if (!cats.length) { show('<h1 class="ptitle">새 글 쓰기</h1><p class="notice warn" role="alert">글을 올릴 메뉴가 없어요. 메뉴 관리에서 메뉴를 먼저 추가하세요.</p><p><a class="btn" href="menus.html">메뉴 관리로</a></p>'); return; }
   const d = draft;
@@ -482,7 +494,7 @@ async function savePost() {
   if (data.visibility === 'public') {
     const g = IC.gate(liveHits(d), ai.acks);
     if (!g.ok) {
-      ai.showChk = true; logAi('gate', 'check');
+      ai.showChk = true; ai.tab = 'chk'; logAi('gate', 'check');
       return bad(g.bad.length ? `공개 글로 저장하기 전에 해결할 것이 ${g.bad.length}개 있어요. 아래 AI 도우미의 점검 결과를 확인해 주세요.` : `확인이 필요한 것이 ${g.pending.length}개 있어요. 아래 점검 결과에서 “확인했어요”를 눌러 주세요.`);
     }
   }
@@ -614,24 +626,16 @@ main && main.addEventListener('click', async (e) => {
   else if (a === 'thumb') { syncDraft(); draft.thumb = Number(v); draft.img = ''; writePage(); }
   else if (a === 'fdel') { syncDraft(); draft.files.splice(Number(v), 1); say('목록에서 뺐어요. 글을 저장하면 파일도 지워져요.'); writePage(); }
   else if (a === 'thumbclear') { syncDraft(); draft.img = ''; writePage(); }
-  else if (a === 'aisug') {
-    const body = bodyText();
-    runAi('aisug', 'suggest', { body }, (r) => { ai.sug = r; ai.msg = '제안을 가져왔어요.'; });
-  } else if (a === 'aiapply') {
+  else if (a === 'aisug') aiPick('sug');
+  else if (a === 'aichk') aiPick('chk');
+  else if (a === 'aitl') aiPick('tl');
+  else if (a === 'airef') { ai.tab = v; aiRun(v); }
+  else if (a === 'aiapply') {
     syncDraft();
     if (v === 'summary') draft.sum = ai.sug.summary; else if (v === 'description') draft.desc = ai.sug.description; else if (/^t\d$/.test(v)) draft.title = ai.sug.titles[Number(v[1])] || draft.title;
     if (!ai.sug.logged) { ai.sug.logged = true; logAi('apply', 'aisug'); } /* 제안 1번당 적용 1회로 세요 */ ai.msg = '적용했어요. 저장하기 전에는 내용을 더 고칠 수 있어요.'; writePage();
   } else if (a === 'aiignore') { ai.sug = null; ai.msg = ''; logAi('ignore', 'aisug'); aiRender(); }
-  else if (a === 'aichk') {
-    const body = bodyText(); ai.showChk = true;
-    ai.busy = 'aichk'; ai.msg = ''; aiRender();
-    try { const r = await aiCall('check', { body }); ai.aiHits = r.items || []; ai.aiNote = 'AI가 실명·내부 자료로 보이는 표현도 살펴봤어요. AI는 놓칠 수 있으니 마지막 확인은 내가 해요.'; logAi('suggest', 'aichk'); }
-    catch (e) { ai.aiHits = []; ai.aiNote = e.message + ' (규칙 점검 결과만 보여 드려요.)'; }
-    ai.busy = ''; aiRender();
-  } else if (a === 'aitl') {
-    const body = bodyText();
-    runAi('aitl', 'tldr', { body }, (r) => { syncDraft(); draft.ai.lines = r.lines || []; draft.ai.on = false; draft.ai.for = ''; ai.msg = r.lines && r.lines.length ? '3줄 요약을 만들었어요. 고쳐 쓰고 체크하면 공개 글에 보여요.' : '요약을 만들지 못했어요. 다시 눌러 주세요.'; });
-  } else if (a === 'aifile') {
+  else if (a === 'aifile') {
     syncDraft();
     const f = draft.files[Number(v)], text = f && fileText.get(f.url);
     if (!text) return;

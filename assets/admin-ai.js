@@ -58,22 +58,24 @@ export function checkHtml(hits, acks, aiNote) {
   return `<ul class="ahits">${rows}</ul>${aiNote ? `<p class="hint">${esc(aiNote)}</p>` : ''}`;
 }
 
-// 패널 전체. s는 admin-app.js의 상태: {busy, msg, sug, chk(null|{hits,aiNote}), showChk, pub}
+// 패널 전체. s는 admin-app.js의 상태: {busy, msg, tab('sug'|'chk'|'tl'|''), sug, ...}
+// 버튼 3개는 한 줄 탭이고, 누른 기능의 결과만 보여요. 이미 만든 결과는 다시 누르면 그대로 보이고, [새로고침]을 눌러야 새로 만들어요.
 export function panelHtml(d, s, hitsHtml) {
-  const busy = s.busy;
-  const btn = (a, label) => `<button type="button" class="btn sm" data-a="${a}"${busy ? ' disabled' : ''}>${busy === a ? '요청 중…' : label}</button>`;
-  let sug = '';
-  if (s.sug) {
-    const row = (label, text, key, extra = '') => (text ? `<div class="arow"><b>${label}</b><span>${esc(text)}</span><button type="button" class="btn sm pri" data-a="aiapply" data-v="${key}"${extra}>적용</button></div>` : '');
-    sug = `<div class="abox" id="asug"><p class="hint">AI 제안이에요. 마음에 드는 것만 적용하세요.</p>${row('한 줄 요약', s.sug.summary, 'summary')}${row('검색용 설명', s.sug.description, 'description')}${(s.sug.titles || []).map((t, i) => row('제목 후보 ' + (i + 1), t, 't' + i)).join('')}<button type="button" class="btn sm" data-a="aiignore">모두 무시</button></div>`;
+  const busy = s.busy, tab = s.tab;
+  const tabBtn = (t, a, label) => `<button type="button" class="btn sm aitab" data-a="${a}" aria-pressed="${tab === t}"${busy ? ' disabled' : ''}>${busy === a ? '요청 중…' : label}</button>`;
+  const ref = (t) => `<button type="button" class="btn sm airef" data-a="airef" data-v="${t}"${busy ? ' disabled' : ''} aria-label="결과 새로 만들기">${busy ? '요청 중…' : '↻ 새로고침'}</button>`;
+  let body = '';
+  if (tab === 'sug' && s.sug) {
+    const row = (label, text, key) => (text ? `<div class="arow"><b>${label}</b><span>${esc(text)}</span><button type="button" class="btn sm pri" data-a="aiapply" data-v="${key}">적용</button></div>` : '');
+    body = `<div class="abox" id="asug"><div class="ahead"><span class="hint">AI 제안이에요. 마음에 드는 것만 적용하세요.</span>${ref('sug')}</div>${row('한 줄 요약', s.sug.summary, 'summary')}${row('검색용 설명', s.sug.description, 'description')}${(s.sug.titles || []).map((t, i) => row('제목 후보 ' + (i + 1), t, 't' + i)).join('')}<button type="button" class="btn sm" data-a="aiignore">모두 무시</button></div>`;
+  } else if (tab === 'chk') {
+    body = `<div class="abox" id="achk"><div class="ahead"><span class="hint">해결 필요가 있으면 공개 글로 저장할 수 없고, 확인 필요는 “확인했어요”를 눌러야 해요.</span>${ref('chk')}</div>${hitsHtml}</div>`;
+  } else if (tab === 'tl' && d.ai.lines.length) {
+    const lines = d.ai.lines;
+    body = `<div class="abox" id="atl"><div class="ahead"><span class="hint">AI가 만든 3줄 요약이에요. 고쳐 쓸 수 있고, 아래를 체크해야 공개 글에 보여요.</span>${ref('tl')}</div>${lines.map((t, i) => `<label class="sr" for="ail${i}">요약 ${i + 1}줄</label><input id="ail${i}" class="ail" type="text" maxlength="120" value="${esc(t)}">`).join('')}<label class="ackl"><input type="checkbox" id="aion"${d.ai.on ? ' checked' : ''}> 내가 확인했어요. 공개 글에 “AI가 정리한 3줄 요약”으로 보여 주세요.</label><span class="hint">본문을 고치면 승인이 풀려서 요약이 숨겨져요. 새로고침하면 고친 내용과 승인이 사라져요.</span></div>`;
   }
-  const lines = d.ai.lines;
-  const tl = lines.length
-    ? `<div class="abox" id="atl"><p class="hint">AI가 만든 3줄 요약이에요. 고쳐 쓸 수 있고, 아래를 체크해야 공개 글에 보여요.</p>${lines.map((t, i) => `<label class="sr" for="ail${i}">요약 ${i + 1}줄</label><input id="ail${i}" class="ail" type="text" maxlength="120" value="${esc(t)}">`).join('')}<label class="ackl"><input type="checkbox" id="aion"${d.ai.on ? ' checked' : ''}> 내가 확인했어요. 공개 글에 “AI가 정리한 3줄 요약”으로 보여 주세요.</label><span class="hint">본문을 고치면 승인이 풀려서 요약이 숨겨져요.</span></div>`
-    : '';
-  const chk = s.showChk ? `<div class="abox" id="achk"><p class="hint">발행 전 점검 결과예요. 해결 필요가 있으면 공개 글로 저장할 수 없고, 확인 필요는 “확인했어요”를 눌러야 해요.</p>${hitsHtml}</div>` : '';
   return `<section class="aip" id="aip" aria-labelledby="aiph"><h2 id="aiph">AI 도우미 <span class="aib">AI</span></h2>` +
     `<p class="hint">AI는 제안만 해요. 눌러서 적용하기 전에는 글이 바뀌지 않아요. 보내는 내용은 본문(첨부 요약은 문서 글자)뿐이고, 방문자 이름·이메일·댓글은 보내지 않아요.</p>` +
-    `<div class="aibtns">${btn('aisug', '글쓰기 보조')}${btn('aichk', '발행 전 점검')}${btn('aitl', '3줄 요약 만들기')}</div>` +
-    `<p class="hint" id="aimsg" role="status">${esc(s.msg || '')}</p>${sug}${chk}${tl}</section>`;
+    `<div class="aibtns">${tabBtn('sug', 'aisug', '글쓰기 보조')}${tabBtn('chk', 'aichk', '발행 전 점검')}${tabBtn('tl', 'aitl', '3줄 요약')}</div>` +
+    `<p class="hint" id="aimsg" role="status">${esc(s.msg || '')}</p>${body}</section>`;
 }
