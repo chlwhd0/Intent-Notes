@@ -354,3 +354,20 @@ body[data-page="retro"] main{max-width:1500px}
 /* 회고 정리: 왼쪽 열을 줄이고 AI 초안 열을 넓혀요. 초안은 "정리할 회고 고르기" 상자와 같은 높이에서 시작해요 */
 .rlayout{grid-template-columns:minmax(0,400px) minmax(0,1fr)}
 @media(max-width:1180px){.rlayout{grid-template-columns:minmax(0,1fr)}}
+/* 발행 전 점검: 5가지 항목과 통과 여부 */
+.cksum{margin:0;font-size:13px}
+.cklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.ck{padding:9px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:3px;font-size:13px}
+.ck:first-child{border-top:0}
+.ckh{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.ckn{font-weight:600}
+.cks{flex:none;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:10px;background:#e4efe4;color:#2a6b3a}
+.ck.bad .cks{background:#f3d3cb;color:#a33a2a}
+.ck.warn .cks{background:#f6ecd2;color:#8a6a00}
+.ck.done .cks{background:#e4efe4;color:#2a6b3a}
+.ck.skip .cks{background:#eceae6;color:var(--mute)}
+.ckd{font-size:12px;color:var(--sub)}
+.ck small{color:var(--sub);font-size:12px}
+.ahit{display:flex;flex-direction:column;gap:2px;padding:4px 8px;margin-top:3px;background:var(--tint,#faf8f5);border-left:3px solid var(--line)}
+.ck.bad .ahit{border-left-color:#c0452f}.ck.warn .ahit{border-left-color:#d9a441}
+.ahit q{font-weight:600;word-break:break-all}.ahit span{font-size:12px;color:var(--sub)}

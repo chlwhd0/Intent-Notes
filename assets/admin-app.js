@@ -282,7 +282,7 @@ function aiOf(p) {
 }
 let draft = null, wtab = 'write', existing = null, savedRange = null, uploading = false, attaching = false;
 // AI 도우미 상태: 요청 중인 기능(busy), 안내 글(msg), 글쓰기 보조 제안(sug), AI가 찾은 점검 항목(aiHits), 점검 목록 보이기(showChk), "확인했어요" 표시(acks)
-const ai = { busy: '', msg: '', tab: '', sug: null, aiHits: [], aiNote: '', chkRan: false, showChk: false, acks: {} };
+const ai = { busy: '', msg: '', tab: '', sug: null, aiHits: [], aiNote: '', chkRan: false, chkFail: false, showChk: false, acks: {} };
 const fileText = new Map(); // 첨부 파일 주소 → 요약에 쓸 글자(이번에 올린 파일만 있어요)
 const logAi = (kind, feature) => addDoc(collection(db, 'aiLogs'), { kind, feature, post: existing ? existing.id : '', at: serverTimestamp() }).catch(() => {}); // 기록이 안 돼도 글쓰기는 계속돼요
 async function aiCall(action, input) {
@@ -346,8 +346,8 @@ async function aiRun(t) {
   if (t === 'sug') return runAi('aisug', 'suggest', { body }, (r) => { ai.sug = r; ai.msg = '제안을 가져왔어요.'; });
   if (t === 'tl') return runAi('aitl', 'tldr', { body }, (r) => { syncDraft(); draft.ai.lines = r.lines || []; draft.ai.on = false; draft.ai.for = ''; ai.msg = r.lines && r.lines.length ? '3줄 요약을 만들었어요. 고쳐 쓰고 체크하면 공개 글에 보여요.' : '요약을 만들지 못했어요. 다시 눌러 주세요.'; });
   ai.showChk = true; ai.busy = 'aichk'; ai.msg = ''; aiRender();
-  try { const r = await aiCall('check', { body }); ai.aiHits = r.items || []; ai.aiNote = 'AI가 실명·내부 자료로 보이는 표현도 살펴봤어요. AI는 놓칠 수 있으니 마지막 확인은 내가 해요.'; logAi('suggest', 'aichk'); }
-  catch (e) { ai.aiHits = []; ai.aiNote = e.message + ' (규칙 점검 결과만 보여 드려요.)'; }
+  try { const r = await aiCall('check', { body }); ai.aiHits = r.items || []; ai.aiNote = 'AI가 실명·내부 자료로 보이는 표현도 살펴봤어요. AI는 놓칠 수 있으니 마지막 확인은 내가 해요.'; ai.chkFail = false; logAi('suggest', 'aichk'); }
+  catch (e) { ai.aiHits = []; ai.chkFail = true; ai.aiNote = e.message + ' (규칙 점검 결과만 보여 드려요.)'; }
   ai.chkRan = true; ai.busy = ''; aiRender();
 }
 function writePage() {
@@ -363,7 +363,7 @@ function writePage() {
     ? toolbarHtml() + `<div id="wed" class="ed" contenteditable="true" role="textbox" aria-multiline="true" aria-label="본문" data-ph="본문을 입력하세요. 글자를 선택한 뒤 위의 도구로 서식을 바꿔요.">${clean}</div>`
     : `<div class="preview">${textOf(clean) || /<img /.test(clean) ? clean : '<p style="color:var(--mute)">미리 볼 내용이 없어요.</p>'}</div>`;
   const editing = !!existing;
-  const aiPanel = panelHtml(d, { ...ai, pub: d.vis === 'public' && !isPrivCat(d.cat) }, checkHtml(liveHits(d), ai.acks, ai.aiNote));
+  const aiPanel = panelHtml(d, { ...ai, pub: d.vis === 'public' && !isPrivCat(d.cat) }, checkHtml(liveHits(d), ai.acks, ai.aiNote, !ai.chkRan ? 'none' : ai.chkFail ? 'fail' : 'ok'));
   show(`<div class="wlayout"><div class="wmain"><div class="head"><h1 class="ptitle">${editing ? '글 수정' : '새 글 쓰기'}</h1><div class="btns"><button class="btn" type="button" data-a="cancel">취소</button><button class="btn pri" type="button" data-a="save" id="save">${editing ? '저장하기' : '발행하기'}</button></div></div>${notice()}` +
     `<label><span class="sr">제목</span><input class="title" id="wtitle" type="text" maxlength="120" placeholder="제목을 입력하세요" value="${esc(d.title)}"></label>` +
     `<div class="meta"><label class="field" for="wcat">카테고리<select id="wcat">${opts}</select></label>${visHtml}<label class="field" for="wdate">날짜<input id="wdate" type="date" value="${esc(d.date)}"></label><label class="field" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록과 글 위쪽에 보일 한두 문장" value="${esc(d.sum)}"></label><label class="field" for="wdesc">검색용 설명<input id="wdesc" type="text" maxlength="300" placeholder="검색 결과와 공유 미리보기에 보일 설명(비우면 요약을 써요)" value="${esc(d.desc)}"></label></div>` +
