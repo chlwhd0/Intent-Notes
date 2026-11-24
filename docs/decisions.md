@@ -166,7 +166,7 @@
 
 ## 2026-11-17 (GA 이벤트 택소노미 보고서: 현재 적용 상태 기록)
 
-- **GA 이벤트 택소노미 보고서는 "앞으로 할 일"이 아니라 "지금 적용된 상태(TO-BE)"를 기록하는 문서로 정함**(`docs/Intent-Notes-GA-Event-Taxonomy.pdf`, 원본 `docs/ga-event-taxonomy.html`, 11쪽). 처음에는 새 이벤트 8개를 설계하는 계획서로 썼지만, 사용자가 현재 상태가 TO-BE라고 바로잡아서 다시 썼어요.
+- **GA 이벤트 택소노미 보고서는 "앞으로 할 일"이 아니라 "지금 적용된 상태(TO-BE)"를 기록하는 문서로 정함**(`docs/Intent-Notes-GA-Event-Taxonomy.pdf`, 지금은 `docs/GA-Taxonomy.pdf`, 원본 `docs/ga-event-taxonomy.html`, 11쪽). 처음에는 새 이벤트 8개를 설계하는 계획서로 썼지만, 사용자가 현재 상태가 TO-BE라고 바로잡아서 다시 썼어요.
 - **AS-IS는 직접 센 글별 "조회 N"뿐이던 상태, TO-BE는 GA4 연결 후의 현재 상태.** 홈 방문자, 페이지별 방문자, 지역·기기·OS, 많이 읽은 글 4가지를 GA가 자동으로 모으는 이벤트(`page_view`, `scroll`, `click`, `user_engagement` 등)와 측정기준만으로 답해요. 맞춤 이벤트는 만들지 않았어요(0개).
 - **"가장 많이 읽은 글"은 조회수, 평균 참여 시간, `scroll`(90%) 건수를 겹쳐서 봄.**
 - **홈 방문이 GA에 `/`와 `/index.html` 두 줄로 나뉘던 문제를 고침(2026.11.17).** 사이드바 로고 링크를 `/`(폴더 주소)로 바꾸고, `/index.html`로 들어오는 방문은 `/`로 영구 이동(301, `firebase.json`의 `redirects`)시켜요. 고치기 전에 쌓인 데이터는 두 줄을 합쳐서 봐야 해요(페이지 경로 정규식 필터 `^/(index\.html)?$`). 실제 사이트에서 이동과 링크를 확인했어요.
@@ -213,8 +213,8 @@
 
 - **1차 개선 PRD를 슬라이드로 바꿈**(`docs/PRD-Improve1-Slides.html`·`.pdf`, v1.1, 22장. 이후 슬라이드판은 지웠고 내용은 `docs/PRD-Improve1.md`에 있어요). 문제 15개 → 최종 문제 4개 → 가설 11개 → 해결방안 19개의 한 줄기로 재구성했어요. ID에 부모가 들어가도록 `FP1-H1-S2.num*menu` 규칙을 썼어요. 설문 계획, 데스크리서치(SWOT·3C), 우선순위(RICE), 사용자·화면 변경, 품질 기준, OKR 슬라이드는 뺐어요. 가설 `H4.x`(데이터 신뢰·활용)는 새로 만들었어요. 아직 승인 대기.
 - **사이드바에 "오늘의 고양이"(TheCatAPI)와 "서울 날씨"(기상청 초단기실황)를 넣음.** 두 API 모두 서버 함수(`cat`, `weather`)를 거쳐 호출해요. 키는 서버 보안 설정(`CAT_API_KEY`, `KMA_SERVICE_KEY`)에만 두고 화면 코드에 내려보내지 않아요. 날씨는 10분, 고양이는 1시간 같이 쓰고 실패하면 3시간 안의 직전 값을 보여 줘요. 모바일은 푸터 바로 위 한 줄(날씨 왼쪽, 고양이 오른쪽)에 둬요. 개인정보 처리방침에 "고양이 사진은 방문자 브라우저가 TheCatAPI에서 직접 받아 온다"는 한 줄을 추가했어요.
-- **함수 메모리를 256MiB로 정함.** 128MiB로는 시작할 때 초과해서 오류가 났어요(`docs/failures/서버-함수-메모리-초과로-오류.md`).
-- **관리자 화면에도 같은 칸을 넣음.** 로그인 코드가 지우지 않도록 별도 영역에 뒀어요(`docs/failures/로그인-코드가-사이드바-요소를-지움.md`).
+- **함수 메모리를 256MiB로 정함.** 128MiB로는 시작할 때 초과해서 오류가 났어요(`docs/failures/func-memory.md`).
+- **관리자 화면에도 같은 칸을 넣음.** 로그인 코드가 지우지 않도록 별도 영역에 뒀어요(`docs/failures/login-wipes-sidebar.md`).
 - **리디자인(Tailwind CSS) 시안과 AS-IS/TO-BE 비교 문서를 만듦.** 실제 코드에는 반영하지 않았어요. 반영 전 결정 대기: TO-BE의 정렬이 "최신순·조회순"이라 지금의 "오래된순"이 빠짐. 처리방침·소개 글은 원문을 그대로 쓰기로 함.
 - **관리자 조회수 화면 시안 2개를 만듦.** A(간단형)는 지금의 누적 조회수로 바로 만들 수 있고, B(Chart.js형)는 하루 단위 집계를 새로 쌓아야 해요. 아직 어느 쪽으로 갈지 정하지 않았어요.
 
@@ -247,5 +247,8 @@
 | `블로그_테스트보고서.pdf` | `docs/Test-Blog.pdf` |
 | 저장소 `myblog-test2` | 저장소 `Intent-Notes` (https://github.com/chlwhd0/Intent-Notes) |
 
-그대로 있는 파일: `docs/Intent-Notes-GA-Event-Taxonomy.pdf`, `docs/ga-event-taxonomy.html`, `docs/failures/`. 지운 파일은 깃 기록에서 다시 꺼낼 수 있어요.
+| `Intent-Notes-GA-Event-Taxonomy.pdf`, `ga-event-taxonomy.html` (GA 이벤트 택소노미 보고서) | `docs/GA-Taxonomy.pdf`, `docs/GA-Taxonomy.html` |
+| `docs/failures/`의 한글 이름 파일 6개 (`_양식`, `배포-후-옛-스크립트-캐시`, `배포-후-호스팅-미반영`, `숨긴-칸-안의-사진이-안-뜸`, `로그인-코드가-사이드바-요소를-지움`, `서버-함수-메모리-초과로-오류`) | `template.md`, `deploy-cache.md`, `deploy-hosting.md`, `hidden-lazy-img.md`, `login-wipes-sidebar.md`, `func-memory.md` |
+
+지운 파일은 깃 기록에서 다시 꺼낼 수 있어요. 2026.11.24부터 새 파일과 문서의 이름은 짧은 영어로 지어요(`CLAUDE.md` 작업 규칙).
 

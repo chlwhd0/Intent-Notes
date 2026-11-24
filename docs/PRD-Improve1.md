@@ -53,7 +53,7 @@
 | 작성자 | 블로그 운영자 / 기획 (작성 시 실제 이름으로 교체) |
 | 대상 서비스 | Intent Notes (https://my-blog-test-b439a.web.app) · GA4 측정 ID `G-L0533VG5G0` |
 | 문서 상태 | 승인 대기 (11장 승인 표 참고) |
-| 관련 문서 | **[블로그 기획 PRD v0.3](PRD-Blog.md)** · GA 이벤트 택소노미 보고서 v1.0(현재 적용 상태) `docs/Intent-Notes-GA-Event-Taxonomy.pdf` · 의사결정 문서 `docs/decisions.md` · 개발 지침 `CLAUDE.md` |
+| 관련 문서 | **[블로그 기획 PRD v0.3](PRD-Blog.md)** · GA 이벤트 택소노미 보고서 v1.0(현재 적용 상태) `docs/GA-Taxonomy.pdf` · 의사결정 문서 `docs/decisions.md` · 개발 지침 `CLAUDE.md` |
 
 ---
 

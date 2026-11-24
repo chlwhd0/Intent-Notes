@@ -1,6 +1,6 @@
 # 실패 로그 양식
 
-막혔던 일이 생기면 이 파일을 복사해서 주제 이름으로 저장하세요. 예: `docs/failures/로그인.md`, `docs/failures/나만보기글.md`. 주제마다 파일을 따로 만들어요.
+막혔던 일이 생기면 이 파일을 복사해서 주제 이름으로 저장하세요. 예: `docs/failures/deploy-cache.md`, `docs/failures/func-memory.md`. 파일 이름은 짧은 영어로 지어요. 주제마다 파일을 따로 만들어요.
 
 ## 막힌 일
 
