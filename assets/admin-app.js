@@ -120,7 +120,7 @@ function renderSidebar(active) {
   $('nav').setAttribute('aria-label', '관리자 메뉴');
   const admOpen = ['menus', 'posts', 'retro', 'ai'].includes(active); // 모바일에서 ADMIN 하위 메뉴는 ADMIN을 눌러야 펼쳐져요. 하위 화면을 보는 중이면 처음부터 펼쳐 둬요.
   $('nav').innerHTML =
-    a('list.html', 'ALL POSTS', 'all') + cats.map((c) => a('list.html?cat=' + encodeURIComponent(c.slug), esc(c.name), 'cat:' + c.slug)).join('') +
+    '<div class="catrow">' + a('list.html', 'ALL POSTS', 'all') + cats.map((c) => a('list.html?cat=' + encodeURIComponent(c.slug), esc(c.name), 'cat:' + c.slug)).join('') + '</div>' +
     '<span class="sep" role="presentation"></span>' + a('write.html', 'NEW POST', 'write', 'npd') +
     '<button type="button" class="grp" id="admtoggle" aria-expanded="' + admOpen + '" aria-controls="admrow">ADMIN</button><div class="subrow' + (admOpen ? ' open' : '') + '" id="admrow">' + a('menus.html', 'MANAGE MENUS', 'menus', 'subl') + a('posts.html', 'MANAGE POSTS', 'posts', 'subl') + a('retro.html', 'RETRO SUMMARY', 'retro', 'subl') + a('ai.html', 'AI USAGE', 'ai', 'subl') + '</div>';
   $('bottom').innerHTML = `<span class="who">로그인: 관리자</span><a href="${root}index.html">블로그 보기</a><button type="button" class="linkbtn" id="logout">로그아웃</button>`;
@@ -168,7 +168,7 @@ const sorted = () => posts.slice().sort((a, b) => (a.date === b.date ? 0 : a.dat
 const thumbHtml = (p, cls = '') => `<span class="thumb ${cls}">${TH.inner(p)}</span>`;
 const lock = (p) => (p.visibility === 'private' ? '<span class="lock">나만 보기</span>' : '');
 const viewsOf = (p) => (isPrivCat(p.category) ? '-' : String(views[p.id] || 0));
-const adminHead = (title) => `<div class="head"><div><p class="hint" style="margin:0">관리자 페이지</p><h1 class="ptitle">${title}</h1></div><a class="btn pri" href="${root}admin/write.html">새 글 쓰기</a></div>`;
+const adminHead = (title) => `<div class="head"><div><p class="hint" style="margin:0">관리자 페이지</p><h1 class="ptitle">${title}</h1></div></div>`; // 새 글 쓰기는 사이드바의 NEW POST를 써요
 const bodyHtml = (p) => (p.format === 'html' ? sanitizeHtml(p.body) : MD.markdown(p.body || ''));
 
 // 글이 지워지거나 나만 보기로 바뀌면 그 글의 댓글도 지워요. (나만 보기 글의 댓글이 주소만 알면 읽히는 일을 막아요.)
