@@ -2,6 +2,7 @@
 // 글을 쓰고 고치고 지우거나 메뉴를 바꾸면 배포 없이 바로 사이트에 반영돼요.
 // 페이지 만드는 코드는 site/build.js예요(루트의 build.js를 `node build.js --ssr`로 복사한 것).
 // 공개 글(visibility == public)만 읽어요. 나만 보기 글과 나만 보기 메뉴 이름은 가져오지 않아요.
+const crypto = require('crypto');
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { initializeApp } = require('firebase-admin/app');
@@ -131,10 +132,12 @@ const AI_MODEL = process.env.AI_MODEL || 'claude-haiku-5-5';
 const AI_LIMIT = Number(process.env.AI_MONTHLY_LIMIT) || 300;
 const ymKey = () => { const d = new Date(Date.now() + 9 * 3600 * 1000); return d.getUTCFullYear() + String(d.getUTCMonth() + 1).padStart(2, '0'); };
 
+// 관리자이거나, 만료 전의 평가자(reviewer 표시 + 만료 시각 until)면 통과해요.
+const staffOk = (t) => t.admin === true || (t.reviewer === true && Number(t.until) > Date.now());
 async function adminOf(req) {
   const m = /^Bearer (.+)$/.exec(req.get('authorization') || '');
   if (!m) return null;
-  try { const t = await getAuth().verifyIdToken(m[1]); return t.admin === true ? t : null; } catch (e) { return null; }
+  try { const t = await getAuth().verifyIdToken(m[1]); return staffOk(t) ? t : null; } catch (e) { return null; }
 }
 // 호출 횟수를 하나 올려요. 한도를 넘었으면 false.
 async function takeAiCall(ref) {
@@ -169,5 +172,44 @@ exports.ai = onRequest({ region: 'asia-northeast3', memory: '256MiB', timeoutSec
   } catch (e) {
     console.error('AI 호출 실패', action, e && e.message);
     res.status(502).json({ error: 'UPSTREAM', detail: String((e && e.message) || '').slice(0, 40) }); // detail은 오류 코드(예: UPSTREAM_404)만이라 키·글 내용이 들어가지 않아요
+  }
+});
+
+// 평가자 임시 입장. 로그인 화면의 "평가자 입장"이 /api/reviewer 로 접속 코드를 보내요.
+// 코드의 해시와 만료일은 reviewerAccess/current 문서에 있어요(화면에서는 아무도 못 읽고, 이 함수만 읽어요).
+// 맞으면 평가자용 로그인 토큰을 돌려줘요. 토큰에는 reviewer 표시와 만료 시각(until)이 들어 있고,
+// until은 코드 만료일과 "지금부터 12시간" 중 이른 쪽이에요. 만료되면 규칙과 서버 함수가 모두 막아요.
+// 코드를 여러 번 틀리면 15분 동안 멈춰요.
+const REVIEWER_SESSION_MS = 12 * 3600 * 1000;
+const FAIL_MAX = 10, FAIL_WINDOW_MS = 15 * 60 * 1000;
+const sha256 = (v) => crypto.createHash('sha256').update(String(v)).digest();
+exports.reviewer = onRequest({ region: 'asia-northeast3', memory: '256MiB', timeoutSeconds: 20, maxInstances: 2 }, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (req.method !== 'POST') { res.status(405).json({ error: 'METHOD' }); return; }
+  const code = str((req.body || {}).code).trim().replace(/\s+/g, '');
+  if (code.length < 8 || code.length > 64) { res.status(400).json({ error: 'BAD_CODE' }); return; }
+  const failRef = db.doc('reviewerAccess/fails');
+  const f = await failRef.get();
+  const now = Date.now();
+  const fd = f.exists ? f.data() : { n: 0, since: 0 };
+  const fresh = now - Number(fd.since) < FAIL_WINDOW_MS;
+  if (fresh && Number(fd.n) >= FAIL_MAX) { res.status(429).json({ error: 'LOCKED' }); return; }
+  const cur = await db.doc('reviewerAccess/current').get();
+  const c = cur.exists ? cur.data() : null;
+  const exp = c && c.expiresAt && c.expiresAt.toMillis ? c.expiresAt.toMillis() : 0;
+  const hash = c && typeof c.hash === 'string' ? Buffer.from(c.hash, 'hex') : null;
+  const same = !!hash && hash.length === 32 && crypto.timingSafeEqual(sha256(code), hash);
+  if (!same || exp <= now) {
+    await failRef.set({ n: fresh ? Number(fd.n) + 1 : 1, since: fresh ? Number(fd.since) : now });
+    res.status(same ? 410 : 403).json({ error: same ? 'EXPIRED' : 'WRONG' });
+    return;
+  }
+  const until = Math.min(exp, now + REVIEWER_SESSION_MS);
+  try {
+    const token = await getAuth().createCustomToken('reviewer', { reviewer: true, until });
+    res.json({ token, until });
+  } catch (e) {
+    console.error('평가자 토큰 만들기 실패', e && e.message);
+    res.status(500).json({ error: 'TOKEN' });
   }
 });

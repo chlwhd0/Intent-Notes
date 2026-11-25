@@ -531,3 +531,9 @@ body[data-page="write"] .wgrid .aip.open{transform:none;visibility:visible;trans
 .aiclose{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border:1px solid var(--line);background:#fff;color:var(--sub);font:inherit;font-size:12px;cursor:pointer}
 @media(prefers-reduced-motion:reduce){body[data-page="write"] .wgrid .aip,.aibackdrop{transition:none}}
 }
+
+/* 평가자 입장(로그인 화면) */
+.panel{flex-direction:column;gap:36px}
+.panel .rform{border-top:1px solid var(--line);padding-top:28px}
+.panel .rform h2{margin:0;font-family:var(--serif-kr);font-size:20px;letter-spacing:-.02em}
+.panel .rform .field{display:flex;flex-direction:column;gap:6px}

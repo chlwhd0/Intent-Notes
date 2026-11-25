@@ -661,6 +661,13 @@ ${headHtml({ title: `관리자 로그인 · ${cfg.name}`, root: '../', seo: { no
 <a class="back" href="../index.html">← 블로그로 돌아가기</a>
 <p class="note">관리자로 지정한 구글 계정만 들어올 수 있어요.</p>
 </form>
+<form id="rf" class="rform" novalidate>
+<h2>평가자 입장</h2>
+<p class="sub">운영자가 알려 준 임시 접속 코드가 있으면 입력하세요. 기간 동안 글쓰기와 관리 화면을 둘러볼 수 있어요. (글 삭제는 막혀 있어요)</p>
+<label class="field" for="rcode">접속 코드<input id="rcode" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64"></label>
+<button class="btn" id="rbtn" type="submit">평가자로 입장</button>
+<p class="err" id="rerr" role="alert"></p>
+</form>
 </section>
 </div>
 <script type="application/json" id="cats">${catsJson()}</script>

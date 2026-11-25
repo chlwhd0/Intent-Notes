@@ -2,12 +2,20 @@ rules_version = '2';
 
 // 글(posts)은 공개 글만 누구나 읽을 수 있고, 쓰기·고치기·지우기는 관리자만 할 수 있어요.
 // 관리자는 로그인 정보에 admin 표시(custom claim)가 붙은 계정 한 명이에요.
+// 평가자는 임시 접속 코드로 들어온 계정이에요(reviewer 표시와 만료 시각 until이 붙어요). 만료 전까지는 관리자 화면을 보고
+// 쓸 수 있지만, 글·조회수·댓글을 지우는 것은 관리자만 할 수 있어요.
 // 나만 보기 메뉴(예: 회고)의 글은 항상 나만 보기(private)여야 하고, 관리자만 읽을 수 있어요.
 service cloud.firestore {
   match /databases/{database}/documents {
 
     function isAdmin() {
       return request.auth != null && request.auth.token.admin == true;
+    }
+
+    // 관리자이거나, 만료 전의 평가자예요. 읽기·쓰기에 써요. 지우기는 isAdmin()만 써요.
+    function isStaff() {
+      return request.auth != null && (request.auth.token.get('admin', false) == true
+        || (request.auth.token.get('reviewer', false) == true && request.auth.token.get('until', 0) > request.time.toMillis()));
     }
 
     // 나만 보기로 정한 메뉴 목록(관리자만 읽는 settings/private 문서에 들어 있어요).
@@ -46,9 +54,9 @@ service cloud.firestore {
     }
 
     match /posts/{postId} {
-      allow read: if isAdmin() || resource.data.visibility == 'public';
-      allow create: if isAdmin() && validPost(request.resource.data);
-      allow update: if isAdmin() && validPost(request.resource.data);
+      allow read: if isStaff() || resource.data.visibility == 'public';
+      allow create: if isStaff() && validPost(request.resource.data);
+      allow update: if isStaff() && validPost(request.resource.data);
       allow delete: if isAdmin();
     }
 
@@ -105,8 +113,8 @@ service cloud.firestore {
 
     // AI 기능 기록: 관리자만 읽고 남길 수 있어요. 글 내용은 저장하지 않고 종류·글 번호·횟수만 남겨요.
     match /aiLogs/{id} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() && request.resource.data.keys().hasOnly(['kind', 'feature', 'post', 'at'])
+      allow read: if isStaff();
+      allow create: if isStaff() && request.resource.data.keys().hasOnly(['kind', 'feature', 'post', 'at'])
         && request.resource.data.kind in ['suggest', 'apply', 'ignore', 'gate']
         && request.resource.data.feature is string && request.resource.data.feature.size() <= 20
         && request.resource.data.post is string && request.resource.data.post.size() <= 60
@@ -116,21 +124,22 @@ service cloud.firestore {
 
     // 이번 달 AI 호출 횟수: 서버 함수만 쓰고(관리자 권한), 관리자는 읽기만 해요.
     match /aiUsage/{id} {
-      allow read: if isAdmin();
+      allow read: if isStaff();
       allow write: if false;
     }
 
     // 공개 메뉴 이름은 누구나 읽을 수 있고(사이트를 만들 때 써요), 고치는 건 관리자만 해요.
     match /settings/menus {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isStaff();
     }
 
     // 나만 보기 메뉴 이름 같은 설정은 관리자만 읽고 써요.
     match /settings/{docId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isStaff();
     }
 
+    // 평가자 접속 코드(reviewerAccess)는 서버 함수만 읽고 써요. 화면에서는 누구도(관리자도) 열 수 없어요.
     // 그 밖의 모든 곳은 막아요.
     match /{document=**} {
       allow read, write: if false;

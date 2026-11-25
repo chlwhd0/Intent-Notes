@@ -2,7 +2,7 @@
 // 관리자인지는 로그인 정보의 admin 표시(custom claim)로 확인하고, 실제로 막는 일은 firestore.rules와 storage.rules가 해요.
 // 같은 파일이 (1) 관리자 화면 6개와 (2) 관리자가 로그인한 채로 보는 공개 화면의 사이드바를 맡아요.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithCustomToken, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
   getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, orderBy, where, limit,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
@@ -32,7 +32,13 @@ const params = new URLSearchParams(location.search);
 const setHint = (on) => { try { on ? localStorage.setItem('intentAdmin', '1') : localStorage.removeItem('intentAdmin'); } catch (e) { /* 무시 */ } };
 
 const firstUser = () => new Promise((resolve) => { const off = onAuthStateChanged(auth, (u) => { off(); resolve(u); }); });
-const isAdmin = async (user) => (await user.getIdTokenResult()).claims.admin === true;
+// 관리자이거나, 만료 전의 평가자(임시 접속 코드로 들어온 사람)면 관리자 화면을 쓸 수 있어요. 평가자는 글·메뉴를 지울 수 없어요.
+let reviewerUntil = 0; // 평가자로 들어왔으면 만료 시각(밀리초), 아니면 0
+const isAdmin = async (user) => {
+  const c = (await user.getIdTokenResult()).claims;
+  reviewerUntil = c.admin !== true && c.reviewer === true && Number(c.until) > Date.now() ? Number(c.until) : 0;
+  return c.admin === true || reviewerUntil > 0;
+};
 
 function authMsg(e) {
   const c = (e && e.code) || '';
@@ -75,6 +81,31 @@ if (page === 'login') {
       sessionStorage.setItem('flash', JSON.stringify(['로그인했어요. 관리자 페이지에서 블로그를 관리하세요.', false]));
       location.replace('posts.html');
     } catch (ex) { err.textContent = authMsg(ex); btn.disabled = false; }
+  });
+  // 평가자 입장: 운영자가 알려 준 임시 접속 코드를 넣으면 만료 전까지 관리자 화면을 둘러볼 수 있어요.
+  const rf = $('rf'), rerr = $('rerr');
+  if (rf) rf.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const rb = $('rbtn'), code = $('rcode').value.trim();
+    rerr.textContent = '';
+    if (!code) { rerr.textContent = '접속 코드를 입력해 주세요.'; return; }
+    rb.disabled = true;
+    try {
+      const r = await fetch('/api/reviewer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.token) {
+        rerr.textContent = j.error === 'EXPIRED' ? '접속 코드의 사용 기간이 끝났어요. 운영자에게 새 코드를 요청해 주세요.'
+          : j.error === 'LOCKED' ? '코드를 여러 번 잘못 입력했어요. 15분 뒤에 다시 해 주세요.'
+          : j.error === 'WRONG' || j.error === 'BAD_CODE' ? '접속 코드가 맞지 않아요. 다시 확인해 주세요.'
+          : '입장하지 못했어요. 잠시 뒤에 다시 해 주세요.';
+        rb.disabled = false;
+        return;
+      }
+      await signInWithCustomToken(auth, j.token);
+      setHint(true);
+      sessionStorage.setItem('flash', JSON.stringify(['평가자로 입장했어요. 글을 지우는 것만 막혀 있고, 나머지는 눌러 볼 수 있어요.', false]));
+      location.replace('posts.html');
+    } catch (ex) { rerr.textContent = '입장하지 못했어요. 잠시 뒤에 다시 해 주세요.'; rb.disabled = false; }
   });
 }
 
@@ -123,7 +154,7 @@ function renderSidebar(active) {
     '<div class="catrow">' + a('list.html', 'ALL POSTS', 'all') + cats.map((c) => a('list.html?cat=' + encodeURIComponent(c.slug), esc(c.name), 'cat:' + c.slug)).join('') + '</div>' +
     '<span class="sep" role="presentation"></span>' + a('write.html', 'NEW POST', 'write', 'npd') +
     '<button type="button" class="grp" id="admtoggle" aria-expanded="' + admOpen + '" aria-controls="admrow">ADMIN</button><div class="subrow' + (admOpen ? ' open' : '') + '" id="admrow">' + a('menus.html', 'MANAGE MENUS', 'menus', 'subl') + a('posts.html', 'MANAGE POSTS', 'posts', 'subl') + a('retro.html', 'RETRO SUMMARY', 'retro', 'subl') + a('ai.html', 'AI USAGE', 'ai', 'subl') + '</div>';
-  $('bottom').innerHTML = `<span class="who">로그인: 관리자</span><a href="${root}index.html">블로그 보기</a><button type="button" class="linkbtn" id="logout">로그아웃</button>`;
+  $('bottom').innerHTML = `<span class="who">${reviewerUntil ? '평가자 체험 · ' + new Date(reviewerUntil).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + '까지' : '로그인: 관리자'}</span><a href="${root}index.html">블로그 보기</a><button type="button" class="linkbtn" id="logout">로그아웃</button>`;
   // 모바일에서는 NEW POST를 이름(Intent Notes)과 같은 높이 오른쪽에 보여요. 컴퓨터에서는 숨기고 메뉴 안의 NEW POST를 써요.
   const adm = $('admtoggle');
   if (adm) adm.addEventListener('click', () => { const row = $('admrow'); const on = !row.classList.contains('open'); row.classList.toggle('open', on); adm.setAttribute('aria-expanded', String(on)); });
@@ -201,7 +232,7 @@ function mrows() {
     html: v.map((p) => {
       const fixed = isPrivCat(p.category);
       const toggle = fixed ? '' : `<button class="btn sm" type="button" data-a="toggle" data-id="${esc(p.id)}">${p.visibility === 'public' ? '나만 보기로' : '공개로'}</button>`;
-      return `<tr><td class="t">${thumbHtml(p, 'sm')}<a href="${root}admin/view.html?id=${encodeURIComponent(p.id)}">${esc(p.title)}</a></td><td>${esc(catName(p.category))}</td><td><span class="badge${p.visibility === 'private' ? ' pv' : ''}">${p.visibility === 'public' ? '공개' : '나만 보기'}${fixed ? ' · 고정' : ''}</span></td><td class="d">${fd(p.date)}</td><td class="d">${viewsOf(p)}</td><td><div class="acts"><a class="btn sm" href="${root}admin/write.html?id=${encodeURIComponent(p.id)}">수정</a>${toggle}<button class="btn sm danger${delArm === p.id ? ' sure' : ''}" type="button" data-a="del" data-id="${esc(p.id)}">${delArm === p.id ? '정말 삭제할까요?' : '삭제'}</button></div></td></tr>`;
+      return `<tr><td class="t">${thumbHtml(p, 'sm')}<a href="${root}admin/view.html?id=${encodeURIComponent(p.id)}">${esc(p.title)}</a></td><td>${esc(catName(p.category))}</td><td><span class="badge${p.visibility === 'private' ? ' pv' : ''}">${p.visibility === 'public' ? '공개' : '나만 보기'}${fixed ? ' · 고정' : ''}</span></td><td class="d">${fd(p.date)}</td><td class="d">${viewsOf(p)}</td><td><div class="acts"><a class="btn sm" href="${root}admin/write.html?id=${encodeURIComponent(p.id)}">수정</a>${toggle}${reviewerUntil ? '' : `<button class="btn sm danger${delArm === p.id ? ' sure' : ''}" type="button" data-a="del" data-id="${esc(p.id)}">${delArm === p.id ? '정말 삭제할까요?' : '삭제'}</button>`}</div></td></tr>`;
     }).join(''),
   };
 }
@@ -219,7 +250,7 @@ function menuRows() {
     const n = posts.filter((p) => p.category === c.slug).length;
     return `<tr><td><label><span class="sr">메뉴 이름</span><input class="mname" type="text" maxlength="12" data-mname="${esc(c.slug)}" value="${esc(c.name)}"></label></td>` +
       `<td><label class="chk"><input type="checkbox" data-mpriv="${esc(c.slug)}"${c.priv ? ' checked' : ''}> 나만 보기 메뉴</label></td><td class="d">글 ${n}개</td>` +
-      `<td><div class="acts"><button class="btn sm" type="button" data-a="mup" data-id="${esc(c.slug)}" aria-label="${esc(c.name)} 위로"${i === 0 ? ' disabled' : ''}>↑</button><button class="btn sm" type="button" data-a="mdown" data-id="${esc(c.slug)}" aria-label="${esc(c.name)} 아래로"${i === cats.length - 1 ? ' disabled' : ''}>↓</button><button class="btn sm danger${menuDel === c.slug ? ' sure' : ''}" type="button" data-a="mdel" data-id="${esc(c.slug)}">${menuDel === c.slug ? '정말 삭제할까요?' : '삭제'}</button></div></td></tr>`;
+      `<td><div class="acts"><button class="btn sm" type="button" data-a="mup" data-id="${esc(c.slug)}" aria-label="${esc(c.name)} 위로"${i === 0 ? ' disabled' : ''}>↑</button><button class="btn sm" type="button" data-a="mdown" data-id="${esc(c.slug)}" aria-label="${esc(c.name)} 아래로"${i === cats.length - 1 ? ' disabled' : ''}>↓</button>${reviewerUntil ? '' : `<button class="btn sm danger${menuDel === c.slug ? ' sure' : ''}" type="button" data-a="mdel" data-id="${esc(c.slug)}">${menuDel === c.slug ? '정말 삭제할까요?' : '삭제'}</button>`}</div></td></tr>`;
   }).join('');
 }
 function menusPage() {
@@ -266,7 +297,7 @@ function viewPage() {
   const p = posts.find((x) => x.id === params.get('id'));
   if (!p) { show('<h1 class="ptitle">글을 찾을 수 없어요</h1><p class="empty">삭제되었거나 없는 글이에요.</p><p><a class="btn" href="posts.html">글 관리로</a></p>'); return; }
   sideKey = 'cat:' + p.category; renderSidebar(sideKey);
-  const bar = `<div class="adminbar" role="region" aria-label="관리자 메뉴"><span>관리자로 보는 중 · ${p.visibility === 'public' ? '공개글' : '나만 보기'}</span><div><a class="btn sm" href="posts.html">관리자 페이지</a><a class="btn sm" href="write.html?id=${encodeURIComponent(p.id)}">수정</a><button class="btn sm danger${delArm === p.id ? ' sure' : ''}" type="button" data-a="vdel" data-id="${esc(p.id)}">${delArm === p.id ? '정말 삭제할까요?' : '삭제'}</button></div></div>`;
+  const bar = `<div class="adminbar" role="region" aria-label="관리자 메뉴"><span>관리자로 보는 중 · ${p.visibility === 'public' ? '공개글' : '나만 보기'}</span><div><a class="btn sm" href="posts.html">관리자 페이지</a><a class="btn sm" href="write.html?id=${encodeURIComponent(p.id)}">수정</a>${reviewerUntil ? '' : `<button class="btn sm danger${delArm === p.id ? ' sure' : ''}" type="button" data-a="vdel" data-id="${esc(p.id)}">${delArm === p.id ? '정말 삭제할까요?' : '삭제'}</button>`}</div></div>`;
   show(bar + notice() + `<article class="post"><a class="tag" href="list.html?cat=${encodeURIComponent(p.category)}">${esc(catName(p.category))}</a><h1>${esc(p.title)}${lock(p)}</h1><p class="summary">${esc(p.summary || '')}</p><div class="meta3"><time>${fd(p.date)}</time>${isPrivCat(p.category) ? '' : `<span class="hint">조회 ${views[p.id] || 0}</span>`}</div>${TH.none(p) ? '' : `<div class="cover">${TH.inner(p)}</div>`}<div class="body">${bodyHtml(p)}</div>${filesHtml(cleanFiles(p.files))}${neighborsHtml(p)}${isPrivCat(p.category) || p.visibility !== 'public' ? '<p class="hint" style="margin-top:32px">나만 보기 글에는 댓글이 달리지 않아요.</p>' : ''}</article>`);
 }
 
@@ -784,10 +815,10 @@ if (page === 'public') {
       const mainEl = document.querySelector('main');
       const bar = document.createElement('div');
       bar.className = 'adminbar'; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', '관리자 메뉴');
-      bar.innerHTML = `<span>관리자로 보는 중</span><div><a class="btn sm" href="${root}admin/posts.html">관리자 페이지</a><a class="btn sm" href="${root}admin/write.html?id=${encodeURIComponent(pid)}">수정</a><button class="btn sm danger" type="button">삭제</button></div>`;
+      bar.innerHTML = `<span>관리자로 보는 중</span><div><a class="btn sm" href="${root}admin/posts.html">관리자 페이지</a><a class="btn sm" href="${root}admin/write.html?id=${encodeURIComponent(pid)}">수정</a>${reviewerUntil ? '' : '<button class="btn sm danger" type="button">삭제</button>'}</div>`;
       mainEl.insertBefore(bar, mainEl.firstChild);
       const del = bar.querySelector('.danger'); let armed = false;
-      del.addEventListener('click', async () => {
+      if (del) del.addEventListener('click', async () => {
         if (!armed) { armed = true; del.textContent = '정말 삭제할까요?'; del.classList.add('sure'); setTimeout(() => { armed = false; del.textContent = '삭제'; del.classList.remove('sure'); }, 3500); return; }
         try { await removePost({ id: pid }); sendFlash('글을 삭제했어요.' + NOTE_DEPLOY); location.href = root + 'admin/posts.html'; } catch (ex) { del.textContent = dbMsg(ex); }
       });

@@ -4,12 +4,18 @@ rules_version = '2';
 // PNG·JPG·WebP·GIF만, 10MB 이하만 받아요. (SVG는 안에 코드가 들어갈 수 있어서 받지 않아요.)
 // 첨부 파일(files/): 문서·압축·이미지 확장자만, 25MB 이하만 받아요. 실행 파일, 스크립트, HTML, SVG는 받지 않아요.
 // 올릴 때 파일 이름을 "무작위번호.확장자"로 만들어 올리고, 보여 줄 원래 이름은 글에 따로 저장해요.
+// 올리기는 관리자와 만료 전의 평가자가 할 수 있고, 지우기는 관리자만 해요.
 service firebase.storage {
   match /b/{bucket}/o {
+    function isStaff() {
+      return request.auth != null && (request.auth.token.get('admin', false) == true
+        || (request.auth.token.get('reviewer', false) == true && request.auth.token.get('until', 0) > request.time.toMillis()));
+    }
+
     match /{folder}/{file} {
       allow read: if (folder == 'thumbs' || folder == 'images');
       allow create: if (folder == 'thumbs' || folder == 'images')
-        && request.auth != null && request.auth.token.admin == true
+        && isStaff()
         && request.resource.size <= 10485760
         && request.resource.contentType.matches('image/(png|jpeg|webp|gif)');
       allow delete: if (folder == 'thumbs' || folder == 'images') && request.auth != null && request.auth.token.admin == true;
@@ -17,7 +23,7 @@ service firebase.storage {
     }
     match /files/{file} {
       allow read: if true;
-      allow create: if request.auth != null && request.auth.token.admin == true
+      allow create: if isStaff()
         && request.resource.size <= 26214400
         && file.matches('^[0-9a-f-]{36}\\.(pdf|docx?|xlsx?|pptx?|hwpx?|txt|csv|md|zip|json|png|jpe?g|gif|webp)$');
       allow delete: if request.auth != null && request.auth.token.admin == true;

@@ -72,6 +72,13 @@
         }
       },
       {
+        "source": "/api/reviewer",
+        "function": {
+          "functionId": "reviewer",
+          "region": "asia-northeast3"
+        }
+      },
+      {
         "source": "/api/cat",
         "function": {
           "functionId": "cat",
