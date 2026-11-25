@@ -460,7 +460,9 @@ body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="wr
 body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) .search{font-size:13px;min-height:30px;width:100%}
 body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) .bar{font-size:12px}
 body[data-page="write"] .field{font-size:11px;gap:4px}
-body[data-page="write"] .field input,body[data-page="write"] .field select{min-height:32px;padding:0 10px;font-size:13px}
+body:is([data-page="write"],[data-page="retro"]) .field{font-size:11px;gap:4px}
+body:is([data-page="write"],[data-page="retro"]) .field input,body:is([data-page="write"],[data-page="retro"]) .field select{min-height:32px;padding:0 10px;font-size:12px}
+body[data-page="write"] :is(.ail,.fsum input){min-height:32px;padding:0 10px;font-size:12px}
 body[data-page="write"] input.title{font-size:20px;padding:6px 0}
 body[data-page="write"] .vis button{min-height:32px;font-size:12px}
 body[data-page="write"] .tabs button{min-height:36px;font-size:13px;padding:0 14px}
@@ -501,7 +503,10 @@ body[data-page="view"] .adminbar{padding:8px 12px;font-size:12px;gap:8px}
 body[data-page="retro"] .abox{padding:12px;gap:10px}
 body[data-page="retro"] .rsec{font-size:13px}
 body[data-page="retro"] .rlist{padding:2px 10px}
-body[data-page="retro"] .rpost{padding:8px 0}
+body[data-page="retro"] .rpost{padding:8px 0;flex-direction:column;align-items:stretch;gap:6px}
+body[data-page="retro"] .rpost .fsum{margin:0 0 2px 22px}
+body[data-page="retro"] .fsum{font-size:11px;gap:4px}
+body[data-page="retro"] .fsum input{min-height:32px;padding:0 10px;font-size:12px}
 body[data-page="retro"] .ackl{font-size:12px}
 body[data-page="retro"] .btn.pri{min-height:34px}
 body[data-page="retro"] textarea{min-height:200px;font-size:13px;line-height:1.7;padding:12px}
