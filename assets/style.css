@@ -418,7 +418,6 @@ nav[aria-label="관리자 메뉴"] a.subl.on{color:var(--accent);font-weight:700
 /* 모바일 메뉴 관리: 사이드바 메뉴(12px 안팎)와 어울리게 제목·입력칸·버튼을 줄이고, 표는 가로로 잘리지 않게 메뉴마다 두 줄로 정돈해요
    윗줄: 이름 입력칸 + 글 개수 / 아랫줄: 나만 보기 체크 + ↑ ↓ 삭제 버튼 */
 @media(max-width:800px){
-.head .btn{display:none} /* 모바일은 윗줄의 NEW POST가 있어서 "새 글 쓰기" 버튼을 숨겨요 */
 body[data-page="menus"] main{gap:16px}
 body[data-page="menus"] .head{gap:10px;align-items:flex-start}
 body[data-page="menus"] .head .hint{font-size:11px}
@@ -445,4 +444,70 @@ body[data-page="menus"] .addrow{gap:8px;align-items:flex-end;flex-wrap:nowrap}
 body[data-page="menus"] .addrow .field{flex:1 1 0;max-width:none;min-width:0;font-size:11px;gap:4px}
 body[data-page="menus"] .addrow .field input{min-height:34px;padding:0 10px;font-size:12px}
 body[data-page="menus"] .addrow .btn{flex:none;min-height:34px;padding:0 14px;font-size:12px}
+}
+/* 모바일 관리자 화면 공통: 메뉴 관리와 같은 기준으로 글 관리·글 목록·글 보기·글쓰기·회고 정리·AI 이용 현황의 제목, 입력칸, 버튼을 줄이고 정돈해요 */
+@media(max-width:800px){
+.wrap{align-content:flex-start}
+body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) main{gap:16px}
+body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) :is(.ptitle,.head .ptitle){font-size:22px}
+body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) .head{gap:10px}
+body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) .head .hint{font-size:11px}
+body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) .btn{min-height:30px;padding:0 12px;font-size:12px}
+body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) .btn.sm{min-height:28px;padding:0 10px;font-size:12px}
+body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) .chips{gap:6px}
+body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) .chip{min-height:28px;padding:2px 10px;font-size:12px}
+body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) .flabel{font-size:11px}
+body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) .search{font-size:13px;min-height:30px;width:100%}
+body:is([data-page="posts"],[data-page="list"],[data-page="view"],[data-page="write"],[data-page="retro"],[data-page="ai"]) .bar{font-size:12px}
+body[data-page="write"] .field{font-size:11px;gap:4px}
+body[data-page="write"] .field input,body[data-page="write"] .field select{min-height:32px;padding:0 10px;font-size:13px}
+body[data-page="write"] input.title{font-size:20px;padding:6px 0}
+body[data-page="write"] .vis button{min-height:32px;font-size:12px}
+body[data-page="write"] .tabs button{min-height:36px;font-size:13px;padding:0 14px}
+body[data-page="write"] .thpick{gap:6px}
+body[data-page="write"] .thb{width:52px;height:36px}
+body[data-page="write"] .thcur .thumb{width:64px;height:44px}
+body[data-page="write"] .thnone{width:44px;height:36px;font-size:11px}
+body[data-page="write"] .aip{padding:12px}
+body[data-page="write"] .aip h2{font-size:14px}
+body[data-page="write"] .aitab{font-size:12.5px;min-height:34px}
+/* 글 관리: 표를 줄마다 쌓아요(제목 → 메뉴·공개 범위·날짜·조회수 → 버튼) */
+body[data-page="posts"] .tblwrap{overflow:visible}
+body[data-page="posts"] .tbl{min-width:0;display:block;font-size:12px;border-collapse:separate;border-spacing:0}
+body[data-page="posts"] .tbl thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+body[data-page="posts"] .tbl th{border:0;padding:0}
+body[data-page="posts"] .tbl tbody{display:block;border:0}
+body[data-page="posts"] .tbl tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:12px 0;border-bottom:1px solid var(--line)}
+body[data-page="posts"] .tbl td{display:block;padding:0;border:0}
+body[data-page="posts"] .tbl td.t{flex:0 0 100%;display:flex;align-items:center;gap:10px;white-space:normal}
+body[data-page="posts"] .tbl td.t .thumb.sm{width:44px;height:30px;margin:0;flex:none}
+body[data-page="posts"] .tbl td.t a{font-size:14px;line-height:1.4}
+body[data-page="posts"] .tbl td:nth-child(2){font-size:11px;color:var(--mute);letter-spacing:.06em}
+body[data-page="posts"] .tbl td.d{font-size:11px}
+body[data-page="posts"] .badge{font-size:11px;padding:1px 8px;min-height:0}
+body[data-page="posts"] .flabel{display:block;width:100%}
+body[data-page="posts"] .tbl td:last-child{flex:0 0 100%;margin-top:2px}
+body[data-page="posts"] .acts{justify-content:flex-start;gap:6px}
+/* 글 목록 */
+body[data-page="list"] .row{grid-template-columns:64px 1fr;gap:2px 12px;padding:12px 0}
+body[data-page="list"] .row .thumb{width:64px;height:44px}
+body[data-page="list"] .row .tag{font-size:10px}
+body[data-page="list"] .rt b{font-size:15px;line-height:1.45}
+body[data-page="list"] .rt small{font-size:12px}
+body[data-page="list"] time,body[data-page="list"] .meta2 .v{font-size:11px}
+/* 글 보기의 관리자 막대 */
+body[data-page="view"] .adminbar{padding:8px 12px;font-size:12px;gap:8px}
+/* 회고 정리 */
+body[data-page="retro"] .abox{padding:12px;gap:10px}
+body[data-page="retro"] .rsec{font-size:13px}
+body[data-page="retro"] .rlist{padding:2px 10px}
+body[data-page="retro"] .rpost{padding:8px 0}
+body[data-page="retro"] .ackl{font-size:12px}
+body[data-page="retro"] .btn.pri{min-height:34px}
+body[data-page="retro"] textarea{min-height:200px;font-size:13px;line-height:1.7;padding:12px}
+/* AI 이용 현황 */
+body[data-page="ai"] .atab{font-size:12px;margin:8px 0}
+body[data-page="ai"] .atab caption{font-size:13px}
+body[data-page="ai"] .atab th,body[data-page="ai"] .atab td{padding:6px}
+body[data-page="ai"] .atab th{font-size:11px;white-space:nowrap}
 }
