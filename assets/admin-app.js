@@ -426,7 +426,25 @@ async function aiRun(t) {
   catch (e) { ai.aiHits = []; ai.chkFail = true; ai.aiNote = e.message + ' (규칙 점검 결과만 보여 드려요.)'; logAi('fail', 'aichk'); }
   ai.chkRan = true; ai.busy = ''; aiRender();
 }
+// 화면을 다시 그리면 키보드 포커스가 맨 위로 돌아가요. 누르던 버튼·체크박스를 기억해 두었다가 다시 그린 뒤 그 자리로 돌려놔요.
+// (요청 중에는 버튼이 잠시 꺼져 있어서, 꺼진 동안은 기억만 해 두고 다음에 다시 그릴 때 돌려놔요.)
+let focusMemo = null;
+function focusKey() {
+  const a = document.activeElement;
+  if (!a || a === document.body || !a.matches || !a.matches('button, input[type="checkbox"], select')) return null;
+  const q = (v) => (window.CSS && CSS.escape ? CSS.escape(v) : v);
+  if (a.id) return '#' + q(a.id);
+  if (a.dataset && a.dataset.ack) return 'input[data-ack="' + q(a.dataset.ack) + '"]';
+  if (a.dataset && a.dataset.a) return 'button[data-a="' + q(a.dataset.a) + '"]' + (a.dataset.v !== undefined ? '[data-v="' + q(a.dataset.v) + '"]' : '');
+  return null;
+}
 function writePage() {
+  const k = focusKey();
+  if (k) focusMemo = k; else if (document.activeElement && document.activeElement !== document.body) focusMemo = null;
+  writePageRaw();
+  if (focusMemo) { const el = document.querySelector(focusMemo); if (el && !el.disabled) { el.focus({ preventScroll: true }); focusMemo = null; } }
+}
+function writePageRaw() {
   if (!cats.length) { show('<h1 class="ptitle">새 글 쓰기</h1><p class="notice warn" role="alert">글을 올릴 메뉴가 없어요. 메뉴 관리에서 메뉴를 먼저 추가하세요.</p><p><a class="btn" href="menus.html">메뉴 관리로</a></p>'); return; }
   const d = draft;
   const fixed = isPrivCat(d.cat); if (fixed) d.vis = 'private';
@@ -732,7 +750,7 @@ main && main.addEventListener('change', async (e) => {
   if (t.id === 'thfile') { const f = t.files && t.files[0]; if (f) uploadThumb(f); }
   else if (t.id === 'ffile') { const f = t.files && t.files[0]; if (f) attachFile(f); }
   else if (t.id === 'imgfile') { const f = t.files && t.files[0]; if (f) insertBodyImage(f); }
-  else if (t.dataset && t.dataset.ack) { ai.acks[t.dataset.ack] = t.checked; if (t.checked) logAi('ack', 'aichk', 1); }
+  else if (t.dataset && t.dataset.ack) { ai.acks[t.dataset.ack] = t.checked; if (t.checked) logAi('ack', 'aichk', 1); aiRender(); } // 체크하면 점검 목록과 "N/5 통과"를 바로 갱신해요
   else if (t.id === 'aion') { syncDraft(); draft.ai.on = t.checked; draft.ai.for = t.checked ? IC.hash(IC.plain(sanitizeHtml(draft.html))) : ''; if (t.checked) logAi('apply', 'aitl'); }
   else if (t.dataset && t.dataset.tb) {
     const map = { font: 'fontFamily', size: 'fontSize', weight: 'fontWeight', color: 'color' };

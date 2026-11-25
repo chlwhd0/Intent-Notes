@@ -55,7 +55,7 @@ export function checkHtml(hits, acks, aiNote, aiState) {
     let body = '';
     if (r.skip && !r.mine.length) body = `<small>${aiState === 'fail' ? 'AI가 답하지 못했어요. [새로고침]으로 다시 시도해요.' : '위쪽 [새로고침]을 누르면 AI가 점검해요.'}${c.ids.includes('tel') ? ' 전화번호는 이미 점검했어요.' : ''}</small>`;
     else if (r.mine.length) {
-      body = r.mine.map((h) => `<div class="ahit"><q>${esc(h.text)}</q>${h.why ? `<span>${esc(h.why)}</span>` : ''}${h.suggest ? `<span>→ ${esc(h.suggest)}</span>` : ''}${h.level === 'warn' ? `<label class="ackl"><input type="checkbox" data-ack="${esc(h.key)}"${acks[h.key] ? ' checked' : ''}> 확인했어요</label>` : ''}</div>`).join('') + `<small>${esc(r.mine[0].fix)}</small>`;
+      body = r.mine.map((h) => `<div class="ahit"><q>${esc(h.text)}</q>${h.why ? `<span>${esc(h.why)}</span>` : ''}${h.suggest ? `<span>→ ${esc(h.suggest)}</span>` : ''}${h.level === 'warn' ? `<label class="ackl"><input type="checkbox" data-ack="${esc(h.key)}" aria-label="${esc(h.text)} 확인했어요"${acks[h.key] ? ' checked' : ''}> 확인했어요</label>` : ''}</div>`).join('') + `<small>${esc(r.mine[0].fix)}</small>`;
     }
     return `<li class="ck ${r.cls}"><div class="ckh"><span class="ckn">${esc(c.name)}${c.ai ? ' <span class="aib">AI</span>' : ''}</span><span class="cks">${r.st}</span></div><div class="ckd">${esc(c.desc)}</div>${body}</li>`;
   }).join('');
@@ -69,10 +69,11 @@ export function checkHtml(hits, acks, aiNote, aiState) {
 export function panelHtml(d, s, hitsHtml) {
   const busy = s.busy || (limitOut(s.usage) ? 'limit' : ''), tab = s.tab;
   const tabBtn = (t, a, label) => `<button type="button" class="aitab" data-a="${a}" aria-pressed="${tab === t}"${busy ? ' disabled' : ''}>${s.busy === a ? '요청 중…' : label}</button>`;
-  const ref = (t, part) => `<button type="button" class="airef${s.busy && (!part || s.busyPart === part || !s.busyPart) ? ' spin' : ''}" data-a="airef" data-v="${t}"${busy ? ' disabled' : ''} aria-label="새로고침" title="새로고침"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4.5h-4.5"/></svg></button>`;
+  const refName = (t, part) => ({ titles: '제목 후보 ', summary: '한 줄 요약 ' }[part] || { tl: '3줄 요약 ', chk: '발행 전 점검 ', sug: '글쓰기 보조 ' }[t] || '');
+  const ref = (t, part) => `<button type="button" class="airef${s.busy && (!part || s.busyPart === part || !s.busyPart) ? ' spin' : ''}" data-a="airef" data-v="${t}"${busy ? ' disabled' : ''} aria-label="${refName(t, part)}새로고침" title="새로고침"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4.5h-4.5"/></svg></button>`;
   let body = '';
   if (tab === 'sug' && s.sug) {
-    const row = (text, key, n) => (text ? `<div class="arow"><span class="atxt">${n ? `<i class="an">${n}</i>` : ''}${esc(text)}</span><button type="button" class="btn sm pri" data-a="aiapply" data-v="${key}">적용</button></div>` : '');
+    const row = (text, key, n) => (text ? `<div class="arow"><span class="atxt">${n ? `<i class="an">${n}</i>` : ''}${esc(text)}</span><button type="button" class="btn sm pri" data-a="aiapply" data-v="${key}" aria-label="${key === 'summary' ? '한 줄 요약 적용' : '제목 후보 ' + n + '번 적용'}">적용</button></div>` : '');
     const sec = (title, note, rows, part) => (rows ? `<div class="asec"><div class="ashead"><h3 class="ash">${title}${note ? ` <small>${note}</small>` : ''}</h3>${ref('sug-' + part, part)}</div>${rows}</div>` : '');
     const titles = (s.sug.titles || []).map((t, i) => row(t, 't' + i, i + 1)).join('');
     body = `<div class="abox" id="asug"><div class="ahead"><span class="hint">AI 제안이에요. 마음에 드는 것만 적용하세요. 제목 후보와 한 줄 요약은 각각 새로고침할 수 있어요.</span></div>${sec('제목 후보', '하나를 골라 적용', titles, 'titles')}${sec('한 줄 요약', '목록·글 위쪽·검색 결과에 함께 보여요', row(s.sug.summary, 'summary'), 'summary')}<button type="button" class="btn sm" data-a="aiignore">모두 무시</button></div>`;
