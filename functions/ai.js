@@ -1,6 +1,6 @@
 // AI 기능의 두뇌: 글 내용을 받아 Anthropic(Claude) API에 물어보고, 정해진 모양의 결과로 돌려줘요.
 // 서버 함수(index.js의 ai)가 이 파일을 쓰고, 테스트에서는 가짜 fetch를 넣어 돌려 봐요.
-// 지키는 것: 방문자 이름·이메일·댓글은 보내지 않아요(받는 입력은 글 본문, PDF 글자, 회고 글뿐이에요).
+// 지키는 것: 방문자 이름·이메일·댓글은 보내지 않아요(받는 입력은 글 본문과 회고 글뿐이에요).
 const API = 'https://api.anthropic.com/v1/messages';
 const MAX_IN = 30000; // 한 번에 보내는 글자 수 상한(비용과 속도를 위해)
 
@@ -36,11 +36,6 @@ const ACTIONS = {
       let typo = 0;
       return { items: items.filter((x) => (x.kind !== 'typo' ? true : ++typo <= 5)).slice(0, 20) };
     },
-  },
-  files: {
-    need: (i) => clip(i.text).length >= 30,
-    prompt: (i) => `다음은 블로그에 첨부할 문서에서 뽑은 글자예요. 방문자가 내려받기 전에 볼 요약을 JSON으로 답하세요.\n{"summary":"문서가 무엇이고 무엇을 알 수 있는지 2~3문장(200자 이내)"}\n\n[문서]\n${clip(i.text)}`,
-    parse: (j) => ({ summary: s(j.summary, 300) }),
   },
   tldr: {
     need: (i) => clip(i.body).length >= 100,

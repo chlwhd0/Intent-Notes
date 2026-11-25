@@ -55,7 +55,7 @@ ID의 `AFPn-Hm-Sk`는 최종 문제n의 가설m에서 나온 해결방안k입니
 | `AFR-08` `AFP2-H2-S1.ai*check` | 실명·내부 자료를 "확인 필요"로 표시 | P1 |
 | `AFR-09` `AFP3-H1-S1.sum*make` | 3줄 요약 생성, [적용]해야 공개 | P1 |
 | `AFR-10` `AFP3-H1-S2.sum*box` | 글 위쪽 "AI 요약" 상자(접기·펼치기) | P1 |
-| `AFR-03` `AFP1-H3-S1.pdf*sum` | 첨부 PDF 핵심 3줄 제안 | P2 |
+| `AFR-03` `AFP1-H3-S1.pdf*sum` | 첨부 파일 요약 (**삭제함**) | - |
 | `AFR-04` `AFP1-H4-S1.retro*draft` | 회고에서 공개 글 초안 생성(처음엔 나만 보기) | P2 |
 | `AFR-05` `AFP1-H4-S2.retro*safe` | 회고 원문 보호(원문을 외부로 보내지 않기 선택) | P2 |
 | `AFR-11` `AFP3-H2-S1.related` | 비슷한 글 "이어서 읽을 글" | P2 |

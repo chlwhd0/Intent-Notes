@@ -28,39 +28,6 @@ export function limitHtml(u) {
 
 export const aiErr = (code) => ERR[code] || 'AI가 지금 답하지 못했어요. 잠시 뒤에 다시 눌러 주세요. 글쓰기와 저장은 그대로 돼요.';
 
-// 첨부 파일에서 요약에 쓸 글자를 뽑아요. 글자를 읽을 수 없으면 빈 문자열이에요.
-// 텍스트 파일은 바로 읽고, PDF는 pdf.js(cdnjs)를 처음 필요할 때만 불러와서 앞 10쪽까지 읽어요.
-const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
-let pdfLoad = null;
-function loadPdfJs() {
-  if (self.pdfjsLib) return Promise.resolve(self.pdfjsLib);
-  if (!pdfLoad) {
-    pdfLoad = new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = PDFJS + 'pdf.min.js'; s.onload = () => { self.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; resolve(self.pdfjsLib); };
-      s.onerror = () => { pdfLoad = null; reject(new Error('pdf')); };
-      document.head.appendChild(s);
-    });
-  }
-  return pdfLoad;
-}
-export async function extractText(file, ext) {
-  try {
-    if (['txt', 'md', 'csv'].includes(ext)) return (await file.text()).slice(0, 30000);
-    if (ext === 'pdf') {
-      const lib = await loadPdfJs();
-      const pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
-      let out = '';
-      for (let i = 1; i <= Math.min(pdf.numPages, 10) && out.length < 30000; i++) {
-        const c = await (await pdf.getPage(i)).getTextContent();
-        out += c.items.map((x) => x.str).join(' ') + '\n';
-      }
-      return out.trim().slice(0, 30000);
-    }
-  } catch (e) { /* 읽지 못하면 요약 없이 넘어가요 */ }
-  return '';
-}
-
 // 점검 목록. 점검하는 5가지를 항상 보여 주고, 항목마다 통과 여부를 표시해요.
 // hits는 IC.run + IC.fromAi를 합친 것, acks는 "확인했어요" 표시, aiState는 AI 점검 상태('none' 아직 안 함 | 'ok' | 'fail')예요.
 // ids: 이 항목에 속하는 점검 id. ai: AI가 하는 부분이 있는지. 개인정보·고객정보는 전화번호(규칙)와 AI 점검을 한 항목으로 합쳤어요.
@@ -116,7 +83,7 @@ export function panelHtml(d, s, hitsHtml) {
     body = `<div class="abox" id="atl"><div class="ahead"><span class="hint">AI가 만든 3줄 요약이에요. 고쳐 쓸 수 있고, 아래를 체크해야 공개 글에 보여요.</span>${ref('tl')}</div>${lines.map((t, i) => `<label class="sr" for="ail${i}">요약 ${i + 1}줄</label><input id="ail${i}" class="ail" type="text" maxlength="120" value="${esc(t)}">`).join('')}<label class="ackl"><input type="checkbox" id="aion"${d.ai.on ? ' checked' : ''}> 내가 확인했어요. 공개 글에 “AI가 정리한 3줄 요약”으로 보여 주세요.</label><span class="hint">본문을 고치면 승인이 풀려서 요약이 숨겨져요. 새로고침하면 고친 내용과 승인이 사라져요.</span></div>`;
   }
   return `<section class="aip${s.sheet ? ' open' : ''}" id="aip" aria-labelledby="aiph"><div class="aiheadrow"><h2 id="aiph">AI 도우미 <span class="aib">AI</span></h2><button type="button" class="aiclose" data-a="aiclose" aria-label="AI 도우미 닫기">닫기</button></div><div id="ailimit">${limitHtml(s.usage)}</div>` +
-    `<p class="hint">AI는 제안만 해요. 눌러서 적용하기 전에는 글이 바뀌지 않아요. 보내는 내용은 본문(첨부 요약은 문서 글자)뿐이고, 방문자 이름·이메일·댓글은 보내지 않아요.</p>` +
+    `<p class="hint">AI는 제안만 해요. 눌러서 적용하기 전에는 글이 바뀌지 않아요. 보내는 내용은 본문뿐이고, 방문자 이름·이메일·댓글은 보내지 않아요.</p>` +
     `<div class="aibtns">${tabBtn('sug', 'aisug', '글쓰기 보조')}${tabBtn('tl', 'aitl', '3줄 요약')}${tabBtn('chk', 'aichk', '발행 전 점검')}</div>` +
     `<p class="hint" id="aimsg" role="status">${esc(s.msg || '')}</p>${body}</section>`;
 }

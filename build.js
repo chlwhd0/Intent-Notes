@@ -118,7 +118,7 @@ const restProvider = {
         id: r.document.name.split('/').pop(), title: rf(f, 'title'), slug: rf(f, 'slug'), category: rf(f, 'category'), summary: rf(f, 'summary'),
         description: rf(f, 'description'), body: rf(f, 'body'), format: rf(f, 'format'), img: rf(f, 'img'), date: rf(f, 'date'),
         thumb: f.thumb && f.thumb.integerValue !== undefined ? Number(f.thumb.integerValue) : undefined,
-        files: (((f.files || {}).arrayValue || {}).values || []).map((v) => { const m = (v.mapValue || {}).fields || {}; return { name: rf(m, 'name'), url: rf(m, 'url'), size: Number((m.size || {}).integerValue || 0), summary: rf(m, 'summary'), ai: !!(m.ai && m.ai.booleanValue) }; }),
+        files: (((f.files || {}).arrayValue || {}).values || []).map((v) => { const m = (v.mapValue || {}).fields || {}; return { name: rf(m, 'name'), url: rf(m, 'url'), size: Number((m.size || {}).integerValue || 0) }; }),
         aiSummary: (((f.aiSummary || {}).arrayValue || {}).values || []).map((v) => v.stringValue || '').filter(Boolean), aiSummaryOn: !!(f.aiSummaryOn && f.aiSummaryOn.booleanValue), aiSummaryFor: rf(f, 'aiSummaryFor'),
       };
     });
@@ -186,11 +186,11 @@ const cleanFiles = (arr) =>
   (Array.isArray(arr) ? arr : [])
     .filter((f) => f && typeof f.name === 'string' && f.name && T.okImg(f.url))
     .slice(0, 5)
-    .map((f) => ({ name: f.name.slice(0, 100), url: f.url, size: Number(f.size) || 0, summary: typeof f.summary === 'string' ? f.summary.trim().slice(0, 300) : '', ai: f.ai === true }));
+    .map((f) => ({ name: f.name.slice(0, 100), url: f.url, size: Number(f.size) || 0 }));
 const fmtSize = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB');
 const filesBlock = (files) =>
   files && files.length
-    ? `<section class="files" aria-labelledby="fh"><h2 class="sec" id="fh">첨부 파일</h2><ul>${files.map((f) => `<li><a href="${esc(f.url)}" rel="noopener noreferrer">${esc(f.name)}</a> <small>${fmtSize(f.size)} · ${esc((f.name.split('.').pop() || '').toUpperCase().slice(0, 6))}</small>${f.summary ? `<p class="fsumv">${f.ai ? '<span class="aib">AI 요약</span> ' : ''}${esc(f.summary)}</p>` : ''}</li>`).join('')}</ul></section>`
+    ? `<section class="files" aria-labelledby="fh"><h2 class="sec" id="fh">첨부 파일</h2><ul>${files.map((f) => `<li><a href="${esc(f.url)}" rel="noopener noreferrer">${esc(f.name)}</a> <small>${fmtSize(f.size)} · ${esc((f.name.split('.').pop() || '').toUpperCase().slice(0, 6))}</small></li>`).join('')}</ul></section>`
     : '';
 
 // 관련 글 추천: 글 저장 없이 빌드(방문 때 만드는 페이지)마다 새로 계산해요. AI를 부르지 않아서 비용이 없고 항상 최신이에요.

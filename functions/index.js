@@ -31,7 +31,7 @@ const provider = {
       return {
         id: d.id, title: str(x.title), slug: str(x.slug), category: str(x.category), summary: str(x.summary), description: str(x.description),
         body: str(x.body), format: str(x.format), img: str(x.img), date: str(x.date), thumb: Number.isInteger(x.thumb) ? x.thumb : undefined,
-        files: Array.isArray(x.files) ? x.files.map((f) => ({ name: str(f && f.name), url: str(f && f.url), size: Number(f && f.size) || 0, summary: str(f && f.summary), ai: !!(f && f.ai === true) })) : [],
+        files: Array.isArray(x.files) ? x.files.map((f) => ({ name: str(f && f.name), url: str(f && f.url), size: Number(f && f.size) || 0 })) : [],
         aiSummary: Array.isArray(x.aiSummary) ? x.aiSummary.map(str).filter(Boolean).slice(0, 3) : [], aiSummaryOn: x.aiSummaryOn === true, aiSummaryFor: str(x.aiSummaryFor),
       };
     });
@@ -124,7 +124,7 @@ exports.cat = onRequest({ region: 'asia-northeast3', memory: '256MiB', timeoutSe
   res.json(cat.data);
 });
 
-// AI 도우미. 관리자 화면(글쓰기 보조, 발행 전 점검, 첨부 요약, 3줄 요약, 회고 정리)이 /api/ai 로 불러가요.
+// AI 도우미. 관리자 화면(글쓰기 보조, 발행 전 점검, 3줄 요약, 회고 정리)이 /api/ai 로 불러가요.
 // 관리자 로그인(ID 토큰의 admin 표시)이 있어야 하고, 한 달에 부를 수 있는 횟수를 넘으면 멈춰요.
 // 키가 없거나 AI 서비스가 안 될 때는 오류 코드만 돌려줘요. (글쓰기·저장은 AI 없이도 그대로 돼요)
 const aiKey = defineSecret('AI_API_KEY');
