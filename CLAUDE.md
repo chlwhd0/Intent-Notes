@@ -25,7 +25,7 @@ AI PM 포트폴리오, 회고, 스터디 노트를 올리는 개인 블로그입
 | 서버 함수를 바꾼 배포 | `... deploy --only functions,hosting --project my-blog-test-b439a` | 끝에 "could not set up cleanup policy" 오류가 나도 함수는 배포된 거예요. 하지만 호스팅이 공개되지 않을 수 있어서 **호스팅만 한 번 더 배포해요**(`deploy --only hosting`) |
 | 보안 규칙만 배포 | `... deploy --only firestore:rules,storage --project my-blog-test-b439a` | 배포한 뒤 **로그인 없이** 막히는지 시험해요 |
 | 서버 로그 보기 | `... functions:log --only cat,weather --project my-blog-test-b439a` | 함수 오류(메모리 초과 등)를 볼 때 |
-| API 키 저장 | `... functions:secrets:set 이름 --project my-blog-test-b439a` | **이름 자리에 키 값을 쓰지 않아요.** 키는 입력창에 직접 붙여 넣어요. 현재 이름은 `CAT_API_KEY`, `KMA_SERVICE_KEY` |
+| API 키 저장 | `... functions:secrets:set 이름 --project my-blog-test-b439a` | **이름 자리에 키 값을 쓰지 않아요.** 키는 입력창에 직접 붙여 넣어요. 현재 이름은 `CAT_API_KEY`, `KMA_SERVICE_KEY`, `AI_API_KEY`(AI 서비스) |
 
 ## 배포한 뒤 확인하는 것
 
@@ -45,8 +45,8 @@ README.md                   사람용 안내
 build.js                    모든 페이지를 만드는 파일(서버 함수도 이 파일을 써요)
 site.config.json, about.md, privacy.md   이름·문구·메뉴, 소개, 처리방침 원문
 assets/                     브라우저에서 도는 스크립트와 스타일(admin-app.js, site.js, style.css 등)
-functions/                  서버 함수(index.js: site·weather·cat, weather.js, cat.js). functions/site/는 build.js가 만들어 줘요
-posts/, private/            공개 글, 회고(private/는 깃헙에 올리지 않아요)
+functions/                  서버 함수(index.js: site·weather·cat·ai·reviewer, ai.js, weather.js, cat.js). functions/site/는 build.js가 만들어 줘요
+posts/, private/            내 컴퓨터 미리보기용 파일 글, 회고(private/는 깃헙에 올리지 않아요). 서버가 그리는 실제 사이트는 posts/의 글을 쓰지 않아요
 firestore.rules, storage.rules, firebase.json   보안 규칙과 호스팅 설정
 docs/                       PRD(PRD-Blog, PRD-Improve1, PRD-Improve2), 의사결정(decisions.md), 막힌 일(failures/), 테스트 보고서, 파일 목록(Files.md)
 prototypes/                 디자인·기능 시안(코드에 반영하지 않은 것)
@@ -71,6 +71,8 @@ dist/                       빌드 결과(깃헙에 올리지 않아요)
 - 로그인 코드가 사이드바에 넣어 둔 요소를 지움
 - 서버 함수 메모리 초과로 오류(500)가 뜨다 말다 함
 - 함수 배포 뒤 호스팅이 공개되지 않음
+- `posts/`에 마크다운 글을 두었는데 실제 사이트에 안 나옴(서버가 그리는 사이트는 파일 글을 쓰지 않아요. 관리자 글쓰기로 올려요)
+- GA 맞춤 측정기준은 등록한 시점부터 쌓임(새 이벤트 값을 보내기 전에 먼저 등록해요)
 
 ## 필수 요구사항
 
@@ -141,6 +143,24 @@ dist/                       빌드 결과(깃헙에 올리지 않아요)
 - 회고 글(`private/` 폴더)은 공개 저장소에 올리지 않아요. `private/`는 `.gitignore`에 들어 있고, `node build.js`(올리는 용도)는 회고를 빌드에 넣지 않아요. 내 컴퓨터에서만 `node build.js --with-private`로 미리 봐요.
 - 나만 보기 글은 화면에서만 숨기지 말고 데이터베이스에서 막아요(6-4 트러블슈팅 ①).
 
+## AI 기능 규칙
+
+AI 기능의 기획은 `docs/PRD-Improve2.md`, 결정은 `docs/decisions.md`에 있어요. 코드를 고칠 때 아래를 지켜요.
+
+- **AI는 제안만 해요.** 사람이 [적용]하거나 확인(체크)해야 반영돼요. AI 결과가 적용 없이 저장·공개되는 길을 만들지 않아요.
+- **방문자 화면에서는 AI를 부르지 않아요.** 3줄 요약은 관리자가 확인한 저장값을, 관련 글은 글자 유사도(AI 없이)를 써요.
+- AI 호출은 서버 함수 `ai`(`functions/ai.js`)에서만 해요. 키 `AI_API_KEY`는 서버 보안 설정에만 두고, 호출은 관리자 로그인(또는 만료 전 평가자 토큰)을 서버에서 확인해요. 모델은 `AI_MODEL`(기본 `claude-haiku-5-5`), 월 한도는 `AI_MONTHLY_LIMIT`(기본 300)로 바꿔요.
+- 방문자의 이름·이메일·댓글은 AI로 보내지 않아요. 보내는 정보를 바꾸면 `privacy.md`도 함께 고쳐요.
+- **발행 전 점검**(`assets/check.js`)은 화면과 `firestore.rules`의 `publishable()`에서 둘 다 막아요. 점검 항목을 바꾸면 둘 다 고쳐요.
+- AI 이용 기록(`aiLogs`)에는 본문을 남기지 않고 종류·기능·건수만 남겨요. 새 기록 종류를 더하면 `firestore.rules`의 허용 목록도 고쳐요.
+- AI 호출이 실패하거나 한도에 닿아도 글쓰기·저장·발행·규칙 점검은 그대로 돼야 해요.
+
+## 측정(구글 애널리틱스) 규칙
+
+- 속성은 `Intent Notes`(측정 ID `G-L0533VG5G0`)예요. 관리자가 로그인한 브라우저는 측정에서 빠져요.
+- **맞춤 측정기준 8개**(이벤트 `post_id`, `action`, `location`, `depth`, `method`, `is_reply`, `file_ext`, 사용자 `member_status`)를 2026-11-25에 등록했어요. 새 이벤트 파라미터를 보내려면 **먼저** GA 관리 › 맞춤 정의에 등록해요(등록한 시점부터 쌓여요).
+- 지금 코드가 보내는 이벤트는 `summary_toggle`, `select_content`(`assets/post-ai.js`)뿐이에요. 사용자가 누르지 않았는데 이벤트가 나가지 않는지 확인해요(요약 상자는 처음부터 펼쳐져 있어요).
+
 ## 품질 기준
 
 - 사용자가 입력한 내용(글 제목, 본문, 메뉴 이름, 댓글 등)은 화면에 그대로 넣지 말고 걸러서(이스케이프) 보여 줘요. 글에 심은 코드가 실행되는 것을 막기 위해서예요.
@@ -167,7 +187,7 @@ AI와 함께 만들 때는 아래 문서 3종을 만들고 계속 고쳐 가요.
 
 ## 작업 규칙
 
-- 공개 글은 `posts/*.md`, 회고는 `private/*.md`에 쓰고 `node build.js`로 만들어요. `dist/`는 만들어지는 폴더라 깃헙에 올리지 않아요.
+- 실제 사이트에 올리는 글은 **관리자 글쓰기 화면으로 데이터베이스에 저장**해요(서버가 그리는 사이트는 `posts/`의 파일 글을 읽지 않아요). `posts/*.md`와 `private/*.md`는 내 컴퓨터에서 `node build.js`로 미리 볼 때만 써요. 샘플 글의 원본은 `docs/sample-posts/`에 있어요. `dist/`는 만들어지는 폴더라 깃헙에 올리지 않아요.
 - 커밋 메시지는 한국어로, 첫 줄에 바꾼 내용을 한 문장으로 적어요.
 - **파일 이름이 짧은 영어라서 나중에 무슨 파일인지 잊을 수 있어요. 그래서 커밋 메시지에 한글로 설명을 꼭 적어요.** 파일을 새로 만들거나 이름을 바꾸거나 지울 때는 "파일 이름 → 무슨 내용인지"를 글머리표로 하나씩 적어요(예: `Test-Blog.pdf` → 블로그 화면 테스트 결과 보고서). 이름만 바꾼 커밋은 이전 이름과 지금 이름을 둘 다 적어요.
 - **새로 만드는 파일과 문서의 이름은 간결하고 짧은 영어로 해요.** 한국어, 공백, 긴 이름은 쓰지 않고 `종류-대상`처럼 하이픈으로 이어요(예: `PRD-Improve2.md`, `Test-Blog.pdf`, `decisions.md`, `deploy-cache.md`). 문서 안의 내용과 화면 문구는 계속 한국어예요. 이미 있는 파일의 이름은 요청이 있을 때만 바꿔요. 새 파일을 만들면 `docs/Files.md`(파일 이름 → 한글 설명 목록)에도 한 줄을 더해요.
