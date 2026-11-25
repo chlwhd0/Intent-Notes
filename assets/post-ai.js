@@ -4,7 +4,13 @@
 (function () {
   var send = function (name, params) { try { if (typeof window.gtag === 'function') window.gtag('event', name, params); } catch (e) { /* 측정이 안 돼도 화면은 그대로예요 */ } };
   var box = document.getElementById('tldr');
-  if (box) box.addEventListener('toggle', function () { send('summary_toggle', { post_id: box.getAttribute('data-post') || '', action: box.open ? 'open' : 'close' }); });
+  // 요약 상자는 처음부터 펼쳐져 있어서, 페이지가 열릴 때 브라우저가 "펼침" 이벤트를 한 번 보내요. 방문자가 누른 게 아니니 상태가 바뀔 때만 보내요.
+  var last = box ? box.open : false;
+  if (box) box.addEventListener('toggle', function () {
+    if (box.open === last) return;
+    last = box.open;
+    send('summary_toggle', { post_id: box.getAttribute('data-post') || '', action: box.open ? 'open' : 'close' });
+  });
   var rel = document.getElementById('related');
   if (rel) rel.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('a.relc');
