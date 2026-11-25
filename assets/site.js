@@ -99,6 +99,8 @@ const hnd = (n) => String(n).replace(/\s+/g, '');
 const COLORS = ['#8d8a85', '#b5573f', '#6f7f6a', '#7b6f8f', '#a08460'];
 const colorOf = (id) => COLORS[[...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
 const errMsg = (e) => ((e && e.code) === 'permission-denied' ? '권한이 없어요. 다시 로그인한 뒤 시도해 주세요.' : '저장하지 못했어요. 잠시 뒤에 다시 해 주세요.');
+// 댓글·답글이 저장에 성공한 직후에만 구글 애널리틱스로 보내요(저장이 실패하면 보내지 않아요). 관리자 브라우저는 gtag가 없어서 자동으로 빠져요.
+const trackComment = (postId, isReply) => { try { if (typeof window.gtag === 'function') window.gtag('event', 'comment_submit', { post_id: postId, is_reply: isReply ? 'true' : 'false' }); } catch (e) { /* 측정이 안 돼도 댓글은 그대로예요 */ } };
 
 async function comments(me) {
   const box = $('comments');
@@ -185,6 +187,7 @@ async function comments(me) {
       if (a === 'cpost') {
         const text = draft.new.trim(); if (!text) return;
         await F.addDoc(F.collection(db, 'comments'), { post: postId, parent: '', uid: me.uid, name: me.name, admin: me.admin, text, mentions: mentionsIn(text), createdAt: F.serverTimestamp() });
+        trackComment(postId, false);
         draft.new = ''; say('댓글을 등록했어요.'); await refresh();
       } else if (a === 'reply') {
         const t = byId(id); if (!t) return;
@@ -193,6 +196,7 @@ async function comments(me) {
       } else if (a === 'rpost') {
         const t = byId(id), text = draft.reply.trim(); if (!t || !text) return;
         await F.addDoc(F.collection(db, 'comments'), { post: postId, parent: t.parent || t.id, uid: me.uid, name: me.name, admin: me.admin, text, mentions: mentionsIn(text), createdAt: F.serverTimestamp() });
+        trackComment(postId, true);
         replyTo = ''; draft.reply = ''; say('답글을 등록했어요.'); await refresh();
       } else if (a === 'edit') {
         const t = byId(id); if (!t || t.uid !== me.uid) return;

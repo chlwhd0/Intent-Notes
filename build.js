@@ -526,7 +526,7 @@ ${collage}
         title: `${p.title} · ${cfg.name}`,
         active: p.category,
         root: '../',
-        scripts: ['boot.js', ...(isPriv ? [] : ['share.js']), ...(p.tldr || (p.related && p.related.length) ? ['post-ai.js'] : []), 'site.js'],
+        scripts: ['boot.js', ...(isPriv ? [] : ['share.js', 'post-events.js']), ...(p.tldr || (p.related && p.related.length) ? ['post-ai.js'] : []), 'site.js'],
         bodyAttr: ` data-page="public"${remoteId}`,
         seo: { description: p.description, rel, type: 'article', image: p.image, imageUrl: p.img, published: p.date, jsonld },
         body: `<article class="post">

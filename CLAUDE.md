@@ -159,7 +159,7 @@ AI 기능의 기획은 `docs/PRD-Improve2.md`, 결정은 `docs/decisions.md`에 
 
 - 속성은 `Intent Notes`(측정 ID `G-L0533VG5G0`)예요. 관리자가 로그인한 브라우저는 측정에서 빠져요.
 - **맞춤 측정기준 8개**(이벤트 `post_id`, `action`, `location`, `depth`, `method`, `is_reply`, `file_ext`, 사용자 `member_status`)를 2026-11-25에 등록했어요. 새 이벤트 파라미터를 보내려면 **먼저** GA 관리 › 맞춤 정의에 등록해요(등록한 시점부터 쌓여요).
-- 지금 코드가 보내는 이벤트는 `summary_toggle`, `select_content`(`assets/post-ai.js`)뿐이에요. 사용자가 누르지 않았는데 이벤트가 나가지 않는지 확인해요(요약 상자는 처음부터 펼쳐져 있어요).
+- 지금 코드가 보내는 이벤트는 `summary_toggle`, `select_content`(`assets/post-ai.js`)와 공개 글의 읽기 측정 `read_progress`·`post_read`·`attachment_download`(`assets/post-events.js`), `share`(`assets/share.js`), `comment_submit`(`assets/site.js`)이에요. 보내는 값은 `post_id`, `action`, `location`, `depth`, `method`, `is_reply`, `file_ext`뿐이고, 모두 GA에 등록돼 있어요. 사용자가 누르거나 읽지 않았는데 이벤트가 나가지 않는지 확인해요(요약 상자는 처음부터 펼쳐져 있고, 완독은 활성 체류 시간 기준이에요). 좋아요·스크랩·검색·로그인 이벤트는 아직 없어요.
 
 ## 품질 기준
 

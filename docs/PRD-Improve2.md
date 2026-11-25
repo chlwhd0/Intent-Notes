@@ -415,7 +415,7 @@ AI 기능의 효과는 두 곳에서 확인합니다. 방문자 행동은 **GA �
 |---|---|---|---|---|
 | `summary_toggle` (신규) | 글 상세의 AI 요약 상자를 펼치거나 접을 때 | `post_id`, `action`(open/close) | `AFP3-H1-S2.sum*box` | P1 |
 | `select_content` (1차 개선 `FR-07` 확장) | 이어서 읽을 글 카드를 눌렀을 때 | `post_id`, `location`(=`related`) | `AFP3-H2-S1.related` | P2 |
-| `post_read`, `attachment_download` (1차 개선에서 **설계만 함**) | 요약이 있는 글과 없는 글을 비교할 때 쓰려던 이벤트 | **코드에 아직 없다**(2026-11-25 확인). 그래서 읽기율을 아직 못 잰다 | `AFP3-H1-S1.sum*make` | - |
+| `post_read`, `attachment_download` (1차 개선 설계, **2026-11-25 구현**) | 요약이 있는 글과 없는 글을 비교할 때 쓰는 이벤트. `read_progress`, `share`, `comment_submit`도 함께 구현 | 구현해 배포했다. 읽기율은 이벤트가 쌓인 뒤부터 잴 수 있다(기준 시간 40%, 최소 15초·최대 90초) | `AFP3-H1-S1.sum*make` | - |
 
 GA 맞춤 정의 등록: 처음에는 "`action`은 1차 개선에서 이미 등록했다"고 적었지만, 2026-11-25에 GA를 확인해 보니 **맞춤 측정기준이 하나도 등록되어 있지 않았습니다**(1차 개선 6.4의 운영자 작업이 안 되어 있었음). 그래서 같은 날 1차 개선 6.3의 8개를 등록했습니다(속성 `Intent Notes`).
 
