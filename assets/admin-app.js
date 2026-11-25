@@ -2,7 +2,7 @@
 // 관리자인지는 로그인 정보의 admin 표시(custom claim)로 확인하고, 실제로 막는 일은 firestore.rules와 storage.rules가 해요.
 // 같은 파일이 (1) 관리자 화면 6개와 (2) 관리자가 로그인한 채로 보는 공개 화면의 사이드바를 맡아요.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithCustomToken, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInAnonymously, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
   getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, orderBy, where, limit,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
@@ -90,10 +90,14 @@ if (page === 'login') {
     rerr.textContent = '';
     if (!code) { rerr.textContent = '접속 코드를 입력해 주세요.'; return; }
     rb.disabled = true;
+    let anon = null;
     try {
-      const r = await fetch('/api/reviewer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code }) });
+      // 익명으로 먼저 로그인한 뒤, 코드가 맞으면 서버가 그 계정에 평가자 표시를 붙여요.
+      anon = (await signInAnonymously(auth)).user;
+      const r = await fetch('/api/reviewer', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + (await anon.getIdToken()) }, body: JSON.stringify({ code }) });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok || !j.token) {
+      if (!r.ok || !j.ok) {
+        await signOut(auth).catch(() => {});
         rerr.textContent = j.error === 'EXPIRED' ? '접속 코드의 사용 기간이 끝났어요. 운영자에게 새 코드를 요청해 주세요.'
           : j.error === 'LOCKED' ? '코드를 여러 번 잘못 입력했어요. 15분 뒤에 다시 해 주세요.'
           : j.error === 'WRONG' || j.error === 'BAD_CODE' ? '접속 코드가 맞지 않아요. 다시 확인해 주세요.'
@@ -101,11 +105,11 @@ if (page === 'login') {
         rb.disabled = false;
         return;
       }
-      await signInWithCustomToken(auth, j.token);
+      await anon.getIdToken(true); // 새로 붙은 평가자 표시를 받아 와요
       setHint(true);
       sessionStorage.setItem('flash', JSON.stringify(['평가자로 입장했어요. 글을 지우는 것만 막혀 있고, 나머지는 눌러 볼 수 있어요.', false]));
       location.replace('posts.html');
-    } catch (ex) { rerr.textContent = '입장하지 못했어요. 잠시 뒤에 다시 해 주세요.'; rb.disabled = false; }
+    } catch (ex) { await signOut(auth).catch(() => {}); rerr.textContent = ex && ex.code === 'auth/operation-not-allowed' ? '평가자 입장이 아직 준비되지 않았어요. 운영자에게 알려 주세요.' : '입장하지 못했어요. 잠시 뒤에 다시 해 주세요.'; rb.disabled = false; }
   });
 }
 
@@ -347,7 +351,7 @@ function thumbPicker(d) {
   return `<div class="field" id="thl">썸네일<div class="thpick"><div class="thcur">${TH.none(d) ? '<span class="thumb none">없음</span>' : thumbHtml(d)}</div><button type="button" class="thb thnone" data-a="thumb" data-v="-1" aria-label="썸네일 없음" aria-pressed="${!d.img && d.thumb === -1}">없음</button>${bs}<label class="thfile btn sm" for="thfile">${uploading ? '올리는 중…' : '이미지 올리기'}</label><input class="sr" id="thfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"${uploading ? ' disabled' : ''}>${d.img ? '<button type="button" class="btn sm" data-a="thumbclear">올린 이미지 지우기</button>' : ''}</div><span class="hint">모양을 고르거나, “없음”을 고르거나, 내 이미지(PNG, JPG, WebP, GIF, 10MB 이하)를 올려요.</span></div>`;
 }
 function filePicker(d) {
-  const items = d.files.map((f, i) => `<li><span class="fname">${esc(f.name)}</span> <small>${fmtSize(f.size)}</small> <button type="button" class="btn sm" data-a="fdel" data-v="${i}" aria-label="${esc(f.name)} 빼기">빼기</button>${fileText.has(f.url) ? ` <button type="button" class="btn sm" data-a="aifile" data-v="${i}"${ai.busy ? ' disabled' : ''}>${ai.busy === 'aifile' + i ? '요약 중…' : 'AI 요약'}</button>` : ''}${f.summary !== undefined ? `<div class="fsum"><label for="fs${i}">방문자에게 보일 요약${f.ai ? ' <span class="aib">AI</span>' : ''} <small>(고쳐 써도 돼요. 비우면 요약 없이 올라가요)</small></label><input id="fs${i}" data-fsum="${i}" type="text" maxlength="300" value="${esc(f.summary)}"></div>` : ''}</li>`).join('');
+  const items = d.files.map((f, i) => `<li><span class="fname">${esc(f.name)}</span> <small>${fmtSize(f.size)}</small> <button type="button" class="btn sm" data-a="fdel" data-v="${i}" aria-label="${esc(f.name)} 빼기">빼기</button>${fileText.has(f.url) ? ` <button type="button" class="btn sm" data-a="aifile" data-v="${i}"${ai.busy ? ' disabled' : ''}>${ai.busy === 'aifile' + i ? '요약 중…' : 'AI 요약'}</button>` : ''}${f.draft ? `<div class="fdraft"><div class="fdh"><span class="aib">AI</span> 초안 <small>아직 적용 전이에요. 공개되지 않아요.</small></div><div class="fdbody"><p>${esc(f.draft)}</p><span class="ficons"><button type="button" class="fic ok" data-a="fapply" data-v="${i}" title="적용" aria-label="${esc(f.name)} 요약 적용"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button><button type="button" class="fic" data-a="aifile" data-v="${i}"${ai.busy ? ' disabled' : ''} title="다시 만들기" aria-label="${esc(f.name)} 요약 다시 만들기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v5h-5"/></svg></button><button type="button" class="fic del" data-a="fdrop" data-v="${i}" title="초안 삭제" aria-label="${esc(f.name)} 요약 초안 삭제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg></button></span></div></div>` : ''}${f.summary !== undefined ? `<div class="fsum"><label for="fs${i}">방문자에게 보일 요약${f.ai ? ' <span class="aib">AI</span>' : ''} <small>(고쳐 써도 돼요. 비우면 요약 없이 올라가요)</small></label><input id="fs${i}" data-fsum="${i}" type="text" maxlength="300" value="${esc(f.summary)}"></div>` : ''}</li>`).join('');
   const full = d.files.length >= MAX_FILES;
   return `<div class="field" id="fl">첨부 파일${items ? `<ul class="flist">${items}</ul>` : ''}<div class="thpick"><label class="thfile btn sm" for="ffile"${full ? ' aria-disabled="true"' : ''}>${attaching ? '올리는 중…' : '파일 올리기'}</label><input class="sr" id="ffile" type="file" accept="${Object.keys(FILE_TYPES).map((x) => '.' + x).join(',')}"${attaching || full ? ' disabled' : ''}><span class="hint" id="fnote" role="status">${full ? '파일은 글당 ' + MAX_FILES + '개까지예요.' : ''}</span></div><span class="hint">방금 올린 PDF·텍스트 파일은 “AI 요약”으로 방문자용 요약을 만들 수 있어요.</span><span class="hint">PDF, 문서(Word·Excel·PowerPoint·한글), 텍스트, 압축(zip), 이미지 · 파일당 25MB 이하 · 글당 5개까지. 실행 파일과 HTML은 올릴 수 없어요. 방문자는 공개 글에서 내려받을 수 있어요.</span></div>`;
 }
@@ -559,6 +563,7 @@ async function savePost() {
     }
   }
   data.updatedAt = serverTimestamp();
+  const pend = draft.files.filter((f) => f.draft).length; // 적용하지 않은 첨부 요약 초안은 저장하지 않아요
   $('save').disabled = true;
   try {
     let id;
@@ -566,7 +571,7 @@ async function savePost() {
     else { data.createdAt = serverTimestamp(); id = (await addDoc(collection(db, 'posts'), data)).id; }
     if (existing) { const keep = new Set(data.files.map((f) => f.url)); await dropFiles(cleanFiles(existing.files).filter((f) => !keep.has(f.url))); } // 글에서 뺀 파일은 저장소에서도 지워요
     { const had = new Set(existing ? cleanFiles(existing.files).filter((f) => f.ai).map((f) => f.url) : []); if (data.files.some((f) => f.ai && !had.has(f.url))) logAi('apply', 'aifile'); } // 새로 저장하는 첨부 요약은 적용으로 세요
-    sendFlash(data.visibility === 'public' ? (existing ? '저장했어요.' : '발행했어요.') + NOTE_DEPLOY : '나만 보기 글로 저장했어요. 방문자에게는 보이지 않아요.');
+    sendFlash(data.visibility === 'public' ? (existing ? '저장했어요.' : '발행했어요.') + (pend ? ' 적용하지 않은 첨부 요약 초안 ' + pend + '개는 빼고 저장했어요.' : '') + NOTE_DEPLOY : '나만 보기 글로 저장했어요. 방문자에게는 보이지 않아요.');
     location.href = `view.html?id=${encodeURIComponent(id)}`;
   } catch (e) { say(dbMsg(e), true); writePage(); }
 }
@@ -704,7 +709,17 @@ main && main.addEventListener('click', async (e) => {
     syncDraft();
     const f = draft.files[Number(v)], text = f && fileText.get(f.url);
     if (!text) return;
-    runAi('aifile' + v, 'files', { text }, (r) => { const g = draft.files[Number(v)]; if (g && r.summary) { g.summary = r.summary; g.ai = true; ai.msg = '첨부 요약을 만들었어요. 고쳐 쓴 뒤 저장하면 공개 글의 파일 옆에 보여요.'; } });
+    runAi('aifile' + v, 'files', { text }, (r) => { const g = draft.files[Number(v)]; if (g && r.summary) { g.draft = r.summary; ai.msg = '첨부 요약 초안이 나왔어요. 읽어 보고 체크(적용)를 눌러야 공개 요약 칸에 들어가요.'; } });
+  }
+  else if (a === 'fapply') {
+    syncDraft();
+    const g = draft.files[Number(v)];
+    if (g && g.draft) { g.summary = g.draft; g.ai = true; delete g.draft; ai.msg = '적용했어요. 저장하면 공개 글의 파일 옆에 보여요.'; writePage(); }
+  }
+  else if (a === 'fdrop') {
+    syncDraft();
+    const g = draft.files[Number(v)];
+    if (g && g.draft) { delete g.draft; ai.msg = '첨부 요약 초안을 지웠어요.'; logAi('ignore', 'aifile'); writePage(); }
   }
   else if (a === 'fmt') fmt(v);
   else if (a === 'imgcancel') { $('imgrow').hidden = true; }

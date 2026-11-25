@@ -175,17 +175,20 @@ exports.ai = onRequest({ region: 'asia-northeast3', memory: '256MiB', timeoutSec
   }
 });
 
-// 평가자 임시 입장. 로그인 화면의 "평가자 입장"이 /api/reviewer 로 접속 코드를 보내요.
+// 평가자 임시 입장. 로그인 화면의 "평가자 입장"이 먼저 익명 로그인을 하고, 그 로그인 정보(ID 토큰)와 접속 코드를 /api/reviewer 로 보내요.
 // 코드의 해시와 만료일은 reviewerAccess/current 문서에 있어요(화면에서는 아무도 못 읽고, 이 함수만 읽어요).
-// 맞으면 평가자용 로그인 토큰을 돌려줘요. 토큰에는 reviewer 표시와 만료 시각(until)이 들어 있고,
-// until은 코드 만료일과 "지금부터 12시간" 중 이른 쪽이에요. 만료되면 규칙과 서버 함수가 모두 막아요.
-// 코드를 여러 번 틀리면 15분 동안 멈춰요.
+// 맞으면 그 익명 계정에 reviewer 표시와 만료 시각(until)을 붙여요. until은 코드 만료일과 "지금부터 12시간" 중 이른 쪽이에요.
+// 만료되면 규칙과 서버 함수가 모두 막아요. 코드를 여러 번 틀리면 15분 동안 멈춰요.
 const REVIEWER_SESSION_MS = 12 * 3600 * 1000;
 const FAIL_MAX = 10, FAIL_WINDOW_MS = 15 * 60 * 1000;
 const sha256 = (v) => crypto.createHash('sha256').update(String(v)).digest();
 exports.reviewer = onRequest({ region: 'asia-northeast3', memory: '256MiB', timeoutSeconds: 20, maxInstances: 2 }, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   if (req.method !== 'POST') { res.status(405).json({ error: 'METHOD' }); return; }
+  const m = /^Bearer (.+)$/.exec(req.get('authorization') || '');
+  let tok = null;
+  if (m) { try { tok = await getAuth().verifyIdToken(m[1]); } catch (e) { tok = null; } }
+  if (!tok || !tok.firebase || tok.firebase.sign_in_provider !== 'anonymous') { res.status(401).json({ error: 'NO_LOGIN' }); return; }
   const code = str((req.body || {}).code).trim().replace(/\s+/g, '');
   if (code.length < 8 || code.length > 64) { res.status(400).json({ error: 'BAD_CODE' }); return; }
   const failRef = db.doc('reviewerAccess/fails');
@@ -206,10 +209,10 @@ exports.reviewer = onRequest({ region: 'asia-northeast3', memory: '256MiB', time
   }
   const until = Math.min(exp, now + REVIEWER_SESSION_MS);
   try {
-    const token = await getAuth().createCustomToken('reviewer', { reviewer: true, until });
-    res.json({ token, until });
+    await getAuth().setCustomUserClaims(tok.uid, { reviewer: true, until });
+    res.json({ ok: true, until });
   } catch (e) {
-    console.error('평가자 토큰 만들기 실패', e && e.message);
-    res.status(500).json({ error: 'TOKEN' });
+    console.error('평가자 표시 붙이기 실패', e && e.message);
+    res.status(500).json({ error: 'CLAIM' });
   }
 });

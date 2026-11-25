@@ -116,7 +116,8 @@
   },
   "auth": {
     "providers": {
-      "emailPassword": false
+      "emailPassword": false,
+      "anonymous": true
     }
   },
   "storage": {
