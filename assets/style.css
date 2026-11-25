@@ -550,4 +550,7 @@ body[data-page="write"] .wgrid .aip.open{transform:none;visibility:visible;trans
 /* 글 관리: 수정·나만 보기로·삭제 버튼을 한 줄로 */
 .acts{flex-wrap:nowrap}
 .acts .btn{white-space:nowrap}
-body[data-page="posts"] .tbl td.t{white-space:normal;min-width:220px}
+body[data-page="posts"] .tbl td{padding:12px 8px}
+body[data-page="posts"] .tbl td.t{white-space:normal;word-break:keep-all;min-width:240px}
+body[data-page="posts"] .tbl td.t a{display:inline-block;vertical-align:middle;max-width:calc(100% - 68px)}
+body[data-page="posts"] .acts .btn.sm{padding:0 10px}
