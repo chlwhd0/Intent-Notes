@@ -282,7 +282,7 @@ function aiOf(p) {
 }
 let draft = null, wtab = 'write', existing = null, savedRange = null, uploading = false, attaching = false;
 // AI 도우미 상태: 요청 중인 기능(busy), 안내 글(msg), 글쓰기 보조 제안(sug), AI가 찾은 점검 항목(aiHits), 점검 목록 보이기(showChk), "확인했어요" 표시(acks)
-const ai = { busy: '', msg: '', tab: '', sug: null, aiHits: [], aiNote: '', chkRan: false, chkFail: false, showChk: false, acks: {} };
+const ai = { busy: '', busyPart: '', msg: '', tab: '', sug: null, aiHits: [], aiNote: '', chkRan: false, chkFail: false, showChk: false, acks: {} };
 const fileText = new Map(); // 첨부 파일 주소 → 요약에 쓸 글자(이번에 올린 파일만 있어요)
 const logAi = (kind, feature) => addDoc(collection(db, 'aiLogs'), { kind, feature, post: existing ? existing.id : '', at: serverTimestamp() }).catch(() => {}); // 기록이 안 돼도 글쓰기는 계속돼요
 async function aiCall(action, input) {
@@ -334,9 +334,20 @@ function liveHits(d) {
 const bodyText = () => { syncDraft(); return IC.plain(sanitizeHtml(draft.html)); };
 const aiRender = () => { syncDraft(); writePage(); const el = $('aip'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); };
 async function runAi(feature, action, input, onOk) {
-  ai.busy = feature; ai.msg = ''; aiRender();
+  ai.busy = feature; ai.busyPart = (input && input.part) || ''; ai.msg = ''; aiRender();
   try { onOk(await aiCall(action, input)); logAi('suggest', feature); } catch (e) { ai.msg = e.message; }
-  ai.busy = ''; aiRender();
+  ai.busy = ''; ai.busyPart = ''; aiRender();
+}
+// 글쓰기 보조에서 제목 후보나 한 줄 요약 한쪽만 새로 만들어요. 다른 쪽은 그대로 둬요.
+function aiRefreshPart(part) {
+  syncDraft(); ai.tab = 'sug';
+  return runAi('aisug', 'suggest', { body: bodyText(), part }, (r) => {
+    if (!ai.sug) ai.sug = {};
+    if (part === 'titles' && r.titles && r.titles.length) ai.sug.titles = r.titles;
+    if (part === 'summary' && r.summary) ai.sug.summary = r.summary;
+    ai.sug.logged = false;
+    ai.msg = part === 'titles' ? '제목 후보를 새로 만들었어요.' : '한 줄 요약을 새로 만들었어요.';
+  });
 }
 
 // AI 도우미 탭: 이미 만든 결과가 있으면 그대로 보여 주고, 없을 때만 새로 만들어요. [새로고침]은 airef가 강제로 다시 만들어요.
@@ -630,7 +641,10 @@ main && main.addEventListener('click', async (e) => {
   else if (a === 'aisug') aiPick('sug');
   else if (a === 'aichk') aiPick('chk');
   else if (a === 'aitl') aiPick('tl');
-  else if (a === 'airef') { ai.tab = v; aiRun(v); }
+  else if (a === 'airef') {
+    if (v === 'sug-titles' || v === 'sug-summary') aiRefreshPart(v.slice(4)); // 제안은 제목 후보/한 줄 요약을 따로 새로고침해요
+    else { ai.tab = v; aiRun(v); }
+  }
   else if (a === 'aiapply') {
     syncDraft();
     if (v === 'summary') draft.sum = ai.sug.summary; else if (/^t\d$/.test(v)) draft.title = ai.sug.titles[Number(v[1])] || draft.title;

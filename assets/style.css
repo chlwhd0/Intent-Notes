@@ -383,3 +383,5 @@ body[data-page="retro"] main{max-width:1500px}
 /* 한 줄 요약 칸(검색용 설명과 합침): 넓은 화면에서는 두 칸 폭 */
 .meta .wsumf{grid-column:span 2}
 @media(max-width:700px){.meta .wsumf{grid-column:auto}}
+/* 글쓰기 보조: 구역마다 새로고침 버튼 */
+.ashead{display:flex;justify-content:space-between;align-items:center;gap:8px}

@@ -16,8 +16,13 @@ const s = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 const ACTIONS = {
   suggest: {
     need: (i) => clip(i.body).length >= 30,
-    prompt: (i) =>
-      `다음 블로그 글을 읽고 JSON으로만 답하세요.\n{"summary":"글 목록·글 위쪽·검색 결과에 함께 보일 한 줄 요약. 문장이 아니라 핵심 키워드 중심의 간결한 명사형 구(60자 이내)로 쓰고, \\\"~했어요\\\" 같은 서술어 없이 \\\"~정리\\\", \\\"~분석\\\", \\\"~기록\\\"처럼 명사로 끝내며 마침표를 쓰지 마세요","titles":["제목 후보 3개(40자 이내, 서로 다른 관점)"]}\n\n[글]\n${clip(i.body)}`,
+    // part가 'titles'나 'summary'면 그 부분만 새로 만들어요(새로고침을 부분마다 따로 하려고요). 없으면 둘 다 만들어요.
+    prompt: (i) => {
+      const sumS = `"summary":"글 목록·글 위쪽·검색 결과에 함께 보일 한 줄 요약. 문장이 아니라 핵심 키워드 중심의 간결한 명사형 구(60자 이내)로 쓰고, \\\"~했어요\\\" 같은 서술어 없이 \\\"~정리\\\", \\\"~분석\\\", \\\"~기록\\\"처럼 명사로 끝내며 마침표를 쓰지 마세요"`;
+      const titS = `"titles":["제목 후보 3개(40자 이내, 서로 다른 관점)"]`;
+      const schema = i.part === 'titles' ? `{${titS}}` : i.part === 'summary' ? `{${sumS}}` : `{${sumS},${titS}}`;
+      return `다음 블로그 글을 읽고 JSON으로만 답하세요.\n${schema}\n\n[글]\n${clip(i.body)}`;
+    },
     parse: (j) => ({ summary: s(j.summary, 300), titles: arr(j.titles).map((t) => s(t, 120)).filter(Boolean).slice(0, 3) }),
   },
   check: {
