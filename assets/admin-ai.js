@@ -101,7 +101,7 @@ export function panelHtml(d, s, hitsHtml) {
     const lines = d.ai.lines;
     body = `<div class="abox" id="atl"><div class="ahead"><span class="hint">AI가 만든 3줄 요약이에요. 고쳐 쓸 수 있고, 아래를 체크해야 공개 글에 보여요.</span>${ref('tl')}</div>${lines.map((t, i) => `<label class="sr" for="ail${i}">요약 ${i + 1}줄</label><input id="ail${i}" class="ail" type="text" maxlength="120" value="${esc(t)}">`).join('')}<label class="ackl"><input type="checkbox" id="aion"${d.ai.on ? ' checked' : ''}> 내가 확인했어요. 공개 글에 “AI가 정리한 3줄 요약”으로 보여 주세요.</label><span class="hint">본문을 고치면 승인이 풀려서 요약이 숨겨져요. 새로고침하면 고친 내용과 승인이 사라져요.</span></div>`;
   }
-  return `<section class="aip" id="aip" aria-labelledby="aiph"><h2 id="aiph">AI 도우미 <span class="aib">AI</span></h2>` +
+  return `<section class="aip${s.sheet ? ' open' : ''}" id="aip" aria-labelledby="aiph"><div class="aiheadrow"><h2 id="aiph">AI 도우미 <span class="aib">AI</span></h2><button type="button" class="aiclose" data-a="aiclose" aria-label="AI 도우미 닫기">닫기</button></div>` +
     `<p class="hint">AI는 제안만 해요. 눌러서 적용하기 전에는 글이 바뀌지 않아요. 보내는 내용은 본문(첨부 요약은 문서 글자)뿐이고, 방문자 이름·이메일·댓글은 보내지 않아요.</p>` +
     `<div class="aibtns">${tabBtn('sug', 'aisug', '글쓰기 보조')}${tabBtn('tl', 'aitl', '3줄 요약')}${tabBtn('chk', 'aichk', '발행 전 점검')}</div>` +
     `<p class="hint" id="aimsg" role="status">${esc(s.msg || '')}</p>${body}</section>`;

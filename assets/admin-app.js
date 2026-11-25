@@ -290,7 +290,7 @@ function aiOf(p) {
 }
 let draft = null, wtab = 'write', existing = null, savedRange = null, uploading = false, attaching = false;
 // AI 도우미 상태: 요청 중인 기능(busy), 안내 글(msg), 글쓰기 보조 제안(sug), AI가 찾은 점검 항목(aiHits), 점검 목록 보이기(showChk), "확인했어요" 표시(acks)
-const ai = { busy: '', busyPart: '', msg: '', tab: '', sug: null, aiHits: [], aiNote: '', chkRan: false, chkFail: false, showChk: false, acks: {} };
+const ai = { sheet: false, busy: '', busyPart: '', msg: '', tab: '', sug: null, aiHits: [], aiNote: '', chkRan: false, chkFail: false, showChk: false, acks: {} };
 const fileText = new Map(); // 첨부 파일 주소 → 요약에 쓸 글자(이번에 올린 파일만 있어요)
 const logAi = (kind, feature) => addDoc(collection(db, 'aiLogs'), { kind, feature, post: existing ? existing.id : '', at: serverTimestamp() }).catch(() => {}); // 기록이 안 돼도 글쓰기는 계속돼요
 async function aiCall(action, input) {
@@ -358,6 +358,13 @@ function aiRefreshPart(part) {
   });
 }
 
+// 모바일 AI 창을 열고 닫아요(화면을 다시 그리지 않고 클래스만 바꿔서 쓰던 내용이 그대로 있어요)
+function aiSheetSync() {
+  const p = $('aip'), f = $('aifab'), bd = document.querySelector('.aibackdrop');
+  if (p) p.classList.toggle('open', ai.sheet);
+  if (bd) bd.classList.toggle('open', ai.sheet);
+  if (f) f.setAttribute('aria-expanded', String(ai.sheet));
+}
 // AI 도우미 탭: 이미 만든 결과가 있으면 그대로 보여 주고, 없을 때만 새로 만들어요. [새로고침]은 airef가 강제로 다시 만들어요.
 const aiHas = (t) => (t === 'sug' ? !!ai.sug : t === 'chk' ? ai.chkRan : draft.ai.lines.length > 0);
 function aiPick(t) { syncDraft(); ai.tab = t; ai.msg = ''; if (aiHas(t)) aiRender(); else aiRun(t); }
@@ -384,7 +391,9 @@ function writePage() {
     : `<div class="preview">${textOf(clean) || /<img /.test(clean) ? clean : '<p style="color:var(--mute)">미리 볼 내용이 없어요.</p>'}</div>`;
   const editing = !!existing;
   const aiPanel = panelHtml(d, { ...ai, pub: d.vis === 'public' && !isPrivCat(d.cat) }, checkHtml(liveHits(d), ai.acks, ai.aiNote, !ai.chkRan ? 'none' : ai.chkFail ? 'fail' : 'ok'));
-  show(`<div class="wlayout wgrid"><div class="wtop"><div class="head"><h1 class="ptitle">${editing ? '글 수정' : '새 글 쓰기'}</h1><div class="btns"><button class="btn" type="button" data-a="cancel">취소</button><button class="btn pri" type="button" data-a="save" id="save">${editing ? '저장하기' : '발행하기'}</button></div></div>${notice()}` +
+  // 모바일: AI 도우미는 화면 아래에서 올라오는 창이에요(오른쪽 아래 AI 버튼으로 열고 닫아요). 걸린 점검 개수를 버튼에 보여 줘요.
+  const gg = IC.gate(liveHits(d), ai.acks), todo = gg.bad.length + gg.pending.length;
+  show(`<button type="button" class="aifab" id="aifab" data-a="aifab" aria-controls="aip" aria-expanded="${ai.sheet}">AI${todo ? `<span class="aicnt" aria-label="확인할 것 ${todo}개">${todo}</span>` : ''}</button><div class="aibackdrop${ai.sheet ? ' open' : ''}" data-a="aiclose"></div><div class="wlayout wgrid"><div class="wtop"><div class="head"><h1 class="ptitle">${editing ? '글 수정' : '새 글 쓰기'}</h1><div class="btns"><button class="btn" type="button" data-a="cancel">취소</button><button class="btn pri" type="button" data-a="save" id="save">${editing ? '저장하기' : '발행하기'}</button></div></div>${notice()}` +
     `<label><span class="sr">제목</span><input class="title" id="wtitle" type="text" maxlength="120" placeholder="제목을 입력하세요" value="${esc(d.title)}"></label>` +
     `<div class="meta"><label class="field" for="wcat">카테고리<select id="wcat">${opts}</select></label>${visHtml}<label class="field" for="wdate">날짜<input id="wdate" type="date" value="${esc(d.date)}"></label><label class="field wsumf" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록, 글 위쪽, 검색 결과에 함께 보일 간결한 명사형 요약" value="${esc(d.sum)}"><span class="hint">목록, 글 위쪽, 검색 결과·공유 미리보기에 함께 보여요. 문장보다 “~정리”처럼 명사형으로 간결하게(60자 이내) 쓰면 좋아요.</span></label></div>` +
     thumbPicker(d) + filePicker(d) + `</div>${aiPanel}<div class="wbot">` +
@@ -514,7 +523,7 @@ async function savePost() {
   if (data.visibility === 'public') {
     const g = IC.gate(liveHits(d), ai.acks);
     if (!g.ok) {
-      ai.showChk = true; ai.tab = 'chk'; logAi('gate', 'check');
+      ai.showChk = true; ai.tab = 'chk'; ai.sheet = true; logAi('gate', 'check');
       return bad(g.bad.length ? `공개 글로 저장하기 전에 해결할 것이 ${g.bad.length}개 있어요. 아래 AI 도우미의 점검 결과를 확인해 주세요.` : `확인이 필요한 것이 ${g.pending.length}개 있어요. 아래 점검 결과에서 “확인했어요”를 눌러 주세요.`);
     }
   }
@@ -646,6 +655,8 @@ main && main.addEventListener('click', async (e) => {
   else if (a === 'thumb') { syncDraft(); draft.thumb = Number(v); draft.img = ''; writePage(); }
   else if (a === 'fdel') { syncDraft(); draft.files.splice(Number(v), 1); say('목록에서 뺐어요. 글을 저장하면 파일도 지워져요.'); writePage(); }
   else if (a === 'thumbclear') { syncDraft(); draft.img = ''; writePage(); }
+  else if (a === 'aifab') { ai.sheet = !ai.sheet; aiSheetSync(); }
+  else if (a === 'aiclose') { ai.sheet = false; aiSheetSync(); }
   else if (a === 'aisug') aiPick('sug');
   else if (a === 'aichk') aiPick('chk');
   else if (a === 'aitl') aiPick('tl');
