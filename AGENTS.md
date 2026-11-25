@@ -8,9 +8,9 @@ AI PM 포트폴리오, 회고, 스터디 노트를 올리는 개인 블로그입
 
 ## 이 지침 파일을 에이전트가 읽는 방식
 
-- **Claude Code**는 `CLAUDE.md`를 자동으로 읽어요. 이 저장소에는 `CLAUDE.md`가 없고 `AGENTS.md`만 있어서, Claude Code가 자동으로 읽게 하려면 작업 시작 때 이 파일을 읽으라고 말해 주거나 `CLAUDE.md`에 `@AGENTS.md` 한 줄을 둬요. `README.md`는 자동으로 읽지 않아서, 에이전트가 꼭 지켜야 할 규칙은 `README.md`가 아니라 **이 파일**에 둬요.
+- **Claude Code**는 `CLAUDE.md`를 자동으로 읽어요. 이 저장소의 `CLAUDE.md`는 `@AGENTS.md` 한 줄만 있어서, Claude Code도 이 파일을 읽어요. 지침은 `CLAUDE.md`가 아니라 `AGENTS.md`에만 써요. `README.md`는 자동으로 읽지 않아서, 에이전트가 꼭 지켜야 할 규칙은 `README.md`가 아니라 **이 파일**에 둬요.
 - **Codex, Cursor, Gemini CLI 같은 도구**는 `AGENTS.md`를 읽어요. `AGENTS.md`는 사람이 읽는 `README.md`를 보완해서, 에이전트에게 필요한 빌드·테스트 명령과 코딩 규칙을 따로 담는 공개 형식이에요(공식 사이트 [agents.md](https://agents.md/), Linux Foundation 산하 Agentic AI Foundation이 관리). 하위 폴더에도 둘 수 있고, **편집하는 파일에서 가장 가까운 파일이 우선**이며, **사용자가 채팅으로 한 말이 모든 것보다 우선**해요.
-- **이 저장소의 방식:** 지침 원본은 `AGENTS.md` 하나예요(2026.11.25에 `CLAUDE.md`에서 이름을 바꿨어요). 하위 폴더에 따로 지침이 필요하면 그 폴더에 `AGENTS.md`를 두고 가까운 쪽을 우선해요.
+- **이 저장소의 방식:** 지침 원본은 `AGENTS.md` 하나예요(2026.11.25에 `CLAUDE.md`에서 이름을 바꿨고, `CLAUDE.md`는 이 파일을 불러오는 한 줄짜리예요). 하위 폴더에 따로 지침이 필요하면 그 폴더에 `AGENTS.md`를 두고 가까운 쪽을 우선해요.
 - `README.md`는 사람용 안내로 두고, 에이전트 규칙을 거기에만 적지 않아요.
 
 ## 자주 쓰는 명령
@@ -40,7 +40,7 @@ AI PM 포트폴리오, 회고, 스터디 노트를 올리는 개인 블로그입
 ## 폴더 구조
 
 ```
-AGENTS.md                   에이전트용 지침(이 파일)
+AGENTS.md, CLAUDE.md        에이전트용 지침(이 파일), Claude Code가 이 파일을 읽게 하는 한 줄
 README.md                   사람용 안내
 build.js                    모든 페이지를 만드는 파일(서버 함수도 이 파일을 써요)
 site.config.json, about.md, privacy.md   이름·문구·메뉴, 소개, 처리방침 원문
