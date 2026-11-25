@@ -554,3 +554,11 @@ body[data-page="posts"] .tbl td{padding:12px 8px}
 body[data-page="posts"] .tbl td.t{white-space:normal;word-break:keep-all;min-width:240px}
 body[data-page="posts"] .tbl td.t a{display:inline-block;vertical-align:middle;max-width:calc(100% - 68px)}
 body[data-page="posts"] .acts .btn.sm{padding:0 10px}
+
+/* AI 도우미: 월 한도 안내(글자는 한 줄, 아래에 사용량 그래프). 모바일 아래 창에서도 같아요. */
+.ailim{margin:0 0 8px;padding:7px 10px;border:1px solid;font-size:12px;line-height:1.5}
+.ailim .ailine{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ailim.warn{background:#fbf1dc;color:#7a5410;border-color:#e6cf9a}
+.ailim.bad{background:#f8e4df;color:#8e2f20;border-color:#e5b4aa}
+.ailim .ailbar{height:6px;margin-top:6px;background:rgba(127,127,127,.25)}
+.ailim .ailbar i{display:block;height:100%;background:currentColor}

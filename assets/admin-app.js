@@ -10,7 +10,7 @@ import { getStorage, ref as sref, uploadBytes, uploadBytesResumable, getDownload
 import './sanitize.js';
 import './markdown.js';
 import './thumbs.js';
-import { IC, aiErr, extractText, checkHtml, panelHtml } from './admin-ai.js';
+import { IC, aiErr, extractText, checkHtml, panelHtml, tooShort, limitOut, limitHtml } from './admin-ai.js';
 
 const { sanitizeHtml, textOf, FAM } = self.IntentSan;
 const MD = self.IntentMd;
@@ -325,16 +325,19 @@ function aiOf(p) {
 }
 let draft = null, wtab = 'write', existing = null, savedRange = null, uploading = false, attaching = false;
 // AI 도우미 상태: 요청 중인 기능(busy), 안내 글(msg), 글쓰기 보조 제안(sug), AI가 찾은 점검 항목(aiHits), 점검 목록 보이기(showChk), "확인했어요" 표시(acks)
-const ai = { sheet: false, busy: '', busyPart: '', msg: '', tab: '', sug: null, aiHits: [], aiNote: '', chkRan: false, chkFail: false, showChk: false, acks: {} };
+const ai = { usage: null, sheet: false, busy: '', busyPart: '', msg: '', tab: '', sug: null, aiHits: [], aiNote: '', chkRan: false, chkFail: false, showChk: false, acks: {} };
 const fileText = new Map(); // 첨부 파일 주소 → 요약에 쓸 글자(이번에 올린 파일만 있어요)
 const logAi = (kind, feature, n) => addDoc(collection(db, 'aiLogs'), { kind, feature, post: existing ? existing.id : '', at: serverTimestamp(), ...(n > 0 ? { n: Math.min(Math.floor(n), 50) } : {}) }).catch(() => {}); // n은 건수(찾은 것·확인한 것)만이고 글 내용은 넣지 않아요; // 기록이 안 돼도 글쓰기는 계속돼요
 async function aiCall(action, input) {
   const u = auth.currentUser;
   if (!u) throw new Error(aiErr('FORBIDDEN'));
   let res;
-  try { res = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify({ action, input }) }); } catch (e) { throw new Error(aiErr('')); }
+  // 10초가 지나도 답이 없으면 기다리는 중이라고 한 줄 더 알려 줘요(요청은 계속 기다려요).
+  const slow = action === 'usage' ? null : setTimeout(() => { ai.msg = '아직 기다리는 중이에요. 글쓰기는 계속할 수 있어요.'; const m = $('aimsg'); if (m) m.textContent = ai.msg; }, 10000);
+  try { res = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify({ action, input }) }); } catch (e) { throw new Error(aiErr('')); } finally { clearTimeout(slow); }
   let j = {}; try { j = await res.json(); } catch (e) { /* 본문이 없어도 돼요 */ }
-  if (!res.ok) throw new Error(aiErr(j.error));
+  if (!res.ok) { if (j.error === 'LIMIT') { const l = Number(j.limit) || (ai.usage && ai.usage.limit) || 300; ai.usage = { count: l, limit: l }; } throw new Error(aiErr(j.error)); }
+  if (action !== 'usage' && ai.usage) ai.usage.count++; // 이번 호출을 한도에 바로 더해 안내가 늦지 않게 해요
   return j.result;
 }
 const edEl = () => $('wed');
@@ -377,6 +380,8 @@ function liveHits(d) {
 const bodyText = () => { syncDraft(); return IC.plain(sanitizeHtml(draft.html)); };
 const aiRender = () => { syncDraft(); writePage(); const el = $('aip'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); };
 async function runAi(feature, action, input, onOk) {
+  // 본문이 거의 비어 있으면 AI를 부르지 않고 바로 안내해요.
+  if (input && typeof input.body === 'string' && tooShort(input.body)) { ai.msg = '본문을 조금 더 쓴 뒤에 눌러 주세요. 지금은 AI를 부르지 않았어요.'; aiRender(); return; }
   ai.busy = feature; ai.busyPart = (input && input.part) || ''; ai.msg = ''; aiRender();
   try { onOk(await aiCall(action, input)); logAi('suggest', feature); } catch (e) { ai.msg = e.message; logAi('fail', feature); }
   ai.busy = ''; ai.busyPart = ''; aiRender();
@@ -394,6 +399,14 @@ function aiRefreshPart(part) {
   });
 }
 
+// 글쓰기 화면을 연 뒤 이번 달 사용량을 한 번 가져와서 한도 안내를 그려요(실패해도 안내만 없을 뿐이에요).
+function loadUsage() {
+  aiCall('usage', {}).then((r) => { if (r && r.limit) { ai.usage = { count: Number(r.count) || 0, limit: r.limit }; limitSync(); } }).catch(() => {});
+}
+function limitSync() {
+  const el = $('ailimit'); if (el) el.innerHTML = limitHtml(ai.usage);
+  if (limitOut(ai.usage)) document.querySelectorAll('#aip .aitab, #aip .airef').forEach((b) => { b.disabled = true; });
+}
 // 모바일 AI 창을 열고 닫아요(화면을 다시 그리지 않고 클래스만 바꿔서 쓰던 내용이 그대로 있어요)
 function aiSheetSync() {
   const p = $('aip'), f = $('aifab'), bd = document.querySelector('.aibackdrop');
@@ -408,7 +421,9 @@ async function aiRun(t) {
   const body = bodyText();
   if (t === 'sug') return runAi('aisug', 'suggest', { body }, (r) => { ai.sug = r; ai.msg = '제안을 가져왔어요.'; });
   if (t === 'tl') return runAi('aitl', 'tldr', { body }, (r) => { syncDraft(); draft.ai.lines = r.lines || []; draft.ai.on = false; draft.ai.for = ''; ai.msg = r.lines && r.lines.length ? '3줄 요약을 만들었어요. 고쳐 쓰고 체크하면 공개 글에 보여요.' : '요약을 만들지 못했어요. 다시 눌러 주세요.'; });
-  ai.showChk = true; ai.busy = 'aichk'; ai.msg = ''; aiRender();
+  ai.showChk = true;
+  if (tooShort(body)) { ai.msg = '채우지 않은 칸·전화번호는 점검했어요. AI 점검은 본문을 더 쓴 뒤에 눌러 주세요. 지금은 AI를 부르지 않았어요.'; aiRender(); return; }
+  ai.busy = 'aichk'; ai.msg = ''; aiRender();
   try { const r = await aiCall('check', { body, title: draft.title, summary: draft.sum }); ai.aiHits = r.items || []; ai.aiNote = 'AI가 개인정보·내부 자료, 오탈자, 제목·요약 일치도 살펴봤어요. AI는 놓칠 수 있으니 마지막 확인은 내가 해요.'; ai.chkFail = false; logAi('suggest', 'aichk'); { const g = IC.gate(liveHits(draft), ai.acks); if (g.bad.length) logAi('foundbad', 'aichk', g.bad.length); if (g.pending.length) logAi('foundwarn', 'aichk', g.pending.length); } }
   catch (e) { ai.aiHits = []; ai.chkFail = true; ai.aiNote = e.message + ' (규칙 점검 결과만 보여 드려요.)'; logAi('fail', 'aichk'); }
   ai.chkRan = true; ai.busy = ''; aiRender();
@@ -814,6 +829,7 @@ if (['posts', 'menus', 'write', 'list', 'view', 'retro', 'ai'].includes(page)) {
           ? { title: existing.title, cat: existing.category, vis: existing.visibility, sum: existing.summary || '', date: existing.date, html: bodyHtml(existing), thumb: Number.isInteger(existing.thumb) ? existing.thumb : 0, img: existing.img || '', files: cleanFiles(existing.files), desc: existing.description || '', ai: aiOf(existing) }
           : (() => { const rI = retroInit(); return { title: rI.title, cat: (params.get('cat') && catOf(params.get('cat')) ? params.get('cat') : cats.length ? cats[0].slug : ''), vis: 'public', sum: rI.sum, date: today(), html: rI.html, thumb: Math.floor(Math.random() * 6), img: '', files: [], desc: rI.desc, ai: { lines: [], on: false, for: '' } }; })();
         writePage();
+        loadUsage();
       }
     }
   }

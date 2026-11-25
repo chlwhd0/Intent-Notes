@@ -12,6 +12,20 @@ const ERR = {
   TOO_SHORT: '본문이 너무 짧아요. 조금 더 쓴 뒤에 눌러 주세요.',
   FORBIDDEN: 'AI는 관리자로 로그인해야 쓸 수 있어요.',
 };
+// 본문이 거의 비어 있으면(공백 뺀 20자 미만) AI를 부르지 않고 화면에서 바로 안내해요.
+export const tooShort = (text) => String(text || '').replace(/\s/g, '').length < 20;
+
+// 월 한도 안내 한 줄과 사용량 그래프. 80% 미만이면 아무것도 보여 주지 않아요. u: {count, limit}
+export const limitOut = (u) => !!u && u.limit > 0 && u.count >= u.limit;
+export function limitHtml(u) {
+  if (!u || !(u.limit > 0)) return '';
+  const pct = Math.min(100, Math.round((u.count / u.limit) * 100)), out = limitOut(u);
+  if (!out && pct < 80) return '';
+  const tip = out ? 'AI 기능만 멈췄고 글쓰기·저장·발행은 그대로 돼요. 다음 달 1일에 다시 쓸 수 있어요.' : `한도(${u.limit}회)를 넘으면 AI 기능만 멈춰요.`;
+  const line = out ? '<b>이번 달 AI 한도 도달</b> · 글쓰기는 그대로' : `<b>이번 달 AI ${pct}% 사용</b> · 남은 ${u.limit - u.count}회`;
+  return `<div class="ailim ${out ? 'bad' : 'warn'}" role="status" title="${esc(tip)}"><div class="ailine">${line}</div><div class="ailbar" role="img" aria-label="사용량 ${pct}%"><i style="width:${pct}%"></i></div></div>`;
+}
+
 export const aiErr = (code) => ERR[code] || 'AI가 지금 답하지 못했어요. 잠시 뒤에 다시 눌러 주세요. 글쓰기와 저장은 그대로 돼요.';
 
 // 첨부 파일에서 요약에 쓸 글자를 뽑아요. 글자를 읽을 수 없으면 빈 문자열이에요.
@@ -86,9 +100,9 @@ export function checkHtml(hits, acks, aiNote, aiState) {
 // 패널 전체. s는 admin-app.js의 상태: {busy, msg, tab('sug'|'chk'|'tl'|''), sug, ...}
 // 버튼 3개는 한 줄 탭이고, 누른 기능의 결과만 보여요. 이미 만든 결과는 다시 누르면 그대로 보이고, [새로고침]을 눌러야 새로 만들어요.
 export function panelHtml(d, s, hitsHtml) {
-  const busy = s.busy, tab = s.tab;
-  const tabBtn = (t, a, label) => `<button type="button" class="aitab" data-a="${a}" aria-pressed="${tab === t}"${busy ? ' disabled' : ''}>${busy === a ? '요청 중…' : label}</button>`;
-  const ref = (t, part) => `<button type="button" class="airef${busy && (!part || s.busyPart === part || !s.busyPart) ? ' spin' : ''}" data-a="airef" data-v="${t}"${busy ? ' disabled' : ''} aria-label="새로고침" title="새로고침"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4.5h-4.5"/></svg></button>`;
+  const busy = s.busy || (limitOut(s.usage) ? 'limit' : ''), tab = s.tab;
+  const tabBtn = (t, a, label) => `<button type="button" class="aitab" data-a="${a}" aria-pressed="${tab === t}"${busy ? ' disabled' : ''}>${s.busy === a ? '요청 중…' : label}</button>`;
+  const ref = (t, part) => `<button type="button" class="airef${s.busy && (!part || s.busyPart === part || !s.busyPart) ? ' spin' : ''}" data-a="airef" data-v="${t}"${busy ? ' disabled' : ''} aria-label="새로고침" title="새로고침"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4.5h-4.5"/></svg></button>`;
   let body = '';
   if (tab === 'sug' && s.sug) {
     const row = (text, key, n) => (text ? `<div class="arow"><span class="atxt">${n ? `<i class="an">${n}</i>` : ''}${esc(text)}</span><button type="button" class="btn sm pri" data-a="aiapply" data-v="${key}">적용</button></div>` : '');
@@ -101,7 +115,7 @@ export function panelHtml(d, s, hitsHtml) {
     const lines = d.ai.lines;
     body = `<div class="abox" id="atl"><div class="ahead"><span class="hint">AI가 만든 3줄 요약이에요. 고쳐 쓸 수 있고, 아래를 체크해야 공개 글에 보여요.</span>${ref('tl')}</div>${lines.map((t, i) => `<label class="sr" for="ail${i}">요약 ${i + 1}줄</label><input id="ail${i}" class="ail" type="text" maxlength="120" value="${esc(t)}">`).join('')}<label class="ackl"><input type="checkbox" id="aion"${d.ai.on ? ' checked' : ''}> 내가 확인했어요. 공개 글에 “AI가 정리한 3줄 요약”으로 보여 주세요.</label><span class="hint">본문을 고치면 승인이 풀려서 요약이 숨겨져요. 새로고침하면 고친 내용과 승인이 사라져요.</span></div>`;
   }
-  return `<section class="aip${s.sheet ? ' open' : ''}" id="aip" aria-labelledby="aiph"><div class="aiheadrow"><h2 id="aiph">AI 도우미 <span class="aib">AI</span></h2><button type="button" class="aiclose" data-a="aiclose" aria-label="AI 도우미 닫기">닫기</button></div>` +
+  return `<section class="aip${s.sheet ? ' open' : ''}" id="aip" aria-labelledby="aiph"><div class="aiheadrow"><h2 id="aiph">AI 도우미 <span class="aib">AI</span></h2><button type="button" class="aiclose" data-a="aiclose" aria-label="AI 도우미 닫기">닫기</button></div><div id="ailimit">${limitHtml(s.usage)}</div>` +
     `<p class="hint">AI는 제안만 해요. 눌러서 적용하기 전에는 글이 바뀌지 않아요. 보내는 내용은 본문(첨부 요약은 문서 글자)뿐이고, 방문자 이름·이메일·댓글은 보내지 않아요.</p>` +
     `<div class="aibtns">${tabBtn('sug', 'aisug', '글쓰기 보조')}${tabBtn('tl', 'aitl', '3줄 요약')}${tabBtn('chk', 'aichk', '발행 전 점검')}</div>` +
     `<p class="hint" id="aimsg" role="status">${esc(s.msg || '')}</p>${body}</section>`;
