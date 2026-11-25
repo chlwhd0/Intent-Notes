@@ -69,7 +69,6 @@
 - `Test-Improve2-Detail.md` → `Test-Improve2.md`의 부록. 44개 항목의 입력·기대값·결과값·판정, 기획 의도별 판정, 시험의 한계(2026-11-25)
 - `shots/` → 시험 보고서에 넣은 화면 스크린샷 14장. 방문자 화면(`v1-home.png` 홈, `v2-list.png` 목록, `v3-post.png` 글 상세, `v4-about.png` 소개, `v5-privacy.png` 처리방침, `v6-404.png` 404), 모바일 375px(`m1-home.png` 홈, `m2-post.png` 글), 관리자 화면(`a1-login.png` 로그인, `a2-posts.png` 글 관리, `a3-menus.png` 메뉴 관리, `a4-write.png` 새 글·AI 도우미, `a5-view.png` 글 보기, `a6-ai.png` AI 이용 현황). 관리자 화면은 회고(나만 보기) 항목을 지우고 찍었다
 - `Result-Improve2.pdf` → 2차 개선 PRD(PRD-Improve2) 결과보고 슬라이드(PDF, 16:9 2장). 성공 지표 4개와 문제 4개의 결과, 출시한 기능, 운영 현황, 남은 문제, 다음 일정과 결정(2026-11-25)
-- `Result-Improve2-Detail.pdf` → `Result-Improve2.pdf`의 상세판(PDF, 16:9 6장). 요구사항 15개 구현 현황, 계획과 달라진 점, AI 이용 데이터, 영역별 시험 결과, 해결한 문제와 남은 문제, 지표와 다음 확인 순서(2026-11-25)
 - `Result-Improve2-Full.pdf` → 2차 개선 결과보고의 자세한 버전(PDF, 16:9 18장). 표지, 결과, 배경·목표·일정, 기능 6개 각 1장(하는 일·사람이 정하는 부분·시험 결과), 구현 현황, 계획과 달라진 점, 영역별 시험, AI 이용 데이터, 해결한 문제, 위험과 대응, 지표와 다음 단계(2026-11-25)
 
 ### `docs/failures/` (막혔던 일과 푼 방법)
