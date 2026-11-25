@@ -8,8 +8,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // 관리자 표시가 없는 계정(일반 방문자)에서도 오류가 나지 않고 false가 되도록 get()으로 읽어요.
+    // token.admin으로 바로 읽으면 표시가 없는 계정에서 오류가 되어, 댓글 쓰기처럼 isAdmin()을 호출하는 규칙이 통째로 거부돼요.
     function isAdmin() {
-      return request.auth != null && request.auth.token.admin == true;
+      return request.auth != null && request.auth.token.get('admin', false) == true;
     }
 
     // 관리자이거나, 만료 전의 평가자예요. 읽기·쓰기에 써요. 지우기는 isAdmin()만 써요.
