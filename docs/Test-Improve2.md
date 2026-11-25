@@ -2,7 +2,7 @@
 
 | 문서 버전 | 기준 PRD | 대상 | 시험 일 |
 |---|---|---|---|
-| v2.0 | `PRD-Improve2.md` v2.11 | https://my-blog-test-b439a.web.app (실제 배포 사이트) | 2026-11-25 |
+| v2.1 | `PRD-Improve2.md` v2.11 | https://my-blog-test-b439a.web.app (실제 배포 사이트) | 2026-11-25 |
 
 **결론:** 44개 항목 중 **통과 36 · 부분 통과 4 · 실패 1 · 확인 못 함 3**. "AI는 제안만 하고 사람이 적용한다", "방문자가 읽을 때는 AI를 부르지 않는다"는 원칙은 지켜졌습니다. 남은 것은 점검 목록 갱신 지연(C8)과, 새 읽기 측정이 GA에 쌓이는지 확인하는 일입니다. 항목별 입력·기대값·결과값은 [부록 `Test-Improve2-Detail.md`](Test-Improve2-Detail.md)에 있습니다.
 
@@ -12,19 +12,24 @@
 
 <table>
 <tr>
-<td align="center" width="33%"><img src="shots/v1-home.png" width="205"><br><sub>① 홈</sub></td>
-<td align="center" width="33%"><img src="shots/v2-list.png" width="205"><br><sub>② 포트폴리오 목록(썸네일)</sub></td>
-<td align="center" width="33%"><img src="shots/v3-post.png" width="205"><br><sub>③ 글 상세(3줄 요약 상자·공유하기)</sub></td>
+<td align="center" width="20%"><img src="shots/v1-home.png" width="128"><br><sub>① 홈</sub></td>
+<td align="center" width="20%"><img src="shots/v2-list.png" width="128"><br><sub>② 목록</sub></td>
+<td align="center" width="20%"><img src="shots/v3-post.png" width="128"><br><sub>③ 글 상세</sub></td>
+<td align="center" width="20%"><img src="shots/v4-about.png" width="128"><br><sub>④ 소개</sub></td>
+<td align="center" width="20%"><img src="shots/v5-privacy.png" width="128"><br><sub>⑤ 처리방침</sub></td>
 </tr>
 <tr>
-<td align="center" width="33%"><img src="shots/v4-about.png" width="205"><br><sub>④ 소개</sub></td>
-<td align="center" width="33%"><img src="shots/v5-privacy.png" width="205"><br><sub>⑤ 개인정보 처리방침</sub></td>
-<td align="center" width="33%"><img src="shots/v6-404.png" width="205"><br><sub>⑥ 404 안내</sub></td>
+<td align="center" width="20%"><img src="shots/v6-404.png" width="128"><br><sub>⑥ 404</sub></td>
+<td align="center" width="20%"><img src="shots/m1-home.png" width="62"> <img src="shots/m2-post.png" width="62"><br><sub>⑦ 모바일 375px(홈·글)</sub></td>
+<td align="center" width="20%"><img src="shots/a1-login.png" width="128"><br><sub>⑧ 관리자 로그인</sub></td>
+<td align="center" width="20%"><img src="shots/a2-posts.png" width="128"><br><sub>⑨ 글 관리</sub></td>
+<td align="center" width="20%"><img src="shots/a3-menus.png" width="128"><br><sub>⑩ 메뉴 관리</sub></td>
 </tr>
 <tr>
-<td align="center" width="33%"><img src="shots/m1-home.png" width="95"> <img src="shots/m2-post.png" width="95"><br><sub>⑦ 모바일 375px(홈·글)</sub></td>
-<td align="center" width="33%"><img src="shots/a1-login.png" width="205"><br><sub>⑧ 관리자 로그인</sub></td>
-<td width="33%"><sub>⑨ 관리자 화면 7곳(글 관리·메뉴 관리·새 글·글 목록·글 보기·회고 정리·AI 이용 현황)은 로그인 상태에서 모두 열리고 375px에서도 가로 넘침이 없었습니다. 로그인이 필요해 <b>스크린샷은 저장하지 못했습니다.</b></sub></td>
+<td align="center" width="20%"><img src="shots/a4-write.png" width="128"><br><sub>⑪ 새 글·AI 도우미</sub></td>
+<td align="center" width="20%"><img src="shots/a5-view.png" width="128"><br><sub>⑫ 글 보기</sub></td>
+<td align="center" width="20%"><img src="shots/a6-ai.png" width="128"><br><sub>⑬ AI 이용 현황</sub></td>
+<td colspan="2"><sub>관리자 화면(⑧~⑬)은 로그인한 상태의 화면을 그대로 그려 찍었습니다. <b>회고(나만 보기) 메뉴·글·메뉴 링크는 공개 저장소라서 지웠습니다.</b> 그래서 ⑨의 "글 목록 33개"에는 지운 글이 포함되어 있고 ⑩에는 메뉴 2개만 보입니다. 회고 정리 화면은 회고 글이 그대로 보여 넣지 않았습니다(열림과 375px 넘침 없음은 확인).</sub></td>
 </tr>
 </table>
 
@@ -72,4 +77,5 @@
 | v1.1 | `b2a44b6` | B7(관련 없는 글 추천) 원인을 고쳐 실패 3 → 2, 제목에 기준 PRD 표시 |
 | v1.2 | `a3cb5b0` | B8(추천 주제 일치)을 배포 뒤 다시 읽음 |
 | v1.3 | `19eadc6` | F4 이벤트 구현·배포, 실패 2 → 1, 부분 통과 3 → 4 |
-| v2.0 | 이 커밋 | 규칙에 맞춰 2페이지 이하로 줄이고 유저플로우 스크린샷 추가, 상세는 부록으로 분리 |
+| v2.0 | `16faea3` | 규칙에 맞춰 2페이지 이하로 줄이고 유저플로우 스크린샷 추가, 상세는 부록으로 분리 |
+| v2.1 | 이 커밋 | 관리자 화면 스크린샷 5장 추가(회고 항목은 가림), 유저플로우 화면을 13칸으로 정리 |
