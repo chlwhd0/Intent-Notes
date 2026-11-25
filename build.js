@@ -194,7 +194,7 @@ const filesBlock = (files) =>
     : '';
 
 // 관련 글 추천: 글 저장 없이 빌드(방문 때 만드는 페이지)마다 새로 계산해요. AI를 부르지 않아서 비용이 없고 항상 최신이에요.
-// 방법: 제목·요약·본문 앞부분의 한글·영문 단어에서 두 글자 조각(예: "분석" "석가")을 뽑아 겹치는 정도(코사인 유사도)를 재요.
+// 방법: 제목·요약·본문 앞부분의 한글·영문 단어에서 두 글자 조각(예: "분석" "석가")을 뽑아 겹치는 정도(코사인 유사도)를 재요. 흔한 조각은 덜 세요.
 const grams = (p) => {
   const t = `${p.title} ${p.title} ${p.summary} ${textOf(p.html).slice(0, 2000)}`.toLowerCase().match(/[가-힣a-z0-9]+/g) || [];
   const set = new Set();
@@ -205,6 +205,11 @@ function addRelated(list) {
   const pubs = list.filter((p) => !(catBySlug[p.category] || {}).private);
   if (pubs.length < 4) return; // 공개 글이 3개 미만이면(자기 자신 포함 4개 미만) 추천을 숨겨요
   const g = new Map(pubs.map((p) => [p, grams(p)]));
+  // 여러 글에 흔한 조각("입니" "니다" 같은 말투)은 주제와 상관이 없으니 덜 세요(IDF 가중). 모든 글에 있는 조각은 0점이에요.
+  const df = new Map();
+  g.forEach((s) => s.forEach((x) => df.set(x, (df.get(x) || 0) + 1)));
+  const w2 = (x) => Math.log(pubs.length / df.get(x)) ** 2;
+  const norm = new Map(pubs.map((p) => { let s = 0; g.get(p).forEach((x) => { s += w2(x); }); return [p, Math.sqrt(s)]; }));
   pubs.forEach((p) => {
     const a = g.get(p);
     p.related = pubs
@@ -212,10 +217,11 @@ function addRelated(list) {
       .map((q) => {
         const b = g.get(q);
         let n = 0;
-        a.forEach((x) => { if (b.has(x)) n++; });
-        return { q, score: a.size && b.size ? n / Math.sqrt(a.size * b.size) + (q.category === p.category ? 0.01 : 0) : 0 };
+        a.forEach((x) => { if (b.has(x)) n += w2(x); });
+        const d = norm.get(p) * norm.get(q);
+        return { q, score: d ? n / d + (q.category === p.category ? 0.01 : 0) : 0 };
       })
-      .filter((r) => r.score >= 0.04)
+      .filter((r) => r.score >= 0.055)
       .sort((x, y) => y.score - x.score)
       .slice(0, 3)
       .map((r) => r.q);
