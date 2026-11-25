@@ -100,6 +100,6 @@
 - `functions/site/` → `build.js`가 서버 함수용으로 복사해 둔 파일. 자동으로 만들어진다
 - `functions/node_modules/`, `node_modules/` → 설치된 라이브러리
 - `private/` → 회고 글(나만 보기). 깃에 올리지 않는다. 지금은 샘플 파일 `sample-retrospective.md`(회고 글 예시) 하나가 있다
-- `.claude/` → 이 컴퓨터의 Claude Code 설정과 스킬(`skills/blog-ship/` = 배포·확인·커밋 루틴)
+- `.claude/` → 이 컴퓨터의 Claude Code 설정과 스킬(`skills/blog-ship/` = 배포·확인·커밋 루틴, `skills/mock-first/` = 화면 수정을 시안으로 먼저 보여 주는 루틴, `skills/local-harness/` = 가짜 파이어베이스·AI로 관리자 화면을 로컬에서 눌러 보는 루틴(`scripts/server.js`가 시험용 서버), `skills/wrap-docs/` = 문서 갱신과 한국어 커밋 마무리, `skills/prd-gap/` = PRD와 구현 비교 점검, `skills/key-rotate/` = API 키 등록·교체 안내)
 - `.firebase/` → 파이어베이스 배포 도구가 만드는 임시 기록
 - `.env`, `.env.*` → 비밀 값을 두는 파일(있다면). 깃에 올리지 않는다
