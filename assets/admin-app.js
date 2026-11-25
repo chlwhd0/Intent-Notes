@@ -376,11 +376,11 @@ function writePage() {
     : `<div class="preview">${textOf(clean) || /<img /.test(clean) ? clean : '<p style="color:var(--mute)">미리 볼 내용이 없어요.</p>'}</div>`;
   const editing = !!existing;
   const aiPanel = panelHtml(d, { ...ai, pub: d.vis === 'public' && !isPrivCat(d.cat) }, checkHtml(liveHits(d), ai.acks, ai.aiNote, !ai.chkRan ? 'none' : ai.chkFail ? 'fail' : 'ok'));
-  show(`<div class="wlayout"><div class="wmain"><div class="head"><h1 class="ptitle">${editing ? '글 수정' : '새 글 쓰기'}</h1><div class="btns"><button class="btn" type="button" data-a="cancel">취소</button><button class="btn pri" type="button" data-a="save" id="save">${editing ? '저장하기' : '발행하기'}</button></div></div>${notice()}` +
+  show(`<div class="wlayout wgrid"><div class="wtop"><div class="head"><h1 class="ptitle">${editing ? '글 수정' : '새 글 쓰기'}</h1><div class="btns"><button class="btn" type="button" data-a="cancel">취소</button><button class="btn pri" type="button" data-a="save" id="save">${editing ? '저장하기' : '발행하기'}</button></div></div>${notice()}` +
     `<label><span class="sr">제목</span><input class="title" id="wtitle" type="text" maxlength="120" placeholder="제목을 입력하세요" value="${esc(d.title)}"></label>` +
     `<div class="meta"><label class="field" for="wcat">카테고리<select id="wcat">${opts}</select></label>${visHtml}<label class="field" for="wdate">날짜<input id="wdate" type="date" value="${esc(d.date)}"></label><label class="field wsumf" for="wsum">한 줄 요약<input id="wsum" type="text" maxlength="300" placeholder="목록, 글 위쪽, 검색 결과에 함께 보일 간결한 명사형 요약" value="${esc(d.sum)}"><span class="hint">목록, 글 위쪽, 검색 결과·공유 미리보기에 함께 보여요. 문장보다 “~정리”처럼 명사형으로 간결하게(60자 이내) 쓰면 좋아요.</span></label></div>` +
-    thumbPicker(d) + filePicker(d) +
-    `<div class="tabs" role="tablist" aria-label="편집 방식"><button role="tab" type="button" data-a="tab" data-v="write" aria-selected="${wtab === 'write'}">작성</button><button role="tab" type="button" data-a="tab" data-v="preview" aria-selected="${wtab === 'preview'}">미리보기</button></div>` + edit + `</div>${aiPanel}</div>`);
+    thumbPicker(d) + filePicker(d) + `</div>${aiPanel}<div class="wbot">` +
+    `<div class="tabs" role="tablist" aria-label="편집 방식"><button role="tab" type="button" data-a="tab" data-v="write" aria-selected="${wtab === 'write'}">작성</button><button role="tab" type="button" data-a="tab" data-v="preview" aria-selected="${wtab === 'preview'}">미리보기</button></div>` + edit + `</div></div>`);
 }
 
 // ---- 글 서식 도구 ----
