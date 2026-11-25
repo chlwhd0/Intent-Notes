@@ -118,11 +118,19 @@ async function requireAdmin() {
 function renderSidebar(active) {
   const a = (href, label, key, cls) => `<a${cls ? ` class="${cls}${active === key ? ' on' : ''}"` : active === key ? ' class="on"' : ''} href="${root}admin/${href}"${active === key ? ' aria-current="page"' : ''}>${label}</a>`;
   $('nav').setAttribute('aria-label', '관리자 메뉴');
+  const admOpen = ['menus', 'posts', 'retro', 'ai'].includes(active); // 모바일에서 ADMIN 하위 메뉴는 ADMIN을 눌러야 펼쳐져요. 하위 화면을 보는 중이면 처음부터 펼쳐 둬요.
   $('nav').innerHTML =
     a('list.html', 'ALL POSTS', 'all') + cats.map((c) => a('list.html?cat=' + encodeURIComponent(c.slug), esc(c.name), 'cat:' + c.slug)).join('') +
-    '<span class="sep" role="presentation"></span>' + a('write.html', 'NEW POST', 'write') +
-    '<span class="grp">ADMIN</span>' + a('menus.html', 'MANAGE MENUS', 'menus', 'subl') + a('posts.html', 'MANAGE POSTS', 'posts', 'subl') + a('retro.html', 'RETRO SUMMARY', 'retro', 'subl') + a('ai.html', 'AI USAGE', 'ai', 'subl');
+    '<span class="sep" role="presentation"></span>' + a('write.html', 'NEW POST', 'write', 'npd') +
+    '<button type="button" class="grp" id="admtoggle" aria-expanded="' + admOpen + '" aria-controls="admrow">ADMIN</button><div class="subrow' + (admOpen ? ' open' : '') + '" id="admrow">' + a('menus.html', 'MANAGE MENUS', 'menus', 'subl') + a('posts.html', 'MANAGE POSTS', 'posts', 'subl') + a('retro.html', 'RETRO SUMMARY', 'retro', 'subl') + a('ai.html', 'AI USAGE', 'ai', 'subl') + '</div>';
   $('bottom').innerHTML = `<span class="who">로그인: 관리자</span><a href="${root}index.html">블로그 보기</a><button type="button" class="linkbtn" id="logout">로그아웃</button>`;
+  // 모바일에서는 NEW POST를 이름(Intent Notes)과 같은 높이 오른쪽에 보여요. 컴퓨터에서는 숨기고 메뉴 안의 NEW POST를 써요.
+  const adm = $('admtoggle');
+  if (adm) adm.addEventListener('click', () => { const row = $('admrow'); const on = !row.classList.contains('open'); row.classList.toggle('open', on); adm.setAttribute('aria-expanded', String(on)); });
+  const asideEl = document.querySelector('aside');
+  let npb = asideEl && asideEl.querySelector('.npb');
+  if (asideEl && !npb) { npb = document.createElement('a'); npb.className = 'npb'; asideEl.appendChild(npb); }
+  if (npb) { npb.href = root + 'admin/write.html'; npb.textContent = 'NEW POST'; npb.classList.toggle('on', active === 'write'); }
   $('logout').addEventListener('click', async () => { await signOut(auth); setHint(false); location.href = root + 'index.html'; });
 }
 

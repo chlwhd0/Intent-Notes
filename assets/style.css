@@ -252,7 +252,7 @@ footer a{text-decoration:underline;text-underline-offset:2px}
 .sidex-m{display:none}
 /* 모바일: 윗줄 오른쪽에 작은 로그인 링크, 그 아래 이름, 메뉴. 오늘의 고양이·날씨는 맨 아래 푸터 바로 위에 한 줄로 둬요. */
 @media(max-width:800px){
-  aside{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"bottom bottom" "brand brand" "nav nav";align-items:center;align-content:start;gap:6px 12px;padding:10px 16px 14px}
+  aside{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"bottom bottom" "brand np" "nav nav";align-items:center;align-content:start;gap:6px 12px;padding:10px 16px 14px}
   aside .brand{grid-area:brand;font-size:22px}
   aside nav{grid-area:nav}
   .sidex-d{display:none}
@@ -392,3 +392,23 @@ body[data-page="retro"] main{max-width:1500px}
 @media(max-width:700px){.wgrid{grid-template-columns:minmax(0,1fr);grid-template-areas:"top" "aip" "bot";grid-template-rows:auto}}
 /* 창이 좁아져도 글쓰기·회고 정리의 배치를 바꾸지 않아요. 내용이 넘치면 화면을 옆으로 밀어 볼 수 있어요(휴대폰 폭에서는 한 줄 배치) */
 @media(min-width:701px){.wlayout{min-width:900px}}
+/* 관리자 메뉴: 컴퓨터에서는 기존 모양 그대로(감싼 줄은 풀어서 쓰고, 모바일용 NEW POST는 숨겨요) */
+.subrow{display:contents}
+nav button.grp{background:none;border:0;padding:0;font:inherit;font-size:11px;letter-spacing:.14em;color:var(--mute);text-align:left;cursor:default}
+.npb{display:none}
+/* 모바일 관리자 메뉴: 내용 메뉴 → 구분선 → ADMIN 메뉴 4개를 한 줄로(상자 없이). NEW POST는 윗줄의 로그아웃 아래로 옮겨요 */
+@media(max-width:800px){
+nav[aria-label="관리자 메뉴"]{gap:10px 16px;align-items:center}
+nav[aria-label="관리자 메뉴"] .sep{display:none}
+nav[aria-label="관리자 메뉴"] .npd{display:none}
+.npb{display:block;grid-area:np;justify-self:end;align-self:baseline;font-size:12px;letter-spacing:.14em;font-weight:500;color:var(--accent)}
+.npb.on{font-weight:500}
+aside .brand{align-self:baseline}
+nav[aria-label="관리자 메뉴"] .grp{flex:0 0 100%;margin:8px 0 0;padding:12px 0 0;border-top:1px solid #ddd7cc;cursor:pointer;text-align:left}
+nav[aria-label="관리자 메뉴"] .grp:hover,nav[aria-label="관리자 메뉴"] .grp[aria-expanded="true"]{color:var(--ink)}
+nav[aria-label="관리자 메뉴"] .subrow{display:flex;flex:0 0 100%;flex-wrap:nowrap;justify-content:space-between;gap:8px;white-space:nowrap;max-height:0;margin-top:-10px;opacity:0;transform:translateY(-4px);overflow:hidden;visibility:hidden;transition:max-height .28s ease,margin-top .28s ease,opacity .22s ease,transform .28s ease,visibility 0s linear .28s}
+nav[aria-label="관리자 메뉴"] .subrow.open{max-height:28px;margin-top:0;opacity:1;transform:none;visibility:visible;transition-delay:0s}
+@media(prefers-reduced-motion:reduce){nav[aria-label="관리자 메뉴"] .subrow{transition:none}}
+nav[aria-label="관리자 메뉴"] a.subl{flex:none;padding:0;border:0;background:none;text-align:left;font-size:clamp(8.5px,2.5vw,10px);letter-spacing:.02em}
+nav[aria-label="관리자 메뉴"] a.subl.on{color:var(--accent);font-weight:700}
+}
