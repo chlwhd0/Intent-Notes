@@ -546,3 +546,8 @@ body[data-page="write"] .wgrid .aip.open{transform:none;visibility:visible;trans
 .panel .rform{border-top:1px solid var(--line);padding-top:28px}
 .panel .rform h2{margin:0;font-family:var(--serif-kr);font-size:20px;letter-spacing:-.02em}
 .panel .rform .field{display:flex;flex-direction:column;gap:6px}
+
+/* 글 관리: 수정·나만 보기로·삭제 버튼을 한 줄로 */
+.acts{flex-wrap:nowrap}
+.acts .btn{white-space:nowrap}
+body[data-page="posts"] .tbl td.t{white-space:normal;min-width:220px}
