@@ -327,7 +327,7 @@ let draft = null, wtab = 'write', existing = null, savedRange = null, uploading 
 // AI 도우미 상태: 요청 중인 기능(busy), 안내 글(msg), 글쓰기 보조 제안(sug), AI가 찾은 점검 항목(aiHits), 점검 목록 보이기(showChk), "확인했어요" 표시(acks)
 const ai = { sheet: false, busy: '', busyPart: '', msg: '', tab: '', sug: null, aiHits: [], aiNote: '', chkRan: false, chkFail: false, showChk: false, acks: {} };
 const fileText = new Map(); // 첨부 파일 주소 → 요약에 쓸 글자(이번에 올린 파일만 있어요)
-const logAi = (kind, feature) => addDoc(collection(db, 'aiLogs'), { kind, feature, post: existing ? existing.id : '', at: serverTimestamp() }).catch(() => {}); // 기록이 안 돼도 글쓰기는 계속돼요
+const logAi = (kind, feature, n) => addDoc(collection(db, 'aiLogs'), { kind, feature, post: existing ? existing.id : '', at: serverTimestamp(), ...(n > 0 ? { n: Math.min(Math.floor(n), 50) } : {}) }).catch(() => {}); // n은 건수(찾은 것·확인한 것)만이고 글 내용은 넣지 않아요; // 기록이 안 돼도 글쓰기는 계속돼요
 async function aiCall(action, input) {
   const u = auth.currentUser;
   if (!u) throw new Error(aiErr('FORBIDDEN'));
@@ -378,17 +378,18 @@ const bodyText = () => { syncDraft(); return IC.plain(sanitizeHtml(draft.html));
 const aiRender = () => { syncDraft(); writePage(); const el = $('aip'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); };
 async function runAi(feature, action, input, onOk) {
   ai.busy = feature; ai.busyPart = (input && input.part) || ''; ai.msg = ''; aiRender();
-  try { onOk(await aiCall(action, input)); logAi('suggest', feature); } catch (e) { ai.msg = e.message; }
+  try { onOk(await aiCall(action, input)); logAi('suggest', feature); } catch (e) { ai.msg = e.message; logAi('fail', feature); }
   ai.busy = ''; ai.busyPart = ''; aiRender();
 }
 // 글쓰기 보조에서 제목 후보나 한 줄 요약 한쪽만 새로 만들어요. 다른 쪽은 그대로 둬요.
 function aiRefreshPart(part) {
   syncDraft(); ai.tab = 'sug';
+  if (ai.sug && !ai.sug.logged && ((part === 'titles' && ai.sug.titles) || (part === 'summary' && ai.sug.summary))) logAi('ignore', 'aisug'); // 적용하지 않은 제안을 새로 바꾸면 무시로 세요
   return runAi('aisug', 'suggest', { body: bodyText(), part }, (r) => {
     if (!ai.sug) ai.sug = {};
     if (part === 'titles' && r.titles && r.titles.length) ai.sug.titles = r.titles;
     if (part === 'summary' && r.summary) ai.sug.summary = r.summary;
-    ai.sug.logged = false;
+    ai.sug.logged = false; ai.sug.ign = false;
     ai.msg = part === 'titles' ? '제목 후보를 새로 만들었어요.' : '한 줄 요약을 새로 만들었어요.';
   });
 }
@@ -408,8 +409,8 @@ async function aiRun(t) {
   if (t === 'sug') return runAi('aisug', 'suggest', { body }, (r) => { ai.sug = r; ai.msg = '제안을 가져왔어요.'; });
   if (t === 'tl') return runAi('aitl', 'tldr', { body }, (r) => { syncDraft(); draft.ai.lines = r.lines || []; draft.ai.on = false; draft.ai.for = ''; ai.msg = r.lines && r.lines.length ? '3줄 요약을 만들었어요. 고쳐 쓰고 체크하면 공개 글에 보여요.' : '요약을 만들지 못했어요. 다시 눌러 주세요.'; });
   ai.showChk = true; ai.busy = 'aichk'; ai.msg = ''; aiRender();
-  try { const r = await aiCall('check', { body, title: draft.title, summary: draft.sum }); ai.aiHits = r.items || []; ai.aiNote = 'AI가 개인정보·내부 자료, 오탈자, 제목·요약 일치도 살펴봤어요. AI는 놓칠 수 있으니 마지막 확인은 내가 해요.'; ai.chkFail = false; logAi('suggest', 'aichk'); }
-  catch (e) { ai.aiHits = []; ai.chkFail = true; ai.aiNote = e.message + ' (규칙 점검 결과만 보여 드려요.)'; }
+  try { const r = await aiCall('check', { body, title: draft.title, summary: draft.sum }); ai.aiHits = r.items || []; ai.aiNote = 'AI가 개인정보·내부 자료, 오탈자, 제목·요약 일치도 살펴봤어요. AI는 놓칠 수 있으니 마지막 확인은 내가 해요.'; ai.chkFail = false; logAi('suggest', 'aichk'); { const g = IC.gate(liveHits(draft), ai.acks); if (g.bad.length) logAi('foundbad', 'aichk', g.bad.length); if (g.pending.length) logAi('foundwarn', 'aichk', g.pending.length); } }
+  catch (e) { ai.aiHits = []; ai.chkFail = true; ai.aiNote = e.message + ' (규칙 점검 결과만 보여 드려요.)'; logAi('fail', 'aichk'); }
   ai.chkRan = true; ai.busy = ''; aiRender();
 }
 function writePage() {
@@ -598,7 +599,7 @@ function retroPage() {
 const retroTexts = () => retroPosts().filter((p) => rt.sel.has(p.id)).map((p) => ({ title: p.title, body: rt.only ? (rt.sums[p.id] !== undefined ? rt.sums[p.id] : p.summary || '') : IC.plain(bodyHtml(p)).slice(0, 6000) }));
 async function retroRun(kind, input, onOk) {
   rt.busy = kind; rt.msg = ''; retroPage();
-  try { onOk(await aiCall(kind === 'rtthemes' ? 'themes' : 'retro', input)); logAi('suggest', 'retro'); } catch (e) { rt.msg = e.message; }
+  try { onOk(await aiCall(kind === 'rtthemes' ? 'themes' : 'retro', input)); logAi('suggest', 'retro'); } catch (e) { rt.msg = e.message; logAi('fail', 'retro'); }
   rt.busy = ''; retroPage();
 }
 main && main.addEventListener('click', (e) => {
@@ -641,13 +642,14 @@ async function aiPage() {
   const ym = (usage && usage.month) || new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 7).replace('-', '');
   const inMonth = logs.filter((l) => l.at && l.at.toDate && new Date(l.at.toDate().getTime() + 9 * 3600e3).toISOString().slice(0, 7).replace('-', '') === ym);
   const tab = {};
-  inMonth.forEach((l) => { const f = String(l.feature || '').replace(/\d+$/, ''); const r = tab[f] || (tab[f] = { suggest: 0, apply: 0, ignore: 0, gate: 0 }); if (r[l.kind] !== undefined) r[l.kind]++; });
+  const chk = { run: 0, bad: 0, warn: 0, ack: 0 };
+  inMonth.forEach((l) => { const f = String(l.feature || '').replace(/\d+$/, ''); if (f === 'aichk') { if (l.kind === 'suggest') chk.run++; else if (l.kind === 'foundbad') chk.bad += l.n || 0; else if (l.kind === 'foundwarn') chk.warn += l.n || 0; else if (l.kind === 'ack') chk.ack += l.n || 0; if (['foundbad', 'foundwarn', 'ack'].includes(l.kind)) return; } const r = tab[f] || (tab[f] = { suggest: 0, apply: 0, ignore: 0, gate: 0, fail: 0 }); if (r[l.kind] !== undefined) r[l.kind]++; });
   const pct = usage ? Math.round((usage.count / usage.limit) * 100) : 0;
   const warn = usage && pct >= 80 ? `<p class="notice warn" role="alert">이번 달 한도의 ${pct}%를 썼어요. 한도(${usage.limit}회)를 넘으면 AI 기능만 멈추고 글쓰기·저장은 그대로 돼요.</p>` : '';
-  const rows = Object.keys(tab).map((f) => { const r = tab[f]; return `<tr><td>${esc(AI_FEATURES[f] || f)}</td><td>${r.suggest}</td><td>${r.apply}</td><td>${r.suggest ? Math.round((r.apply / r.suggest) * 100) + '%' : '-'}</td><td>${r.ignore}</td><td>${r.gate}</td></tr>`; }).join('');
+  const rows = Object.keys(tab).map((f) => { const r = tab[f]; return `<tr><td>${esc(AI_FEATURES[f] || f)}</td><td>${r.suggest}</td><td>${r.apply}</td><td>${r.suggest ? Math.round((r.apply / r.suggest) * 100) + '%' : '-'}</td><td>${r.ignore}</td><td>${r.gate}</td><td>${r.fail}</td></tr>`; }).join('');
   show(`<h1 class="ptitle">AI 이용 현황 <span class="aib">AI</span></h1>${err ? `<p class="notice warn" role="alert">${esc(err.trim())}</p>` : ''}${warn}` +
     (usage ? `<table class="atab"><caption>${ym.slice(0, 4)}년 ${ym.slice(4)}월 호출 수</caption><tr><th>이번 달 호출</th><td>${usage.count}회 / 한도 ${usage.limit}회 (${pct}%)</td></tr><tr><th>사용 모델</th><td>${esc(usage.model)}</td></tr></table>` : '') +
-    `<table class="atab"><caption>기능별 이용 (최근 기록 최대 2000건 중 이번 달)</caption><tr><th>기능</th><th>제안</th><th>적용</th><th>적용률</th><th>무시</th><th>막은 수</th></tr>${rows || '<tr><td colspan="6">이번 달 기록이 아직 없어요.</td></tr>'}</table><p class="hint">기록에는 본문·회고 원문·PDF 내용이 들어가지 않아요. 종류, 기능 이름, 글 번호, 시간만 남아요.</p>`);
+    `<table class="atab"><caption>기능별 이용 (최근 기록 최대 2000건 중 이번 달)</caption><tr><th>기능</th><th>제안</th><th>적용</th><th>적용률</th><th>무시</th><th>막은 수</th><th>실패</th></tr>${rows || '<tr><td colspan="7">이번 달 기록이 아직 없어요.</td></tr>'}</table><table class="atab"><caption>발행 전 점검 자세히 (이번 달)</caption><tr><th>점검 실행</th><td>${chk.run}회</td></tr><tr><th>고쳐야 할 것 찾음</th><td>${chk.bad}건</td></tr><tr><th>확인이 필요한 것 찾음</th><td>${chk.warn}건</td></tr><tr><th>그중 "확인했어요"를 누름</th><td>${chk.ack}건</td></tr></table><p class="hint">기록에는 본문·회고 원문·PDF 내용이 들어가지 않아요. 종류, 기능 이름, 글 번호, 시간만 남아요.</p>`);
 }
 
 // ---------- 이벤트 ----------
@@ -692,7 +694,7 @@ main && main.addEventListener('click', async (e) => {
   else if (a === 'fdel') { syncDraft(); draft.files.splice(Number(v), 1); say('목록에서 뺐어요. 글을 저장하면 파일도 지워져요.'); writePage(); }
   else if (a === 'thumbclear') { syncDraft(); draft.img = ''; writePage(); }
   else if (a === 'aifab') { ai.sheet = !ai.sheet; aiSheetSync(); }
-  else if (a === 'aiclose') { ai.sheet = false; aiSheetSync(); }
+  else if (a === 'aiclose') { if (ai.sug && !ai.sug.logged && !ai.sug.ign) { ai.sug.ign = true; logAi('ignore', 'aisug'); } ai.sheet = false; aiSheetSync(); } // 적용하지 않은 제안이 있는 채 닫으면 무시로 세요
   else if (a === 'aisug') aiPick('sug');
   else if (a === 'aichk') aiPick('chk');
   else if (a === 'aitl') aiPick('tl');
@@ -736,7 +738,7 @@ main && main.addEventListener('change', async (e) => {
   if (t.id === 'thfile') { const f = t.files && t.files[0]; if (f) uploadThumb(f); }
   else if (t.id === 'ffile') { const f = t.files && t.files[0]; if (f) attachFile(f); }
   else if (t.id === 'imgfile') { const f = t.files && t.files[0]; if (f) insertBodyImage(f); }
-  else if (t.dataset && t.dataset.ack) { ai.acks[t.dataset.ack] = t.checked; }
+  else if (t.dataset && t.dataset.ack) { ai.acks[t.dataset.ack] = t.checked; if (t.checked) logAi('ack', 'aichk', 1); }
   else if (t.id === 'aion') { syncDraft(); draft.ai.on = t.checked; draft.ai.for = t.checked ? IC.hash(IC.plain(sanitizeHtml(draft.html))) : ''; if (t.checked) logAi('apply', 'aitl'); }
   else if (t.dataset && t.dataset.tb) {
     const map = { font: 'fontFamily', size: 'fontSize', weight: 'fontWeight', color: 'color' };

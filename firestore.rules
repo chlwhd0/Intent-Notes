@@ -111,11 +111,12 @@ service cloud.firestore {
       allow delete: if request.auth != null && (resource.data.uid == request.auth.uid || isAdmin());
     }
 
-    // AI 기능 기록: 관리자만 읽고 남길 수 있어요. 글 내용은 저장하지 않고 종류·글 번호·횟수만 남겨요.
+    // AI 기능 기록: 관리자만 읽고 남길 수 있어요. 글 내용은 저장하지 않고 종류·글 번호·횟수·건수만 남겨요.
     match /aiLogs/{id} {
       allow read: if isStaff();
-      allow create: if isStaff() && request.resource.data.keys().hasOnly(['kind', 'feature', 'post', 'at'])
-        && request.resource.data.kind in ['suggest', 'apply', 'ignore', 'gate']
+      allow create: if isStaff() && request.resource.data.keys().hasOnly(['kind', 'feature', 'post', 'at', 'n'])
+        && request.resource.data.kind in ['suggest', 'apply', 'ignore', 'gate', 'fail', 'foundbad', 'foundwarn', 'ack']
+        && (!('n' in request.resource.data) || (request.resource.data.n is int && request.resource.data.n >= 1 && request.resource.data.n <= 50))
         && request.resource.data.feature is string && request.resource.data.feature.size() <= 20
         && request.resource.data.post is string && request.resource.data.post.size() <= 60
         && request.resource.data.at == request.time;
