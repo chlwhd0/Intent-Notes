@@ -68,6 +68,7 @@
 - `Test-Improve2.md` → 2차 개선 PRD(PRD-Improve2) 시험 보고서. 2페이지 이하 요약본(유저플로우 화면 스크린샷, 기능별 단위테스트 표, 남은 문제, 버전 이력). 현재 v2.1(2026-11-25)
 - `Test-Improve2-Detail.md` → `Test-Improve2.md`의 부록. 44개 항목의 입력·기대값·결과값·판정, 기획 의도별 판정, 시험의 한계(2026-11-25)
 - `shots/` → 시험 보고서에 넣은 화면 스크린샷 14장. 방문자 화면(`v1-home.png` 홈, `v2-list.png` 목록, `v3-post.png` 글 상세, `v4-about.png` 소개, `v5-privacy.png` 처리방침, `v6-404.png` 404), 모바일 375px(`m1-home.png` 홈, `m2-post.png` 글), 관리자 화면(`a1-login.png` 로그인, `a2-posts.png` 글 관리, `a3-menus.png` 메뉴 관리, `a4-write.png` 새 글·AI 도우미, `a5-view.png` 글 보기, `a6-ai.png` AI 이용 현황). 관리자 화면은 회고(나만 보기) 항목을 지우고 찍었다
+- `Result-Improve2.pdf` → 2차 개선 PRD(PRD-Improve2) 결과보고 슬라이드(PDF, 16:9 2장). 성공 지표 4개와 문제 4개의 결과, 출시한 기능, 운영 현황, 남은 문제, 다음 일정과 결정(2026-11-25)
 
 ### `docs/failures/` (막혔던 일과 푼 방법)
 
